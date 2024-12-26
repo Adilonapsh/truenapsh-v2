@@ -90,6 +90,9 @@ type MapboxLayerStyle = {
     fill?: string | ColorSpecification;
     stroke?: string | ExpressionSpecification | FunctionSpecification<string>;
     stroke_width?: number;
+    contrast?: number;
+    saturation?: number;
+    brightness?: number[];
 };
 
 type ParsedLayer = {

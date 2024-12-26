@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select"
 import { IoClose } from 'react-icons/io5';
 import { Button } from '../button';
-import { Eye, EyeClosed, Folder, LayersIcon, PlusCircleIcon, PlusIcon, UploadIcon } from 'lucide-react';
+import { Eye, EyeClosed, Folder, LayersIcon, PlusCircleIcon, PlusIcon, Repeat1Icon, Repeat2Icon, UploadIcon } from 'lucide-react';
 import { BiCollapse, BiGlobe, BiTrash } from 'react-icons/bi';
 import { HiCubeTransparent } from 'react-icons/hi';
 import { TbZoomInAreaFilled } from 'react-icons/tb';
@@ -59,6 +59,8 @@ import { fetchLayerBbox, getWMSServices } from '@/services/map-services';
 import { FaVectorSquare } from 'react-icons/fa6';
 import { Input } from '../input';
 import { LuDatabase } from 'react-icons/lu';
+import { SiConvertio } from 'react-icons/si';
+import { Slider } from '@radix-ui/react-slider';
 
 export default function MapLayout() {
 
@@ -131,7 +133,10 @@ export default function MapLayout() {
         fill: "#000000",
         stroke: "#000000",
         stroke_width: 0,
-        opacity: 100
+        opacity: 100,
+        contrast: 0,
+        saturation: 0,
+        brightness: [0, 1]
     })
     const [selectedLayer, setSelectedLayer] = useState<Layer>({})
     const [datasetProperties, setDatasetProperties] = useState({
@@ -406,6 +411,19 @@ export default function MapLayout() {
         const value = e.currentTarget.value;
         setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width: parseFloat(value) })
     }
+    const setContrast = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.currentTarget.value;
+        setMapboxLayerStyle({ ...mapboxLayerStyle, contrast: parseFloat(value) })
+    }
+    const setSaturation = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.currentTarget.value;
+        setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: parseFloat(value) })
+    }
+    const setBrighness = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.currentTarget.value;
+        setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: parseFloat(value) })
+    }
+
     const setOpacity = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const value = e.currentTarget.value;
         const map = mapRef?.current?.getMap();
@@ -433,7 +451,7 @@ export default function MapLayout() {
         console.log(selectedDatasets);
     }
 
-    const handleAddLayerToMap = async() => {
+    const handleAddLayerToMap = async () => {
         selectedDatasets.forEach(dataset => {
             const layerId = Math.random().toString(36).substring(7) + "_" + Date.now();
             const layerName = dataset.title;
@@ -640,6 +658,15 @@ export default function MapLayout() {
                             </Button>
                         </div>
                         <div className='text-xs px-5 mb-5'>
+                            <hr className='my-2' />
+                            <div className='flex justify-center items-center'>
+                                <Button variant={"ghost"} size="sm"><Repeat2Icon size={"12pt"} /></Button>
+                                <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
+                                <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
+                                <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
+                                <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
+                            </div>
+                            <hr className='my-2' />
                             <table>
                                 <tbody>
                                     <tr>
@@ -663,6 +690,21 @@ export default function MapLayout() {
                                         <td><Input type='number' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.stroke_width} onChange={(e) => setStrokeWidth(e)} className='border-none shadow-none w-min mx-2' /></td>
                                     </tr>
 
+                                    <tr>
+                                        <td width={"80px"}>Contrast</td>
+                                        <td><input type='range' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.contrast} onChange={(e) => setContrast(e)} className='border-none shadow-none minimal-range' /></td>
+                                        <td><Input type='number' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.contrast} onChange={(e) => setContrast(e)} className='border-none shadow-none w-min mx-2' /></td>
+                                    </tr>
+                                    <tr>
+                                        <td width={"80px"}>Saturation</td>
+                                        <td><input type='range' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none minimal-range' /></td>
+                                        <td><Input type='number' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none w-min mx-2' /></td>
+                                    </tr>
+                                    {/* <tr>
+                                        <td width={"80px"}>Brightness</td>
+                                        <td><input type='range' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.brightness} onChange={(e) => setBrighness(e)} className='border-none shadow-none minimal-range' /></td>
+                                        <td><Input type='number' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.brightness} onChange={(e) => setBrighness(e)} className='border-none shadow-none w-min mx-2' /></td>
+                                    </tr> */}
                                 </tbody>
                             </table>
                         </div>
@@ -728,9 +770,11 @@ export default function MapLayout() {
                                         </Select>
                                         <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
                                     </div>
-                                    <Button type="submit" className='right-0' onClick={() => handleDatasets()}>Connect</Button>
+                                    <div className='flex justify-end'>
+                                        <Button type="submit" className='right-0' onClick={() => handleDatasets()}>Connect</Button>
+                                    </div>
                                     <hr className='my-5' />
-                                    <div className='w-full max-h-96 overflow-auto bg-gray-100 p-5 mb-5'>
+                                    <div className='w-full max-h-96 overflow-auto  p-5 mb-5'>
                                         {datasetResult.length === 0 && (
                                             <div className="flex flex-col justify-center items-center">
                                                 <LuDatabase size={"30pt"} />
@@ -740,7 +784,7 @@ export default function MapLayout() {
                                         )}
                                         <div className='grid grid-cols-4 gap-2'>
                                             {datasetResult.map((item, index) => (
-                                                <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200"}>
+                                                <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
                                                     <img src={item.thumbnail} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
                                                     <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
                                                     <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
