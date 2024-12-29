@@ -93,6 +93,7 @@ type MapboxLayerStyle = {
     contrast?: number;
     saturation?: number;
     brightness?: number[];
+    zoom?: number[];
 };
 
 type ParsedLayer = {
@@ -107,6 +108,11 @@ type LayerNode = Element;
 
 type GetAllLayers = (node: LayerNode) => ParsedLayer[];
 
+type InfoFeature = {
+    layer_name: string;
+    properties: object;
+}
+
 export type {
     Place,
     Layer,
@@ -119,5 +125,6 @@ export type {
     ParsedLayer,
     LayerNode,
     GetAllLayers,
+    InfoFeature,
 }
 export { MapServiceVendor };

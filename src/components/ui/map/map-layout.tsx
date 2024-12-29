@@ -1,7 +1,7 @@
 "use client"
 import MapView from '@/components/ui/map-view'
 import Search from '@/components/ui/map/search';
-import { BoundingBox, Layer, Location, MapboxLayerStyle, MapIsLoading, ParsedLayer, Place } from '@/types/map.types';
+import { BoundingBox, InfoFeature, Layer, Location, MapboxLayerStyle, MapIsLoading, ParsedLayer, Place } from '@/types/map.types';
 import { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
 import React, { useEffect, useRef, useState } from 'react'
 import { MapRef } from 'react-map-gl';
@@ -59,8 +59,9 @@ import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices,
 import { FaVectorSquare } from 'react-icons/fa6';
 import { Input } from '../input';
 import { LuDatabase } from 'react-icons/lu';
-import toast, { Toaster } from 'react-hot-toast';
-import VideoPlayer from '../video';
+import toast from 'react-hot-toast';
+import { DoubleRangeSlider } from '../double-slider';
+import { ChatWithAI } from '../chat-with-ai';
 
 export default function MapLayout() {
 
@@ -72,6 +73,7 @@ export default function MapLayout() {
         layerInfo: false,
         style: false,
         addLayer: false,
+        aiChat: false,
     });
     const [isLoading, setIsLoading] = useState<MapIsLoading>({
         zoomToMap: false,
@@ -100,25 +102,39 @@ export default function MapLayout() {
     ]);
     const [layers, setLayers] = useState([
         {
-            id: "pola ruang",
-            name: "Pola Ruang",
+            id: "kelurahan",
+            name: "Kelurahan",
             description: "",
-            map_service_url: "http://sijantan.rmlabs.id:8080/geoserver/wms",
-            map_service_layer_name: "aspirasi:rencana_pola_ruang",
+            map_service_url: "https://geo.truenapsh.my.id/geoserver/wms",
+            map_service_layer_name: "truenapsh_collection:adm_provinsi",
             map_service_vendor: "Geoserver",
             type: "2D",
             visible: true,
-            min_zoom: 0,
+            min_zoom: 12,
             max_zoom: 24,
             status: "Published",
             test: 1
         },
         {
-            id: "usulan",
-            name: "Usulan",
+            id: "kabupaten",
+            name: "Kabupaten",
             description: "",
-            map_service_url: "http://sijantan.rmlabs.id:8080/geoserver/wms",
-            map_service_layer_name: "aspirasi:usulan",
+            map_service_url: "https://geo.truenapsh.my.id/geoserver/wms",
+            map_service_layer_name: "truenapsh_collection:adm_kabupaten",
+            map_service_vendor: "Geoserver",
+            type: "2D",
+            visible: true,
+            min_zoom: 10,
+            max_zoom: 24,
+            status: "Published",
+            test: 1
+        },
+        {
+            id: "provinsi",
+            name: "Provinsi",
+            description: "",
+            map_service_url: "https://geo.truenapsh.my.id/geoserver/wms",
+            map_service_layer_name: "truenapsh_collection:adm_provinsi",
             map_service_vendor: "Geoserver",
             type: "2D",
             visible: true,
@@ -136,7 +152,8 @@ export default function MapLayout() {
         opacity: 100,
         contrast: 0,
         saturation: 0,
-        brightness: [0, 1]
+        brightness: [0, 1],
+        zoom: [0, 24],
     })
     const [selectedLayer, setSelectedLayer] = useState<Layer>({})
     const [datasetProperties, setDatasetProperties] = useState({
@@ -145,7 +162,7 @@ export default function MapLayout() {
     })
     const [datasetResult, setDatasetResult] = useState<ParsedLayer[]>([]);
     const [selectedDatasets, setSelectedDatasets] = useState<ParsedLayer[]>([]);
-    const [infoFeatures, setInfoFeatures] = useState([])
+    const [infoFeatures, setInfoFeatures] = useState<InfoFeature[]>([])
 
 
 
@@ -322,42 +339,51 @@ export default function MapLayout() {
 
         if (map && layerId) {
             const layer = map.getLayer(layerId) as LayerSpecification | undefined;
-
-            if (layer?.paint) {
-                // Handle opacity
-                const opacityKey = `${layer.type}-opacity` as keyof typeof layer.paint;
-                const opacity = layer.paint[opacityKey] as DataDrivenPropertyValueSpecification<number> | undefined;
-
-                if (opacity !== undefined) {
-                    const parsedOpacity =
-                        typeof opacity === "number" ? opacity : parseFloat(opacity as unknown as string);
+            if (layer) {
+                console.log(layer);
+                if (layer?.minzoom && layer?.maxzoom) {
                     setMapboxLayerStyle((prev) => ({
                         ...prev,
-                        opacity: parsedOpacity * 100,
+                        zoom: [parseInt(layer.minzoom), parseInt(layer.maxzoom)],
                     }));
                 }
 
-                // Handle fill color
-                const colorKey = `${layer.type}-color` as keyof typeof layer.paint;
-                const color = layer.paint[colorKey] as DataDrivenPropertyValueSpecification<ColorSpecification> | undefined;
-                if (color) {
+                if (layer?.paint) {
+                    // Handle opacity
+                    const opacityKey = `${layer.type}-opacity` as keyof typeof layer.paint;
+                    const opacity = layer.paint[opacityKey] as DataDrivenPropertyValueSpecification<number> | undefined;
+
+                    if (opacity !== undefined) {
+                        const parsedOpacity =
+                            typeof opacity === "number" ? opacity : parseFloat(opacity as unknown as string);
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            opacity: parsedOpacity * 100,
+                        }));
+                    }
+
+                    // Handle fill color
+                    const colorKey = `${layer.type}-color` as keyof typeof layer.paint;
+                    const color = layer.paint[colorKey] as DataDrivenPropertyValueSpecification<ColorSpecification> | undefined;
+                    if (color) {
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            fill: typeof color === 'string' ? color : undefined,
+                        }));
+                    }
+
+                    // Handle stroke or outline color
+                    const strokeKey = `${layer.type}-stroke-color` as keyof typeof layer.paint;
+                    const outlineKey = `${layer.type}-outline-color` as keyof typeof layer.paint;
+
+                    const stroke = layer.paint[strokeKey] as DataDrivenPropertyValueSpecification<ColorSpecification> | undefined;
+                    const outline = layer.paint[outlineKey] as DataDrivenPropertyValueSpecification<ColorSpecification> | undefined;
+
                     setMapboxLayerStyle((prev) => ({
                         ...prev,
-                        fill: typeof color === 'string' ? color : undefined,
+                        stroke: stroke ?? outline ?? "#000000",
                     }));
                 }
-
-                // Handle stroke or outline color
-                const strokeKey = `${layer.type}-stroke-color` as keyof typeof layer.paint;
-                const outlineKey = `${layer.type}-outline-color` as keyof typeof layer.paint;
-
-                const stroke = layer.paint[strokeKey] as DataDrivenPropertyValueSpecification<ColorSpecification> | undefined;
-                const outline = layer.paint[outlineKey] as DataDrivenPropertyValueSpecification<ColorSpecification> | undefined;
-
-                setMapboxLayerStyle((prev) => ({
-                    ...prev,
-                    stroke: stroke ?? outline ?? "#000000",
-                }));
             }
         }
     }
@@ -429,31 +455,38 @@ export default function MapLayout() {
     }
     const setStrokeWidth = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = parseFloat(e.currentTarget.value);
-        setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width: parseFloat(value) })
+        setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width: value })
         setPaint("-stroke-width", value)
     }
     const setContrast = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = parseFloat(e.currentTarget.value);
-        setMapboxLayerStyle({ ...mapboxLayerStyle, contrast: parseFloat(value) })
+        setMapboxLayerStyle({ ...mapboxLayerStyle, contrast: value })
         setPaint("-contrast", value)
     }
     const setSaturation = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = parseFloat(e.currentTarget.value);
-        setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: parseFloat(value) })
+        setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: value })
         setPaint("-saturation", value)
     }
-    const setBrightness = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.currentTarget.value;
-        setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: [parseFloat(value), parseFloat(value)] })
-        setPaint("-brightness", value)
+    const setBrightness = (values: [number, number]) => {
+        setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: values })
+        setPaint("-brightness-min", values[0])
+        setPaint("-brightness-max", values[1])
+    }
 
+    const handleZoomChange = (values: [number, number]) => {
+        console.log(values)
+        setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: values })
+        const map = mapRef?.current?.getMap();
+        const layerId = selectedLayer.id;
+        map?.setLayerZoomRange(layerId, values[0], values[1])
     }
 
     const setOpacity = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const value = e.currentTarget.value;
         const map = mapRef?.current?.getMap();
         const layerId = selectedLayer.id;
-        const type = map.getLayer(layerId)?.type
+        const type = map?.getLayer(layerId)?.type
         const val = parseInt(value, 10) / 100;
         setMapboxLayerStyle({ ...mapboxLayerStyle, opacity: parseFloat(value) ?? 0 })
         setPaint("-opacity", val)
@@ -552,9 +585,6 @@ export default function MapLayout() {
             });
         }
     }, [layers]);
-
-
-
 
 
     return (
@@ -673,7 +703,7 @@ export default function MapLayout() {
                                                     {Object.keys(layer.properties).map((body, i) => (
                                                         <tr key={i}>
                                                             <th className='border border-gray-100 text-start text-wrap w-[100px] capitalize px-2 py-1'>{body}</th>
-                                                            <td className='border border-gray-100 text-wrap px-2'>{layer.properties[body]}</td>
+                                                            <td className='border border-gray-100 text-wrap px-2'>{layer.properties[body as keyof typeof layer.properties]}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -709,7 +739,7 @@ export default function MapLayout() {
                             <hr className='my-2' />
                             <div className='flex justify-center items-center'>
                                 <Button variant={"ghost"} size="sm" onClick={() => handleConvertToVector(selectedLayer)}><Repeat2Icon size={"12pt"} /></Button>
-                                <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
+                                <Button variant={"ghost"} size="sm" onClick={() => setDisplayLayouts({ ...displayLayouts, aiChat: true })}><HiCubeTransparent size={"12pt"} /></Button>
                                 <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
                                 <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
                                 <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
@@ -748,13 +778,52 @@ export default function MapLayout() {
                                         <td><input type='range' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none minimal-range' /></td>
                                         <td><Input type='number' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none w-min mx-2' /></td>
                                     </tr>
-                                    {/* <tr>
+                                    <tr>
                                         <td width={"80px"}>Brightness</td>
-                                        <td><input type='range' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.brightness} onChange={(e) => setBrightness(e)} className='border-none shadow-none minimal-range' /></td>
-                                        <td><Input type='number' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.brightness} onChange={(e) => setBrightness(e)} className='border-none shadow-none w-min mx-2' /></td>
-                                    </tr> */}
+                                        <td><DoubleRangeSlider min={0} step={0.01} max={1} val defaultValues={mapboxLayerStyle.brightness} onChange={setBrightness} /></td>
+                                        <td>
+                                            <div className='flex items-center gap-0'>
+                                                <Input type='number' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.brightness[0]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: [e.currentTarget.value, mapboxLayerStyle.brightness[1]] })} className='shadow-none w-14 ml-2' />
+                                                <Input type='number' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.brightness[1]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: [e.currentTarget.brightness[0], e.currentTarget.value] })} className='shadow-none w-14 ml-2' />
+                                            </div>
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+                                        <td width={"80px"}>Zoom</td>
+                                        <td><DoubleRangeSlider min={0} max={24} defaultValues={mapboxLayerStyle.zoom} onChange={handleZoomChange} /></td>
+                                        <td>
+                                            <div className='flex items-center gap-0'>
+                                                <Input type='number' placeholder='1' max={24} step={1} min={0} value={mapboxLayerStyle?.zoom[0]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: [parseInt(e.currentTarget.value), mapboxLayerStyle.zoom[1]] })} className='shadow-none w-14 ml-2' />
+                                                <Input type='number' placeholder='1' max={24} step={1} min={0} value={mapboxLayerStyle?.zoom[1]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: [e.currentTarget.zoom[0], parseInt(e.currentTarget.value)] })} className='shadow-none w-14 ml-2' />
+                                            </div>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                )}
+            </div>
+            <div className='absolute top-0 right-0 p-5 text-xs min-w-96'>
+                {displayLayouts.aiChat && (
+                    <div className='bg-white rounded-lg max-h-[calc(100vh-9rem)] overflow-y-auto'>
+                        <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white'>
+                            <div>
+                                <p className='font-semibold mb-2 text-sm'>AI Helper</p>
+                                <p className='font-semibold'>
+                                    {selectedLayer.name}
+                                </p>
+                            </div>
+                            <Button variant={"link"} onClick={() => {
+                                setSelectedLayer(null)
+                                setDisplayLayouts({ ...displayLayouts, aiChat: false })
+                            }}>
+                                <IoClose size={"13pt"} />
+                            </Button>
+                        </div>
+                        <div>
+                            <ChatWithAI />
                         </div>
                     </div>
                 )}
@@ -784,71 +853,73 @@ export default function MapLayout() {
                     </Popover>
                 </div>
             </div>
-            {displayLayouts.addLayer && (
-                <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm'>
-                    <div className='bg-white max-h-screen w-1/2 rounded-lg p-5'>
-                        <div className='flex justify-between items-center'>
-                            <div>
-                                <p className='font-semibold'>Add Layer</p>
-                                <p className='font-normal'>Add a Personalized Layer</p>
-                            </div>
-                            <Button variant={"link"} onClick={() => setDisplayLayouts({ ...displayLayouts, addLayer: false })}>
-                                <IoClose size={"13pt"} />
-                            </Button>
-                        </div>
-                        <div className='p-5'>
-                            <div className="grid grid-cols-[auto_1fr] gap-5">
-                                <div className='flex flex-col w-auto'>
-                                    <Button variant={"outline"} className='w-60'><UploadIcon />Upload</Button>
-                                    <Button variant={"outline"} className='w-60'><UploadIcon />WMS Service</Button>
+            {
+                displayLayouts.addLayer && (
+                    <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm'>
+                        <div className='bg-white max-h-screen w-1/2 rounded-lg p-5'>
+                            <div className='flex justify-between items-center'>
+                                <div>
+                                    <p className='font-semibold'>Add Layer</p>
+                                    <p className='font-normal'>Add a Personalized Layer</p>
                                 </div>
-                                <div className='w-full'>
-                                    <h5 className='font-bold text-lg'>Upload with URL</h5>
-                                    <hr className='my-5' />
-                                    <p className='text-sm'>WMS Service URL</p>
-                                    <div className="flex items-center space-x-2 mb-2">
-                                        <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
-                                            <SelectTrigger className="w-[180px]">
-                                                <SelectValue defaultValue={"Geoserver"} placeholder="Geoserver" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Geoserver">Geoserver</SelectItem>
-                                                <SelectItem value="Arcgis">Arcgis</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
+                                <Button variant={"link"} onClick={() => setDisplayLayouts({ ...displayLayouts, addLayer: false })}>
+                                    <IoClose size={"13pt"} />
+                                </Button>
+                            </div>
+                            <div className='p-5'>
+                                <div className="grid grid-cols-[auto_1fr] gap-5">
+                                    <div className='flex flex-col w-auto'>
+                                        <Button variant={"outline"} className='w-60'><UploadIcon />Upload</Button>
+                                        <Button variant={"outline"} className='w-60'><UploadIcon />WMS Service</Button>
                                     </div>
-                                    <div className='flex justify-end'>
-                                        <Button type="submit" className='right-0' onClick={() => handleDatasets()}>Connect</Button>
-                                    </div>
-                                    <hr className='my-5' />
-                                    <div className='w-full max-h-96 overflow-auto  p-5 mb-5'>
-                                        {datasetResult.length === 0 && (
-                                            <div className="flex flex-col justify-center items-center">
-                                                <LuDatabase size={"30pt"} />
-                                                <p className='font-bold'>Theres no data to show yet.</p>
-                                                <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
-                                            </div>
-                                        )}
-                                        <div className='grid grid-cols-4 gap-2'>
-                                            {datasetResult.map((item, index) => (
-                                                <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
-                                                    <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
-                                                    <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
-                                                    <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
-                                                </div>
-                                            ))}
+                                    <div className='w-full'>
+                                        <h5 className='font-bold text-lg'>Upload with URL</h5>
+                                        <hr className='my-5' />
+                                        <p className='text-sm'>WMS Service URL</p>
+                                        <div className="flex items-center space-x-2 mb-2">
+                                            <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
+                                                <SelectTrigger className="w-[180px]">
+                                                    <SelectValue defaultValue={"Geoserver"} placeholder="Geoserver" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Geoserver">Geoserver</SelectItem>
+                                                    <SelectItem value="Arcgis">Arcgis</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
                                         </div>
-                                    </div>
-                                    <div className='flex justify-end'>
-                                        <Button className='float-right right-0' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
+                                        <div className='flex justify-end'>
+                                            <Button type="submit" className='right-0' onClick={() => handleDatasets()}>Connect</Button>
+                                        </div>
+                                        <hr className='my-5' />
+                                        <div className='w-full max-h-96 overflow-auto  p-5 mb-5'>
+                                            {datasetResult.length === 0 && (
+                                                <div className="flex flex-col justify-center items-center">
+                                                    <LuDatabase size={"30pt"} />
+                                                    <p className='font-bold'>Theres no data to show yet.</p>
+                                                    <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
+                                                </div>
+                                            )}
+                                            <div className='grid grid-cols-4 gap-2'>
+                                                {datasetResult.map((item, index) => (
+                                                    <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
+                                                        <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
+                                                        <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
+                                                        <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className='flex justify-end'>
+                                            <Button className='float-right right-0' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </div >
     )
 }
