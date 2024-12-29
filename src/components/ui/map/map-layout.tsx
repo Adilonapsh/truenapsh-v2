@@ -38,6 +38,7 @@ import { HiCubeTransparent } from 'react-icons/hi';
 import { TbZoomInAreaFilled } from 'react-icons/tb';
 import { MdOutlineStyle } from 'react-icons/md';
 import { FiFilter } from 'react-icons/fi';
+import { CiChat1 } from "react-icons/ci";
 
 import {
     DndContext,
@@ -588,7 +589,7 @@ export default function MapLayout() {
 
 
     return (
-        <div className='relative h-screen'>
+        <div className='relative h-dvh'>
             <MapView mapRef={mapRef} onMouseMove={(event) => onMouseMove(event as MapMouseEvent)} onClick={(event) => handleMapClick(event as MapMouseEvent)} onLoad={onMapLoad} onStyleData={onStyleData} />
             <div className='absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto'>
                 <div className='bg-white px-5 py-2 rounded w-80 text-sm'>
@@ -739,7 +740,7 @@ export default function MapLayout() {
                             <hr className='my-2' />
                             <div className='flex justify-center items-center'>
                                 <Button variant={"ghost"} size="sm" onClick={() => handleConvertToVector(selectedLayer)}><Repeat2Icon size={"12pt"} /></Button>
-                                <Button variant={"ghost"} size="sm" onClick={() => setDisplayLayouts({ ...displayLayouts, aiChat: true })}><HiCubeTransparent size={"12pt"} /></Button>
+                                <Button variant={"ghost"} size="sm" onClick={() => setDisplayLayouts({ ...displayLayouts, aiChat: true })}><CiChat1 size={"12pt"} /></Button>
                                 <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
                                 <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
                                 <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
@@ -816,7 +817,6 @@ export default function MapLayout() {
                                 </p>
                             </div>
                             <Button variant={"link"} onClick={() => {
-                                setSelectedLayer(null)
                                 setDisplayLayouts({ ...displayLayouts, aiChat: false })
                             }}>
                                 <IoClose size={"13pt"} />
@@ -856,7 +856,7 @@ export default function MapLayout() {
             {
                 displayLayouts.addLayer && (
                     <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm'>
-                        <div className='bg-white max-h-screen w-1/2 rounded-lg p-5'>
+                        <div className='bg-white h-full lg:max-h-screen lg:w-1/2 rounded-lg p-5'>
                             <div className='flex justify-between items-center'>
                                 <div>
                                     <p className='font-semibold'>Add Layer</p>
@@ -867,18 +867,18 @@ export default function MapLayout() {
                                 </Button>
                             </div>
                             <div className='p-5'>
-                                <div className="grid grid-cols-[auto_1fr] gap-5">
+                                <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-5">
                                     <div className='flex flex-col w-auto'>
-                                        <Button variant={"outline"} className='w-60'><UploadIcon />Upload</Button>
-                                        <Button variant={"outline"} className='w-60'><UploadIcon />WMS Service</Button>
+                                        <Button variant={"outline"} className='w-full lg:w-60'><UploadIcon />Upload</Button>
+                                        <Button variant={"outline"} className='w-full lg:w-60'><UploadIcon />WMS Service</Button>
                                     </div>
                                     <div className='w-full'>
                                         <h5 className='font-bold text-lg'>Upload with URL</h5>
                                         <hr className='my-5' />
                                         <p className='text-sm'>WMS Service URL</p>
-                                        <div className="flex items-center space-x-2 mb-2">
+                                        <div className="flex flex-col gap-2 lg:gap-0 lg:flex-row items-center mb-2">
                                             <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
-                                                <SelectTrigger className="w-[180px]">
+                                                <SelectTrigger className="w-full lg:w-[180px]">
                                                     <SelectValue defaultValue={"Geoserver"} placeholder="Geoserver" />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -889,10 +889,10 @@ export default function MapLayout() {
                                             <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
                                         </div>
                                         <div className='flex justify-end'>
-                                            <Button type="submit" className='right-0' onClick={() => handleDatasets()}>Connect</Button>
+                                            <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
                                         </div>
                                         <hr className='my-5' />
-                                        <div className='w-full max-h-96 overflow-auto  p-5 mb-5'>
+                                        <div className='w-full max-h-96 overflow-auto bg-gray-100 border p-5 mb-5'>
                                             {datasetResult.length === 0 && (
                                                 <div className="flex flex-col justify-center items-center">
                                                     <LuDatabase size={"30pt"} />

@@ -188,19 +188,19 @@ export default function Home() {
           <Image src="/ind.png" width={10000} height={10000} alt="Map Icon" className="absolute top-[20%] right-0" />
         </div>
         <div className="h-full flex flex-col gap-5 justify-center z-0">
-          <h3 className="text-5xl w-1/2 font-extrabold">Explore The World With Precision, One Map At A Time.</h3>
-          <p className="w-1/3 text-lg font-light">Navigate the World, Discover New Paths, and Plan with Precision Using Advanced Mapping Tools.</p>
+          <h3 className="text-5xl w-full lg:w-1/2 font-extrabold">Explore The World With Precision, One Map At A Time.</h3>
+          <p className="w-full lg:w-1/3 text-lg font-light">Navigate the World, Discover New Paths, and Plan with Precision Using Advanced Mapping Tools.</p>
           <div>
             <a href="/map" className="px-5 py-3 bg-black rounded-full text-white text-sm font-light">GET STARTED</a>
           </div>
         </div>
       </div>
-      <div className="min-h-96 bg-[#010609] flex justify-between text-white">
-        <div className="container flex justify-between items-center">
-          <h3 className="text-5xl w-1/4 font-semibold">Where Your Beginnings Start!</h3>
-          |
-          <p className="w-1/3">Explore New Horizons with a Trusted Mapping Platform, Proven to Help You Navigate, Discover, and Plan with Precision.</p>
-          |
+      <div className="min-h-96 bg-[#010609] flex gap-5 items-center justify-between text-white">
+        <div className="container flex flex-col gap-5 lg:flex-row py-5 lg:p-0 justify-between items-center">
+          <h3 className="text-5xl w-full text-center lg:w-1/4 lg:text-start font-semibold">Where Your Beginnings Start!</h3>
+          <p className="hidden lg:block">|</p>
+          <p className="w-full lg:w-1/3 text-center lg:text-start">Explore New Horizons with a Trusted Mapping Platform, Proven to Help You Navigate, Discover, and Plan with Precision.</p>
+          <p className="hidden lg:block">|</p>
           <button href="#" className="px-5 py-3 bg-[#f6fbff] text-black text-sm font-bold">OUR SERVICES</button>
         </div>
       </div>
@@ -265,8 +265,8 @@ export default function Home() {
         </div>
       </div>
       <div className="container min-h-96 flex flex-row items-center">
-        <div className="grid grid-cols-3 gap-3 w-full">
-          <div className="flex flex-col gap-5">
+        <div className="grid grid-col-1 lg:grid-cols-3 gap-3 w-full">
+          <div className="flex flex-col gap-5 mb-5 lg:mb-0">
             <Image src={"next.svg"} height={100} width={100} alt="Logo" />
             <p className="w-1/3">Explore The World With Precision.</p>
             <div className="flex justify-between">
@@ -276,7 +276,7 @@ export default function Home() {
               <a href="#" className="font-bold">About</a>
             </div>
           </div>
-          <div className="flex flex-col justify-center items-start gap-5 mx-32">
+          <div className="hidden lg:flex flex-col justify-center items-start gap-5 mx-32">
             <p className="font-bold">Help</p>
             <ul className="leading-10">
               <li>Customer Support</li>
