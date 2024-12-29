@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select"
 import { IoClose } from 'react-icons/io5';
 import { Button } from '../button';
-import { Eye, EyeClosed, Folder, LayersIcon, PlusCircleIcon, PlusIcon, Repeat1Icon, Repeat2Icon, UploadIcon } from 'lucide-react';
+import { Eye, EyeClosed, Folder, LayersIcon, PlusCircleIcon, PlusIcon, Repeat2Icon, UploadIcon } from 'lucide-react';
 import { BiCollapse, BiGlobe, BiTrash } from 'react-icons/bi';
 import { HiCubeTransparent } from 'react-icons/hi';
 import { TbZoomInAreaFilled } from 'react-icons/tb';
@@ -55,12 +55,12 @@ import {
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import SortableItem from './sortable-item';
 import Image from 'next/image';
-import { fetchLayerBbox, getWMSServices } from '@/services/map-services';
+import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, } from '@/services/map-services';
 import { FaVectorSquare } from 'react-icons/fa6';
 import { Input } from '../input';
 import { LuDatabase } from 'react-icons/lu';
-import { SiConvertio } from 'react-icons/si';
-import { Slider } from '@radix-ui/react-slider';
+import toast, { Toaster } from 'react-hot-toast';
+import VideoPlayer from '../video';
 
 export default function MapLayout() {
 
@@ -145,7 +145,7 @@ export default function MapLayout() {
     })
     const [datasetResult, setDatasetResult] = useState<ParsedLayer[]>([]);
     const [selectedDatasets, setSelectedDatasets] = useState<ParsedLayer[]>([]);
-
+    const [infoFeatures, setInfoFeatures] = useState([])
 
 
 
@@ -209,11 +209,14 @@ export default function MapLayout() {
         }
     };
 
-    const handleMapClick = (event: MapMouseEvent) => {
+    const handleMapClick = async (event: MapMouseEvent) => {
+        const map = mapRef?.current?.getMap();
         const latLng: Location = event.lngLat;
         addOrUpdateMarker(latLng.lng, latLng.lat)
         setCurrentMapClick({ lng: latLng.lng, lat: latLng.lat })
         setDisplayLayouts({ ...displayLayouts, layerInfo: true });
+        const info = await getFeatureInfo(event, selectedLayer.length > 0 ? selectedLayer : layers, map)
+        setInfoFeatures(info);
     }
 
     const handleChangeBasemap = (index: number) => {
@@ -399,33 +402,7 @@ export default function MapLayout() {
         }
     };
 
-    const setFill = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.currentTarget.value;
-        setMapboxLayerStyle({ ...mapboxLayerStyle, fill: value })
-    }
-    const setStroke = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.currentTarget.value;
-        setMapboxLayerStyle({ ...mapboxLayerStyle, stroke: value })
-    }
-    const setStrokeWidth = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.currentTarget.value;
-        setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width: parseFloat(value) })
-    }
-    const setContrast = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.currentTarget.value;
-        setMapboxLayerStyle({ ...mapboxLayerStyle, contrast: parseFloat(value) })
-    }
-    const setSaturation = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.currentTarget.value;
-        setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: parseFloat(value) })
-    }
-    const setBrighness = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.currentTarget.value;
-        setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: parseFloat(value) })
-    }
-
-    const setOpacity = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const value = e.currentTarget.value;
+    const setPaint = (paint_type: string, value: string | number) => {
         const map = mapRef?.current?.getMap();
         const layerId = selectedLayer.id;
         if (map && value) {
@@ -433,12 +410,57 @@ export default function MapLayout() {
             if (type) {
                 map.setPaintProperty(
                     selectedLayer.id,
-                    type + "-opacity",
-                    parseInt(value, 10) / 100
+                    type + paint_type,
+                    value
                 );
             }
         }
+    }
+
+    const setFill = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.currentTarget.value.trim();
+        setMapboxLayerStyle({ ...mapboxLayerStyle, fill: value })
+        setPaint("-color", value)
+    }
+    const setStroke = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.currentTarget.value.trim();
+        setMapboxLayerStyle({ ...mapboxLayerStyle, stroke: value })
+        setPaint("-stroke-color", value)
+    }
+    const setStrokeWidth = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = parseFloat(e.currentTarget.value);
+        setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width: parseFloat(value) })
+        setPaint("-stroke-width", value)
+    }
+    const setContrast = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = parseFloat(e.currentTarget.value);
+        setMapboxLayerStyle({ ...mapboxLayerStyle, contrast: parseFloat(value) })
+        setPaint("-contrast", value)
+    }
+    const setSaturation = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = parseFloat(e.currentTarget.value);
+        setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: parseFloat(value) })
+        setPaint("-saturation", value)
+    }
+    const setBrightness = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.currentTarget.value;
+        setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: [parseFloat(value), parseFloat(value)] })
+        setPaint("-brightness", value)
+
+    }
+
+    const setOpacity = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const value = e.currentTarget.value;
+        const map = mapRef?.current?.getMap();
+        const layerId = selectedLayer.id;
+        const type = map.getLayer(layerId)?.type
+        const val = parseInt(value, 10) / 100;
         setMapboxLayerStyle({ ...mapboxLayerStyle, opacity: parseFloat(value) ?? 0 })
+        setPaint("-opacity", val)
+        if (type == "circle") {
+            console.log("Awd")
+            setPaint("-stroke-opacity", val)
+        }
     }
 
     const handleDatasets = async () => {
@@ -481,37 +503,58 @@ export default function MapLayout() {
         });
         setSelectedDatasets([]);
     }
+
+    const handleConvertToVector = async (layer: Layer) => {
+        const map = mapRef?.current?.getMap();
+        toast.promise(
+            convertWMSToVectorData(layer, map, layers).then(vectorLayer => {
+                setLayers(prevLayers => [...prevLayers, ...vectorLayer]);
+            }),
+            {
+                loading: 'Loading...',
+                success: 'Conversion successful.',
+                error: 'Error during conversion',
+            }
+        );
+    }
     // END TOOL FUNCTIONS
 
     useEffect(() => {
         const map = mapRef.current?.getMap();
         if (map) {
             layers.forEach(layer => {
-                let url = "";
-                if (layer.map_service_vendor == "Geoserver") {
-                    const GEOSERVER_WMS_PARAMETER = "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
-                    url = layer.map_service_url + GEOSERVER_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
-                }
-                if (!map.getLayer(layer.id)) {
-                    map.addLayer({
-                        id: layer.id,
-                        type: "raster",
-                        source: {
+                if (layer.map_service_vendor == "Geoserver" || layer.map_service_vendor == "ArcGIS") {
+                    let url = "";
+                    if (layer.map_service_vendor == "Geoserver") {
+                        const GEOSERVER_WMS_PARAMETER = "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
+                        url = layer.map_service_url + GEOSERVER_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
+                    }
+                    if (!map.getLayer(layer.id)) {
+                        map.addLayer({
+                            id: layer.id,
                             type: "raster",
-                            tiles: [url],
+                            source: {
+                                type: "raster",
+                                tiles: [url],
+                                minzoom: layer.min_zoom || 0,
+                                maxzoom: layer.max_zoom || 24,
+                            },
                             minzoom: layer.min_zoom || 0,
                             maxzoom: layer.max_zoom || 24,
-                        },
-                        minzoom: layer.min_zoom || 0,
-                        maxzoom: layer.max_zoom || 24,
-                        paint: {
-                            "raster-opacity": 1,
-                        },
-                    });
+                            paint: {
+                                "raster-opacity": 1,
+                            },
+                        });
+                    }
+                } else {
+                    // WIP
                 }
             });
         }
     }, [layers]);
+
+
+
 
 
     return (
@@ -607,7 +650,7 @@ export default function MapLayout() {
             </div>
             <div className='absolute top-0 right-0 p-5 text-xs min-w-96' id='layerInfo'>
                 {displayLayouts.layerInfo ?
-                    <div className='bg-white rounded-lg max-h-[calc(100vh-9rem)] overflow-y-auto'>
+                    <div className='bg-white rounded-lg max-h-[calc(100vh-15rem)] max-w-xl overflow-auto'>
                         <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white'>
                             <div>
                                 <p className='font-semibold mb-2 text-sm'>Layer Information</p>
@@ -620,21 +663,26 @@ export default function MapLayout() {
                             </Button>
                         </div>
                         <div className='text-xs px-5'>
-                            <Accordion type="single" collapsible>
-                                <AccordionItem value="item-1" className='border-none'>
-                                    <AccordionTrigger className='hover:no-underline'>Province</AccordionTrigger>
-                                    <AccordionContent className='text-xs'>
-                                        <table className='w-full border'>
-                                            <tbody>
-                                                <tr>
-                                                    <th className='border text-start text-wrap w-[100px]'>Table a</th>
-                                                    <td className='border text-wrap'>Value A</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            </Accordion>
+                            {infoFeatures.map((layer, index) => (
+                                <Accordion key={index} type="single" collapsible>
+                                    <AccordionItem value={`item-${index}`} className='border-none'>
+                                        <AccordionTrigger className='hover:no-underline capitalize'>{layer?.layer_name}</AccordionTrigger>
+                                        <AccordionContent className='text-xs'>
+                                            <table className='w-full border'>
+                                                <tbody>
+                                                    {Object.keys(layer.properties).map((body, i) => (
+                                                        <tr key={i}>
+                                                            <th className='border border-gray-100 text-start text-wrap w-[100px] capitalize px-2 py-1'>{body}</th>
+                                                            <td className='border border-gray-100 text-wrap px-2'>{layer.properties[body]}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                </Accordion>
+                            ))}
+                            {/* <VideoPlayer url="https://restreamer.kotabogor.go.id/memfs/2e691d1f-3e29-48b5-bfb4-2eb6cbc3ee66.m3u8" source_type="application/x-mpegURL" /> */}
                         </div>
                     </div> :
                     ""
@@ -660,7 +708,7 @@ export default function MapLayout() {
                         <div className='text-xs px-5 mb-5'>
                             <hr className='my-2' />
                             <div className='flex justify-center items-center'>
-                                <Button variant={"ghost"} size="sm"><Repeat2Icon size={"12pt"} /></Button>
+                                <Button variant={"ghost"} size="sm" onClick={() => handleConvertToVector(selectedLayer)}><Repeat2Icon size={"12pt"} /></Button>
                                 <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
                                 <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
                                 <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
@@ -671,7 +719,7 @@ export default function MapLayout() {
                                 <tbody>
                                     <tr>
                                         <td width={"80px"}>Opacity</td>
-                                        <td><input type='range' placeholder='1' max={100} min={0} value={mapboxLayerStyle.opacity} onChange={(e) => setOpacity(e)} className='border-none shadow-none minimal-range' /></td>
+                                        <td><input type='range' placeholder='1' max={100} min={0} value={mapboxLayerStyle.opacity} onChange={(e) => setOpacity(e)} className='border border-gray-100-none shadow-none minimal-range' /></td>
                                         <td><Input type='number' placeholder='1' max={100} min={0} value={mapboxLayerStyle.opacity} onChange={(e) => setOpacity(e)} className='border-none shadow-none w-min mx-2' /></td>
                                     </tr>
                                     <tr>
@@ -686,24 +734,24 @@ export default function MapLayout() {
                                     </tr>
                                     <tr>
                                         <td width={"80px"}>Stroke Width</td>
-                                        <td><input type='range' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.stroke_width} onChange={(e) => setStrokeWidth(e)} className='border-none shadow-none minimal-range' /></td>
-                                        <td><Input type='number' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.stroke_width} onChange={(e) => setStrokeWidth(e)} className='border-none shadow-none w-min mx-2' /></td>
+                                        <td><input type='range' placeholder='1' max={10} step={0.01} min={0} value={mapboxLayerStyle.stroke_width} onChange={(e) => setStrokeWidth(e)} className='border-none shadow-none minimal-range' /></td>
+                                        <td><Input type='number' placeholder='1' max={10} step={0.01} min={0} value={mapboxLayerStyle.stroke_width} onChange={(e) => setStrokeWidth(e)} className='border-none shadow-none w-min mx-2' /></td>
                                     </tr>
 
                                     <tr>
                                         <td width={"80px"}>Contrast</td>
-                                        <td><input type='range' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.contrast} onChange={(e) => setContrast(e)} className='border-none shadow-none minimal-range' /></td>
-                                        <td><Input type='number' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.contrast} onChange={(e) => setContrast(e)} className='border-none shadow-none w-min mx-2' /></td>
+                                        <td><input type='range' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.contrast} onChange={(e) => setContrast(e)} className='border-none shadow-none minimal-range' /></td>
+                                        <td><Input type='number' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.contrast} onChange={(e) => setContrast(e)} className='border-none shadow-none w-min mx-2' /></td>
                                     </tr>
                                     <tr>
                                         <td width={"80px"}>Saturation</td>
-                                        <td><input type='range' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none minimal-range' /></td>
-                                        <td><Input type='number' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none w-min mx-2' /></td>
+                                        <td><input type='range' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none minimal-range' /></td>
+                                        <td><Input type='number' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none w-min mx-2' /></td>
                                     </tr>
                                     {/* <tr>
                                         <td width={"80px"}>Brightness</td>
-                                        <td><input type='range' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.brightness} onChange={(e) => setBrighness(e)} className='border-none shadow-none minimal-range' /></td>
-                                        <td><Input type='number' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.brightness} onChange={(e) => setBrighness(e)} className='border-none shadow-none w-min mx-2' /></td>
+                                        <td><input type='range' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.brightness} onChange={(e) => setBrightness(e)} className='border-none shadow-none minimal-range' /></td>
+                                        <td><Input type='number' placeholder='1' max={10} step={0.1} min={0} value={mapboxLayerStyle.brightness} onChange={(e) => setBrightness(e)} className='border-none shadow-none w-min mx-2' /></td>
                                     </tr> */}
                                 </tbody>
                             </table>
@@ -785,7 +833,7 @@ export default function MapLayout() {
                                         <div className='grid grid-cols-4 gap-2'>
                                             {datasetResult.map((item, index) => (
                                                 <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
-                                                    <img src={item.thumbnail} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
+                                                    <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
                                                     <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
                                                     <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
                                                 </div>

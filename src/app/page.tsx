@@ -5,19 +5,15 @@ import Link from "next/link"
 import {
   NavigationMenu,
   NavigationMenuContent,
-  NavigationMenuIndicator,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuTrigger,
-  NavigationMenuViewport,
-  navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
 
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -260,7 +256,7 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <h4 className="text-xl font-extrabold mb-2">Lifetime Support</h4>
-              <p className="text-sm">"Enjoy lifetime support with regular updates, expert assistance, and reliable tools to ensure a seamless navigation experience.</p>
+              <p className="text-sm">Enjoy lifetime support with regular updates, expert assistance, and reliable tools to ensure a seamless navigation experience.</p>
             </CardContent>
             <CardFooter>
               <p className="font-bold">READ MORE</p>
@@ -304,7 +300,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>
