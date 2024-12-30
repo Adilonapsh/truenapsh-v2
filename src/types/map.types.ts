@@ -46,6 +46,7 @@ type Layer = {
     min_zoom?: number;
     max_zoom?: number;
     status?: string;
+    metadata?: object;
 }
 
 enum MapServiceVendor {
@@ -80,6 +81,7 @@ type WMSParams = {
 
 type MapIsLoading = {
     zoomToMap: boolean;
+    featureInfo: boolean;
 }
 
 type Coordinate = [number, number];

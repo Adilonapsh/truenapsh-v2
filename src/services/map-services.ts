@@ -115,8 +115,6 @@ const convertWMSToVectorData = async (selectedLayer: Layer, mapRef: React.RefObj
             `${selectedLayer?.map_service_url.replace("/wms", "")}/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=${selectedLayer?.map_service_layer_name}&outputFormat=application/json&srsName=EPSG:4326`
         );
         const data = await response.json();
-        console.log(data)
-
 
         const layerID = `vector_${selectedLayer?.map_service_layer_name}_${Date.now()}`
         const sourceID = `${layerID}_source`;
@@ -127,7 +125,7 @@ const convertWMSToVectorData = async (selectedLayer: Layer, mapRef: React.RefObj
         });
 
         // ADD LAYER POLYGON
-        if (data.features[0].geometry.type === "Polygon") {
+        if (data.features[0].geometry.type === "Polygon" || data.features[0].geometry.type === "MultiPolygon") {
             const layerId = `${layerID}_poly`;
             mapRef.addLayer({
                 id: layerId,

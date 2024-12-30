@@ -63,6 +63,7 @@ import { LuDatabase } from 'react-icons/lu';
 import toast from 'react-hot-toast';
 import { DoubleRangeSlider } from '../double-slider';
 import { ChatWithAI } from '../chat-with-ai';
+import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 
 export default function MapLayout() {
 
@@ -78,6 +79,7 @@ export default function MapLayout() {
     });
     const [isLoading, setIsLoading] = useState<MapIsLoading>({
         zoomToMap: false,
+        featureInfo: false
     });
     const [openItems, setOpenItems] = useState<string[]>([]);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -107,7 +109,7 @@ export default function MapLayout() {
             name: "Kelurahan",
             description: "",
             map_service_url: "https://geo.truenapsh.my.id/geoserver/wms",
-            map_service_layer_name: "truenapsh_collection:adm_provinsi",
+            map_service_layer_name: "truenapsh_collections:adm_kelurahan",
             map_service_vendor: "Geoserver",
             type: "2D",
             visible: true,
@@ -121,7 +123,7 @@ export default function MapLayout() {
             name: "Kabupaten",
             description: "",
             map_service_url: "https://geo.truenapsh.my.id/geoserver/wms",
-            map_service_layer_name: "truenapsh_collection:adm_kabupaten",
+            map_service_layer_name: "truenapsh_collections:adm_kabupaten",
             map_service_vendor: "Geoserver",
             type: "2D",
             visible: true,
@@ -135,7 +137,7 @@ export default function MapLayout() {
             name: "Provinsi",
             description: "",
             map_service_url: "https://geo.truenapsh.my.id/geoserver/wms",
-            map_service_layer_name: "truenapsh_collection:adm_provinsi",
+            map_service_layer_name: "truenapsh_collections:adm_provinsi",
             map_service_vendor: "Geoserver",
             type: "2D",
             visible: true,
@@ -228,6 +230,7 @@ export default function MapLayout() {
     };
 
     const handleMapClick = async (event: MapMouseEvent) => {
+        setIsLoading({ ...isLoading, featureInfo: true })
         const map = mapRef?.current?.getMap();
         const latLng: Location = event.lngLat;
         addOrUpdateMarker(latLng.lng, latLng.lat)
@@ -235,6 +238,7 @@ export default function MapLayout() {
         setDisplayLayouts({ ...displayLayouts, layerInfo: true });
         const info = await getFeatureInfo(event, selectedLayer.length > 0 ? selectedLayer : layers, map)
         setInfoFeatures(info);
+        setIsLoading({ ...isLoading, featureInfo: false })
     }
 
     const handleChangeBasemap = (index: number) => {
@@ -287,6 +291,7 @@ export default function MapLayout() {
                 layer.id === layerId ? { ...layer, visible: !status } : layer
             )
         );
+        console.log(layers)
     }
 
     const handleRemoveLayer = (index: number) => {
@@ -341,7 +346,6 @@ export default function MapLayout() {
         if (map && layerId) {
             const layer = map.getLayer(layerId) as LayerSpecification | undefined;
             if (layer) {
-                console.log(layer);
                 if (layer?.minzoom && layer?.maxzoom) {
                     setMapboxLayerStyle((prev) => ({
                         ...prev,
@@ -476,7 +480,6 @@ export default function MapLayout() {
     }
 
     const handleZoomChange = (values: [number, number]) => {
-        console.log(values)
         setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: values })
         const map = mapRef?.current?.getMap();
         const layerId = selectedLayer.id;
@@ -492,7 +495,6 @@ export default function MapLayout() {
         setMapboxLayerStyle({ ...mapboxLayerStyle, opacity: parseFloat(value) ?? 0 })
         setPaint("-opacity", val)
         if (type == "circle") {
-            console.log("Awd")
             setPaint("-stroke-opacity", val)
         }
     }
@@ -504,7 +506,6 @@ export default function MapLayout() {
     const handleSelectedDatasets = (index: number) => {
         const layer: ParsedLayer = datasetResult[index];
         setSelectedDatasets([...selectedDatasets, { ...layer, index }]);
-        console.log(selectedDatasets);
     }
 
     const handleAddLayerToMap = async () => {
@@ -575,6 +576,9 @@ export default function MapLayout() {
                             },
                             minzoom: layer.min_zoom || 0,
                             maxzoom: layer.max_zoom || 24,
+                            layout: {
+                                "visibility": layer.visible ? "visible" : "none",
+                            },
                             paint: {
                                 "raster-opacity": 1,
                             },
@@ -694,6 +698,7 @@ export default function MapLayout() {
                             </Button>
                         </div>
                         <div className='text-xs px-5'>
+
                             {infoFeatures.map((layer, index) => (
                                 <Accordion key={index} type="single" collapsible>
                                     <AccordionItem value={`item-${index}`} className='border-none'>
@@ -713,6 +718,11 @@ export default function MapLayout() {
                                     </AccordionItem>
                                 </Accordion>
                             ))}
+                            {isLoading.featureInfo ? (
+                                <div className='flex justify-center items-center mb-5'>
+                                    <AiOutlineLoading3Quarters size={"20"} className='animate-spin' />
+                                </div>
+                            ) : ""}
                             {/* <VideoPlayer url="https://restreamer.kotabogor.go.id/memfs/2e691d1f-3e29-48b5-bfb4-2eb6cbc3ee66.m3u8" source_type="application/x-mpegURL" /> */}
                         </div>
                     </div> :
@@ -751,7 +761,7 @@ export default function MapLayout() {
                                     <tr>
                                         <td width={"80px"}>Opacity</td>
                                         <td><input type='range' placeholder='1' max={100} min={0} value={mapboxLayerStyle.opacity} onChange={(e) => setOpacity(e)} className='border border-gray-100-none shadow-none minimal-range' /></td>
-                                        <td><Input type='number' placeholder='1' max={100} min={0} value={mapboxLayerStyle.opacity} onChange={(e) => setOpacity(e)} className='border-none shadow-none w-min mx-2' /></td>
+                                        <td><Input type="number" placeholder='1' max={100} min={0} value={mapboxLayerStyle.opacity} onChange={(e) => setOpacity(e)} className='border-none shadow-none w-min mx-2' /></td>
                                     </tr>
                                     <tr>
                                         <td width={"80px"}>Fill</td>
@@ -766,37 +776,36 @@ export default function MapLayout() {
                                     <tr>
                                         <td width={"80px"}>Stroke Width</td>
                                         <td><input type='range' placeholder='1' max={10} step={0.01} min={0} value={mapboxLayerStyle.stroke_width} onChange={(e) => setStrokeWidth(e)} className='border-none shadow-none minimal-range' /></td>
-                                        <td><Input type='number' placeholder='1' max={10} step={0.01} min={0} value={mapboxLayerStyle.stroke_width} onChange={(e) => setStrokeWidth(e)} className='border-none shadow-none w-min mx-2' /></td>
+                                        <td><Input type="number" placeholder='1' max={10} step={0.01} min={0} value={mapboxLayerStyle.stroke_width} onChange={(e) => setStrokeWidth(e)} className='border-none shadow-none w-min mx-2' /></td>
                                     </tr>
-
                                     <tr>
                                         <td width={"80px"}>Contrast</td>
                                         <td><input type='range' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.contrast} onChange={(e) => setContrast(e)} className='border-none shadow-none minimal-range' /></td>
-                                        <td><Input type='number' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.contrast} onChange={(e) => setContrast(e)} className='border-none shadow-none w-min mx-2' /></td>
+                                        <td><Input type="number" placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.contrast} onChange={(e) => setContrast(e)} className='border-none shadow-none w-min mx-2' /></td>
                                     </tr>
                                     <tr>
                                         <td width={"80px"}>Saturation</td>
                                         <td><input type='range' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none minimal-range' /></td>
-                                        <td><Input type='number' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none w-min mx-2' /></td>
+                                        <td><Input type="number" placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none w-min mx-2' /></td>
                                     </tr>
                                     <tr>
                                         <td width={"80px"}>Brightness</td>
-                                        <td><DoubleRangeSlider min={0} step={0.01} max={1} val defaultValues={mapboxLayerStyle.brightness} onChange={setBrightness} /></td>
+                                        <td><DoubleRangeSlider min={0} step={0.01} max={1} defaultValues={mapboxLayerStyle.brightness} onChange={setBrightness} /></td>
                                         <td>
                                             <div className='flex items-center gap-0'>
-                                                <Input type='number' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.brightness[0]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: [e.currentTarget.value, mapboxLayerStyle.brightness[1]] })} className='shadow-none w-14 ml-2' />
-                                                <Input type='number' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.brightness[1]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: [e.currentTarget.brightness[0], e.currentTarget.value] })} className='shadow-none w-14 ml-2' />
+                                                <Input type="number" placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.brightness[0]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: [e.currentTarget.value, mapboxLayerStyle.brightness[1]] })} className='shadow-none w-20 ml-2' />
+                                                <Input type="number" placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.brightness[1]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: [e.currentTarget.brightness[0], e.currentTarget.value] })} className='shadow-none w-20 ml-2' />
                                             </div>
                                         </td>
 
                                     </tr>
                                     <tr>
                                         <td width={"80px"}>Zoom</td>
-                                        <td><DoubleRangeSlider min={0} max={24} defaultValues={mapboxLayerStyle.zoom} onChange={handleZoomChange} /></td>
+                                        <td><DoubleRangeSlider min={0} step={0.01} max={24} defaultValues={mapboxLayerStyle.zoom} onChange={handleZoomChange} /></td>
                                         <td>
                                             <div className='flex items-center gap-0'>
-                                                <Input type='number' placeholder='1' max={24} step={1} min={0} value={mapboxLayerStyle?.zoom[0]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: [parseInt(e.currentTarget.value), mapboxLayerStyle.zoom[1]] })} className='shadow-none w-14 ml-2' />
-                                                <Input type='number' placeholder='1' max={24} step={1} min={0} value={mapboxLayerStyle?.zoom[1]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: [e.currentTarget.zoom[0], parseInt(e.currentTarget.value)] })} className='shadow-none w-14 ml-2' />
+                                                <Input type="number" placeholder='1' max={24} step={0.01} min={0} value={mapboxLayerStyle?.zoom[0]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: [parseInt(e.currentTarget.value), mapboxLayerStyle.zoom[1]] })} className='shadow-none w-20 ml-2' />
+                                                <Input type="number" placeholder='1' max={24} step={0.01} min={0} value={mapboxLayerStyle?.zoom[1]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: [e.currentTarget.zoom[0], parseInt(e.currentTarget.value)] })} className='shadow-none w-20 ml-2' />
                                             </div>
                                         </td>
                                     </tr>

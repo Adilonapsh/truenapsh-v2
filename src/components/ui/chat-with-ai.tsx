@@ -79,8 +79,8 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ke
             <CardContent>
                 <div className="h-[60vh] overflow-auto pr-4">
                     {messages.map(m => (
-                        <div key={m.id} className={`mb-4 w-full ${m.role === 'user' ? 'text-right' : 'text-left'}`}>
-                            <div className={`inline-block p-2 max-w-60 rounded-lg ${m.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>
+                        <div key={m.id} className={`mb-4 w-96 ${m.role === 'user' ? 'text-right' : 'text-left'}`}>
+                            <div className={`inline-block p-2 max-w-96 rounded-lg ${m.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}>
                                 <div className="prose max-w-none prose-headings:text-blue-600 prose-strong:text-red-500 prose-em:text-green-500 prose-code:bg-gray-100 prose-code:rounded-lg prose-code:p-2">
                                     <ReactMarkdown
                                         className="prose dark:prose-invert flex flex-col gap-2"
