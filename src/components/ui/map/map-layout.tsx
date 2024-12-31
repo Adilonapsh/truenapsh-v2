@@ -145,6 +145,20 @@ export default function MapLayout() {
             max_zoom: 24,
             status: "Published",
             test: 1
+        },
+        {
+            id: "testing-esri",
+            name: "Testing Esri",
+            description: "",
+            map_service_url: "https://geoservices.big.go.id/rbi/rest/services/INDEKS/GarisPantai/MapServer/WMSServer",
+            map_service_layer_name: "testing-esri",
+            map_service_vendor: "ArcGIS",
+            type: "2D",
+            visible: true,
+            min_zoom: 0,
+            max_zoom: 24,
+            status: "Published",
+            test: 1
         }
     ]);
     const [activeBasemap, setActiveBasemap] = useState(0);
@@ -193,6 +207,9 @@ export default function MapLayout() {
                 if (layer.map_service_vendor == "Geoserver") {
                     const GEOSERVER_WMS_PARAMETER = "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
                     url = layer.map_service_url + GEOSERVER_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
+                } else if (layer.map_service_vendor == "ArcGIS") {
+                    const ESRI_WMS_PARAMETER = "/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image"
+                    url = layer.map_service_url + ESRI_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
                 }
                 map.addLayer({
                     id: layer.id,
@@ -563,6 +580,9 @@ export default function MapLayout() {
                     if (layer.map_service_vendor == "Geoserver") {
                         const GEOSERVER_WMS_PARAMETER = "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
                         url = layer.map_service_url + GEOSERVER_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
+                    } else if (layer.map_service_vendor == "ArcGIS") {
+                        const ESRI_WMS_PARAMETER = "/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image"
+                        url = layer.map_service_url + ESRI_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
                     }
                     if (!map.getLayer(layer.id)) {
                         map.addLayer({
