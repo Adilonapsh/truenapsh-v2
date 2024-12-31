@@ -2,7 +2,7 @@
 
 import { GetAllLayers, Layer, MapServiceVendor, ParsedLayer, WMSParams } from "@/types/map.types";
 
-const fetchLayerBbox = async (url: string, layerId: string) => {
+const fetchGeoserverLayerBbox = async (url: string, layerId: string) => {
     const urls = `${url}?service=WMS&version=1.3.0&request=GetCapabilities`;
     try {
         const response = await fetch(urls);
@@ -39,14 +39,26 @@ const getFeatureInfo = async (e: mapboxgl.MapMouseEvent, layers: Layer | Layer[]
     const layerList = Array.isArray(layers) ? layers : [layers];
     for (const layer of layerList) {
         if (layer.map_service_vendor === "Geoserver" || layer.map_service_vendor === "ArcGIS") {
-            const url = generateFeatureInfoURL(lat, lng, layer);
-            const response = await fetch(url);
-            const data = await response.json();
-            if (data.features.length > 0) {
-                properties.push({
-                    layer_name: layer.name,
-                    properties: data.features[0].properties,
-                });
+            if (layer.map_service_vendor === "Geoserver") {
+                const url = generateFeatureInfoURL(lat, lng, layer);
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.features.length > 0) {
+                    properties.push({
+                        layer_name: layer.name,
+                        properties: data.features[0].properties,
+                    });
+                }
+            } else if (layer.map_service_vendor === "ArcGIS") {
+                const url = generateFeatureInfoURL(lat, lng, layer);
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.results.length > 0) {
+                    properties.push({
+                        layer_name: layer.name,
+                        properties: data.results[0].attributes,
+                    });
+                }
             }
         } else {
             const selectedFeatures = mapRef.queryRenderedFeatures({
@@ -68,25 +80,40 @@ const generateFeatureInfoURL = (
     longitude: number,
     layer: Layer
 ) => {
-    const params: WMSParams | Record<string, string> = {
-        service: "wms",
-        version: "1.3.0",
-        request: "GetFeatureInfo",
-        format: "image/png",
-        transparent: "true",
-        query_layers: layer.map_service_layer_name.toString(),
-        layers: layer.map_service_layer_name.toString(),
-        tiled: "true",
-        info_format: "application/json",
-        i: "128",
-        j: "128",
-        width: "256",
-        height: "256",
-        crs: "EPSG:3857",
-        styles: "",
-        bbox: getBBOX(latitude, longitude, 100).toString(),
-    };
-    return `${layer.map_service_url}?` + new URLSearchParams(params);
+    if (layer.map_service_vendor === "Geoserver") {
+        const params: WMSParams | Record<string, string> = {
+            service: "wms",
+            version: "1.3.0",
+            request: "GetFeatureInfo",
+            format: "image/png",
+            transparent: "true",
+            query_layers: layer.map_service_layer_name.toString(),
+            layers: layer.map_service_layer_name.toString(),
+            tiled: "true",
+            info_format: "application/json",
+            i: "128",
+            j: "128",
+            width: "256",
+            height: "256",
+            crs: "EPSG:3857",
+            styles: "",
+            bbox: getBBOX(latitude, longitude, 100).toString(),
+        };
+        return `${layer.map_service_url}?` + new URLSearchParams(params);
+    } else {
+        const wmsParams: Record<string, string> = {
+            geometry: `${longitude},${latitude}`,
+            geometryType: "esriGeometryPoint",
+            sr: "4326",
+            layers: "all",
+            mapExtent: getBBOX(latitude, longitude, 100).toString(),
+            imageDisplay: "400,300,96",
+            tolerance: "5",
+            f: "json"
+        };
+        return layer.map_service_url + "/identify" + "?" + new URLSearchParams(wmsParams).toString();
+
+    }
 };
 
 const getBBOX = (lat: number, lng: number, z: number) => {
@@ -300,7 +327,7 @@ const getWMSServices = async (url: string, map_service_vendor: string) => {
 }
 
 export {
-    fetchLayerBbox,
+    fetchGeoserverLayerBbox as fetchLayerBbox,
     getFeatureInfo,
     generateFeatureInfoURL,
     getBBOX,

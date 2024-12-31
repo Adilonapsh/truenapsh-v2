@@ -328,22 +328,48 @@ export default function MapLayout() {
         setIsLoading({ ...isLoading, zoomToMap: true });
         const map = mapRef?.current?.getMap();
         const layer = layers[index];
-        const fetch = await fetchLayerBbox(layer.map_service_url, layer.map_service_layer_name);
-        if (map && fetch) {
-            const { minLng, minLat, maxLng, maxLat } = fetch;
-            const bbox: BoundingBox = [
-                [parseFloat(minLng ?? "0"), parseFloat(minLat ?? "0")],
-                [parseFloat(maxLng ?? "0"), parseFloat(maxLat ?? "0")],
-            ];
-
-            map.fitBounds(bbox, {
-                padding: 25,
-                duration: 1000,
-            });
-            setIsLoading({ ...isLoading, zoomToMap: false });
-        } else {
-            console.log("Map reference is not defined.");
+        if (layer.map_service_vendor == "Geoserver") {
+            const fetch = await fetchLayerBbox(layer.map_service_url, layer.map_service_layer_name);
+            if (map && fetch) {
+                const { minLng, minLat, maxLng, maxLat } = fetch;
+                const bbox: BoundingBox = [
+                    [parseFloat(minLng ?? "0"), parseFloat(minLat ?? "0")],
+                    [parseFloat(maxLng ?? "0"), parseFloat(maxLat ?? "0")],
+                ];
+                map.fitBounds(bbox, {
+                    padding: 25,
+                    duration: 1000,
+                });
+            } else {
+                console.log("Map reference is not defined.");
+            }
+        } else if (layer.map_service_vendor == "ArcGIS") {
+            const esriURL = `${layer.map_service_url.replace("/export", "")}?f=json`;
+            fetch(esriURL).then((response) => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+                return response.json();
+            })
+                .then((json) => {
+                    const extent = {
+                        minx: json.fullExtent.xmin,
+                        miny: json.fullExtent.ymin,
+                        maxx: json.fullExtent.xmax,
+                        maxy: json.fullExtent.ymax
+                    }
+                    if (map) {
+                        map.fitBounds([[extent.minx, extent.miny], [extent.maxx, extent.maxy]], {
+                            padding: 20,
+                            duration: 2000
+                        });
+                    }
+                }).catch((error) => {
+                    console.log("Map reference is not defined.");
+                });
         }
+        setIsLoading({ ...isLoading, zoomToMap: false });
+
     }
 
     const handleStyleLayer = (index: number) => {
