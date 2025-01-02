@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   description: "Truenapsh.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
@@ -37,7 +37,7 @@ export default function RootLayout({
       <body
         className={`${workSans.variable} ${manRope.variable} antialiased`}
       >
-        {children}
+          {children}
       </body>
     </html>
   );
