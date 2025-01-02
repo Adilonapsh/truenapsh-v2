@@ -64,8 +64,13 @@ import toast from 'react-hot-toast';
 import { DoubleRangeSlider } from '../double-slider';
 import { ChatWithAI } from '../chat-with-ai';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
+import { signOut } from 'next-auth/react';
 
-export default function MapLayout() {
+export default function MapLayout({
+    layersFetch
+}: {
+    layersFetch: Layer[]
+}) {
 
     const mapRef = useRef<MapRef>(null);
     const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
@@ -103,78 +108,7 @@ export default function MapLayout() {
             thumbnail: "/assets/basemap/googleStreets.png"
         },
     ]);
-    const [layers, setLayers] = useState([
-        {
-            id: "kelurahan",
-            name: "Kelurahan",
-            description: "",
-            map_service_url: "https://geo.truenapsh.my.id/geoserver/wms",
-            map_service_layer_name: "truenapsh_collections:adm_kelurahan",
-            map_service_vendor: "Geoserver",
-            type: "2D",
-            visible: true,
-            min_zoom: 12,
-            max_zoom: 24,
-            status: "Published",
-            test: 1
-        },
-        {
-            id: "kabupaten",
-            name: "Kabupaten",
-            description: "",
-            map_service_url: "https://geo.truenapsh.my.id/geoserver/wms",
-            map_service_layer_name: "truenapsh_collections:adm_kabupaten",
-            map_service_vendor: "Geoserver",
-            type: "2D",
-            visible: true,
-            min_zoom: 10,
-            max_zoom: 24,
-            status: "Published",
-            test: 1
-        },
-        {
-            id: "provinsi",
-            name: "Provinsi",
-            description: "",
-            map_service_url: "https://geo.truenapsh.my.id/geoserver/wms",
-            map_service_layer_name: "truenapsh_collections:adm_provinsi",
-            map_service_vendor: "Geoserver",
-            type: "2D",
-            visible: true,
-            min_zoom: 0,
-            max_zoom: 24,
-            status: "Published",
-            test: 1
-        },
-        // {
-        //     id: "pola_ruang_tanggerang",
-        //     name: "Pola Ruang Tanggerang",
-        //     description: "",
-        //     map_service_url: "https://maps.tangerangkota.go.id/arcgis/rest/services/Dinas_PU_TR/polaruang/MapServer",
-        //     map_service_layer_name: "pola_ruang_tanggerang",
-        //     map_service_vendor: "ArcGIS",
-        //     type: "2D",
-        //     visible: true,
-        //     min_zoom: 0,
-        //     max_zoom: 24,
-        //     status: "Published",
-        //     test: 1
-        // },
-        // {
-        //     id: "Jaringan Jalan Tanggerang",
-        //     name: "Jaringan Jalan Tanggerang",
-        //     description: "",
-        //     map_service_url: "https://maps.tangerangkota.go.id/arcgis/rest/services/Dinas_PU_TR/Jaringan_Jalan_Kota_Tangerang_2024/MapServer",
-        //     map_service_layer_name: "Jaringan Jalan Tanggerang",
-        //     map_service_vendor: "ArcGIS",
-        //     type: "2D",
-        //     visible: true,
-        //     min_zoom: 0,
-        //     max_zoom: 24,
-        //     status: "Published",
-        //     test: 1
-        // }
-    ]);
+    const [layers, setLayers] = useState(layersFetch);
     const [activeBasemap, setActiveBasemap] = useState(0);
     const [mapboxLayerStyle, setMapboxLayerStyle] = useState<MapboxLayerStyle>({
         fill: "#000000",
@@ -678,7 +612,7 @@ export default function MapLayout() {
                             </TooltipProvider>
                             <TooltipProvider>
                                 <Tooltip>
-                                    <TooltipTrigger>
+                                    <TooltipTrigger onClick={() => signOut()}>
                                         <Folder size={"13pt"} />
                                     </TooltipTrigger>
                                     <TooltipContent>

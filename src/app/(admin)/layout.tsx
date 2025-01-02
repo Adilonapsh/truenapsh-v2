@@ -1,7 +1,10 @@
+'use client'
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Work_Sans, Manrope } from "next/font/google";
 import "../globals.css";
 import "../css/custom.css"
+import { SessionProvider } from "next-auth/react";
 
 
 const workSans = Work_Sans({
@@ -14,10 +17,10 @@ const manRope = Manrope({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Maps - Truenapsh",
-  description: "Truenapsh.",
-};
+// export const metadata: Metadata = {
+//   title: "Maps - Truenapsh",
+//   description: "Truenapsh.",
+// };
 
 export default function RootLayout({
   children,
@@ -25,13 +28,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
 
-  
+
   return (
     <html lang="en">
       <body
         className={`${workSans.variable} ${manRope.variable} antialiased`}
       >
-        {children}
+        <SessionProvider>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );

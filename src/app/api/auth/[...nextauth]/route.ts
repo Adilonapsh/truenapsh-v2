@@ -1,3 +1,4 @@
+import { encrypt } from "@/lib/crypt";
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
@@ -10,7 +11,7 @@ export const authOptions = {
                 password: { label: "Password", type: "password" },
             },
             async authorize(credentials) {
-                const res = await fetch("http://localhost:8000/api/auth/login", {
+                const res = await fetch(`${process.env.NEXTAUTH_URL}/auth/login`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -20,23 +21,22 @@ export const authOptions = {
                 });
 
                 const user = await res.json();
-                console.log(user);
 
                 if (res.ok && user) {
-                    return user; // Return user object on successful login
+                    return user; 
                 }
 
-                return null; // Return null if login fails
+                return null;
             },
         }),
     ],
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user }: { token: any; user: any }) {
             if (user) {
                 token.id = user.id;
                 token.name = user.name;
                 token.email = user.email;
-                token.accessToken = user.token;
+                token.accessToken = encrypt(user.token);
             }
             return token;
         },
