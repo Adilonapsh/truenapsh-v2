@@ -191,7 +191,7 @@ export default function Home() {
           <h3 className="text-5xl w-full lg:w-1/2 font-extrabold">Explore The World With Precision, One Map At A Time.</h3>
           <p className="w-full lg:w-1/3 text-lg font-light">Navigate the World, Discover New Paths, and Plan with Precision Using Advanced Mapping Tools.</p>
           <div>
-            <a href="/map" className="px-5 py-3 bg-black rounded-full text-white text-sm font-light">GET STARTED</a>
+            <a href="/auth/login" className="px-5 py-3 bg-black rounded-full text-white text-sm font-light">GET STARTED</a>
           </div>
         </div>
       </div>

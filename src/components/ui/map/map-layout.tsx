@@ -65,6 +65,10 @@ import { DoubleRangeSlider } from '../double-slider';
 import { ChatWithAI } from '../chat-with-ai';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { signOut } from 'next-auth/react';
+import MapMenu from './map-menu';
+import AnimatedLoadingScreen from '../loading-animation-screen';
+import { StylePanel } from './style-panel';
+import IconLayerType from './icon-layer-type';
 
 export default function MapLayout({
     layersFetch
@@ -83,9 +87,12 @@ export default function MapLayout({
         aiChat: false,
     });
     const [isLoading, setIsLoading] = useState<MapIsLoading>({
+        initLoading: true,
         zoomToMap: false,
         featureInfo: false
     });
+
+    const [showLoading, setShowLoading] = useState<boolean>(true)
     const [openItems, setOpenItems] = useState<string[]>([]);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [basemap, setBasemap] = useState([
@@ -167,8 +174,8 @@ export default function MapLayout({
                     source: {
                         type: "raster",
                         tiles: [url],
-                        minzoom: layer.min_zoom || 0,
-                        maxzoom: layer.max_zoom || 24,
+                        // minzoom: layer.min_zoom || 0,
+                        // maxzoom: layer.max_zoom || 24,
                     },
                     minzoom: layer.min_zoom || 0,
                     maxzoom: layer.max_zoom || 24,
@@ -178,6 +185,10 @@ export default function MapLayout({
                 });
             });
         }
+        setIsLoading({ ...isLoading, initLoading: false });
+        setTimeout(() => {
+            setShowLoading(false);
+        }, 1000);
     }
 
     const onStyleData = () => { }
@@ -385,6 +396,60 @@ export default function MapLayout({
                         ...prev,
                         stroke: stroke ?? outline ?? "#000000",
                     }));
+
+                    // handle brightness
+                    const brightnessMinKey = `${layer.type}-brightness-min` as keyof typeof layer.paint;
+                    const brightnessMin = layer.paint[brightnessMinKey] as DataDrivenPropertyValueSpecification<number> | undefined;
+                    const brightnessMaxKey = `${layer.type}-brightness-max` as keyof typeof layer.paint;
+                    const brightnessMax = layer.paint[brightnessMaxKey] as DataDrivenPropertyValueSpecification<number> | undefined;
+
+                    if (brightnessMin !== undefined || brightnessMax !== undefined) {
+                        const parsedMinBrightness =
+                            typeof brightnessMin === 'number' ? brightnessMin : parseFloat(brightnessMin as unknown as string);
+                        const parsedMaxBrightness =
+                            typeof brightnessMax === 'number' ? brightnessMax : parseFloat(brightnessMax as unknown as string);
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            brightness: [parsedMinBrightness, parsedMaxBrightness],
+                        }));
+                    }
+
+                    // handle saturation
+                    const saturationKey = `${layer.type}-saturation` as keyof typeof layer.paint;
+                    const saturation = layer.paint[saturationKey] as DataDrivenPropertyValueSpecification<number> | undefined;
+                    if (saturation !== undefined) {
+                        const parsedSaturation =
+                            typeof saturation === 'number' ? saturation : parseFloat(saturation as unknown as string);
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            saturation: parsedSaturation,
+                        }));
+                    }
+
+                    // Handle stroke width
+                    const strokeWidthKey = `${layer.type}-stroke-width` as keyof typeof layer.paint;
+                    const strokeWidth = layer.paint[strokeWidthKey] as DataDrivenPropertyValueSpecification<number> | undefined;
+                    if (strokeWidth !== undefined) {
+                        const parsedStrokeWidth =
+                            typeof strokeWidth === 'number' ? strokeWidth : parseFloat(strokeWidth as unknown as string);
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            stroke_width: parsedStrokeWidth,
+                        }));
+                    }
+
+                    // handle contrast
+                    const contrastKey = `${layer.type}-contrast` as keyof typeof layer.paint;
+                    const contrast = layer.paint[contrastKey] as DataDrivenPropertyValueSpecification<number> | undefined;
+                    if (contrast !== undefined) {
+                        const parsedContrast =
+                            typeof contrast === 'number' ? contrast : parseFloat(contrast as unknown as string);
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            contrast: parsedContrast,
+                        }));
+                    }
+
                 }
             }
         }
@@ -445,28 +510,31 @@ export default function MapLayout({
         }
     }
 
-    const setFill = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.currentTarget.value.trim();
+
+    const setFill = (value: string) => {
         setMapboxLayerStyle({ ...mapboxLayerStyle, fill: value })
         setPaint("-color", value)
     }
-    const setStroke = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.currentTarget.value.trim();
+    const setStroke = (value: string) => {
+        const map = mapRef?.current?.getMap();
+        const layerId = selectedLayer.id;
+        const type = map.getLayer(layerId)?.type
         setMapboxLayerStyle({ ...mapboxLayerStyle, stroke: value })
-        setPaint("-stroke-color", value)
+        if (type == "fill") {
+            setPaint("-outline-color", value)
+        } else {
+            setPaint("-stroke-color", value)
+        }
     }
-    const setStrokeWidth = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = parseFloat(e.currentTarget.value);
+    const setStrokeWidth = (value: number) => {
         setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width: value })
         setPaint("-stroke-width", value)
     }
-    const setContrast = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = parseFloat(e.currentTarget.value);
+    const setContrast = (value: number) => {
         setMapboxLayerStyle({ ...mapboxLayerStyle, contrast: value })
         setPaint("-contrast", value)
     }
-    const setSaturation = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = parseFloat(e.currentTarget.value);
+    const setSaturation = (value: number) => {
         setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: value })
         setPaint("-saturation", value)
     }
@@ -483,8 +551,7 @@ export default function MapLayout({
         map?.setLayerZoomRange(layerId, values[0], values[1])
     }
 
-    const setOpacity = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const value = e.currentTarget.value;
+    const setOpacity = (value: number) => {
         const map = mapRef?.current?.getMap();
         const layerId = selectedLayer.id;
         const type = map?.getLayer(layerId)?.type
@@ -495,6 +562,7 @@ export default function MapLayout({
             setPaint("-stroke-opacity", val)
         }
     }
+
 
     const handleDatasets = async () => {
         const datasets = await getWMSServices(datasetProperties.url, datasetProperties.map_service_vendor);
@@ -551,6 +619,23 @@ export default function MapLayout({
     }
     // END TOOL FUNCTIONS
 
+    const handleOnSave = () => {
+        toast.promise(new Promise((resolve, reject) => {
+            setTimeout(() => {
+                const rand = Math.random();
+                if (rand > 0.5) {
+                    resolve();
+                }
+                reject();
+            }, 2000);
+        }), {
+            loading: 'Saving...',
+            success: 'Saved successfully.',
+            error: 'Failed to save.',
+        })
+        return;
+    }
+
     useEffect(() => {
         const map = mapRef.current?.getMap();
         if (map) {
@@ -571,8 +656,8 @@ export default function MapLayout({
                             source: {
                                 type: "raster",
                                 tiles: [url],
-                                minzoom: layer.min_zoom || 0,
-                                maxzoom: layer.max_zoom || 24,
+                                // minzoom: layer.min_zoom || 0,
+                                // maxzoom: layer.max_zoom || 24,
                             },
                             minzoom: layer.min_zoom || 0,
                             maxzoom: layer.max_zoom || 24,
@@ -595,6 +680,11 @@ export default function MapLayout({
     return (
         <div className='relative h-dvh'>
             <MapView mapRef={mapRef} onMouseMove={(event) => onMouseMove(event as MapMouseEvent)} onClick={(event) => handleMapClick(event as MapMouseEvent)} onLoad={onMapLoad} onStyleData={onStyleData} />
+            {showLoading && (
+                <div className={`absolute top-0 h-screen w-screen flex justify-center items-center z-10 ${isLoading.initLoading ? "" : "opacity-0"} transition-all duration-500`}>
+                    <AnimatedLoadingScreen />
+                </div>
+            )}
             <div className='absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto'>
                 <div className='bg-white px-5 py-2 rounded w-80 text-sm'>
                     <div className='flex justify-between items-center sticky top-0 py-2 bg-white'>
@@ -655,21 +745,17 @@ export default function MapLayout({
                                     <SortableItem key={layer.id} id={layer.id}>
                                         <AccordionItem className='border-none' value={layer.id}>
                                             <div className='flex items-center gap-2'>
-                                                {(layer.map_service_vendor === 'Geoserver' || layer.map_service_vendor === 'ArcGIS') ? (
-                                                    <BiGlobe size={"13pt"} className='opacity-25' />
-                                                ) : (
-                                                    <FaVectorSquare size={"13pt"} className='opacity-25' />
-                                                )}
+                                                <IconLayerType layer={layer} />
                                                 <AccordionTrigger className='hover:no-underline text-sm py-2 w-64 capitalize'>{layer.name}</AccordionTrigger>
                                             </div>
                                             <AccordionContent className='text-xs border-none'>
                                                 <div className='flex justify-center gap-1 px-1'>
                                                     <Button variant={"ghost"} size="sm" onClick={() => setLayerVisible(index, layer.visible)}>{layer.visible ? <Eye size={"12pt"} /> : <EyeClosed size={"12pt"} />}</Button>
-                                                    <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
+                                                    <Button variant={"ghost"} size="sm" onClick={() => { handleConvertToVector(layer) }}><HiCubeTransparent size={"12pt"} /></Button>
                                                     <Button variant={"ghost"} size="sm" onClick={() => handleZoomToLayer(index)}> <TbZoomInAreaFilled size={"12pt"} /></Button>
                                                     <Button variant={"ghost"} size="sm"><FiFilter size={"12pt"} /></Button>
                                                     <Button variant={"ghost"} size="sm" onClick={() => handleStyleLayer(index)}><MdOutlineStyle size={"12pt"} /></Button>
-                                                    <Button variant={"ghost"} size="sm" onClick={() => handleRemoveLayer(index)}><BiTrash size={"12pt"} /></Button>
+                                                    <Button variant={"ghost"} size="sm" className='text-red-700' onClick={() => handleRemoveLayer(index)}><BiTrash size={"12pt"} /></Button>
                                                 </div>
                                             </AccordionContent>
                                         </AccordionItem>
@@ -682,6 +768,9 @@ export default function MapLayout({
             </div >
             <div className='absolute top-0 mt-5 ml-5' id='search'>
                 <Search onSearch={handleSearch} />
+            </div>
+            <div className='absolute top-0 mt-5 ml-[22rem] font-bold'>
+                <MapMenu onSave={handleOnSave}></MapMenu>
             </div>
             <div className='absolute top-0 right-0 p-5 text-xs min-w-96' id='layerInfo'>
                 {displayLayouts.layerInfo ?
@@ -729,90 +818,23 @@ export default function MapLayout({
                     ""
                 }
             </div>
-            <div className='absolute top-0 right-0 p-5 text-xs min-w-96'>
+            <div className='absolute top-0 right-0 text-xs mt-5 mr-5'>
                 {displayLayouts.style && (
-                    <div className='bg-white rounded-lg max-h-[calc(100vh-9rem)] overflow-y-auto'>
-                        <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white'>
-                            <div>
-                                <p className='font-semibold mb-2 text-sm'>Styles</p>
-                                <p className='font-semibold'>
-                                    {selectedLayer.name}
-                                </p>
-                            </div>
-                            <Button variant={"link"} onClick={() => {
-                                setSelectedLayer({});
-                                setDisplayLayouts({ ...displayLayouts, style: false })
-                            }}>
-                                <IoClose size={"13pt"} />
-                            </Button>
-                        </div>
-                        <div className='text-xs px-5 mb-5'>
-                            <hr className='my-2' />
-                            <div className='flex justify-center items-center'>
-                                <Button variant={"ghost"} size="sm" onClick={() => handleConvertToVector(selectedLayer)}><Repeat2Icon size={"12pt"} /></Button>
-                                <Button variant={"ghost"} size="sm" onClick={() => setDisplayLayouts({ ...displayLayouts, aiChat: true })}><CiChat1 size={"12pt"} /></Button>
-                                <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
-                                <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
-                                <Button variant={"ghost"} size="sm"><HiCubeTransparent size={"12pt"} /></Button>
-                            </div>
-                            <hr className='my-2' />
-                            <table>
-                                <tbody>
-                                    <tr>
-                                        <td width={"80px"}>Opacity</td>
-                                        <td><input type='range' placeholder='1' max={100} min={0} value={mapboxLayerStyle.opacity} onChange={(e) => setOpacity(e)} className='border border-gray-100-none shadow-none minimal-range' /></td>
-                                        <td><Input type="number" placeholder='1' max={100} min={0} value={mapboxLayerStyle.opacity} onChange={(e) => setOpacity(e)} className='border-none shadow-none w-min mx-2' /></td>
-                                    </tr>
-                                    <tr>
-                                        <td width={"80px"}>Fill</td>
-                                        <td><input type='color' className='w-20 h-8 p-0 rounded-lg bg-transparent ring-0' value={mapboxLayerStyle.fill} onChange={(e) => setFill(e)} /></td>
-                                        <td><Input type='text' placeholder='#000000' value={mapboxLayerStyle.fill} onChange={(e) => setFill(e)} className='border-none shadow-none w-28 ' /></td>
-                                    </tr>
-                                    <tr>
-                                        <td width={"80px"}>Stroke</td>
-                                        <td><input type='color' className='w-20 h-8 p-0 rounded-lg bg-transparent ring-0' value={mapboxLayerStyle.stroke} onChange={(e) => setStroke(e)} /></td>
-                                        <td><Input type='text' placeholder='#000000' value={mapboxLayerStyle.stroke} onChange={(e) => setStroke(e)} className='border-none shadow-none w-28' /></td>
-                                    </tr>
-                                    <tr>
-                                        <td width={"80px"}>Stroke Width</td>
-                                        <td><input type='range' placeholder='1' max={10} step={0.01} min={0} value={mapboxLayerStyle.stroke_width} onChange={(e) => setStrokeWidth(e)} className='border-none shadow-none minimal-range' /></td>
-                                        <td><Input type="number" placeholder='1' max={10} step={0.01} min={0} value={mapboxLayerStyle.stroke_width} onChange={(e) => setStrokeWidth(e)} className='border-none shadow-none w-min mx-2' /></td>
-                                    </tr>
-                                    <tr>
-                                        <td width={"80px"}>Contrast</td>
-                                        <td><input type='range' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.contrast} onChange={(e) => setContrast(e)} className='border-none shadow-none minimal-range' /></td>
-                                        <td><Input type="number" placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.contrast} onChange={(e) => setContrast(e)} className='border-none shadow-none w-min mx-2' /></td>
-                                    </tr>
-                                    <tr>
-                                        <td width={"80px"}>Saturation</td>
-                                        <td><input type='range' placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none minimal-range' /></td>
-                                        <td><Input type="number" placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.saturation} onChange={(e) => setSaturation(e)} className='border-none shadow-none w-min mx-2' /></td>
-                                    </tr>
-                                    <tr>
-                                        <td width={"80px"}>Brightness</td>
-                                        <td><DoubleRangeSlider min={0} step={0.01} max={1} defaultValues={mapboxLayerStyle.brightness} onChange={setBrightness} /></td>
-                                        <td>
-                                            <div className='flex items-center gap-0'>
-                                                <Input type="number" placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.brightness[0]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: [e.currentTarget.value, mapboxLayerStyle.brightness[1]] })} className='shadow-none w-20 ml-2' />
-                                                <Input type="number" placeholder='1' max={1} step={0.01} min={-1} value={mapboxLayerStyle.brightness[1]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: [e.currentTarget.brightness[0], e.currentTarget.value] })} className='shadow-none w-20 ml-2' />
-                                            </div>
-                                        </td>
-
-                                    </tr>
-                                    <tr>
-                                        <td width={"80px"}>Zoom</td>
-                                        <td><DoubleRangeSlider min={0} step={0.01} max={24} defaultValues={mapboxLayerStyle.zoom} onChange={handleZoomChange} /></td>
-                                        <td>
-                                            <div className='flex items-center gap-0'>
-                                                <Input type="number" placeholder='1' max={24} step={0.01} min={0} value={mapboxLayerStyle?.zoom[0]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: [parseInt(e.currentTarget.value), mapboxLayerStyle.zoom[1]] })} className='shadow-none w-20 ml-2' />
-                                                <Input type="number" placeholder='1' max={24} step={0.01} min={0} value={mapboxLayerStyle?.zoom[1]} onChange={(e) => setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: [e.currentTarget.zoom[0], parseInt(e.currentTarget.value)] })} className='shadow-none w-20 ml-2' />
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                    <StylePanel
+                        selectedLayer={selectedLayer}
+                        values={mapboxLayerStyle}
+                        setValues={setMapboxLayerStyle}
+                        onFillChange={setFill}
+                        onStrokeChange={setStroke}
+                        onStrokeWidthChange={setStrokeWidth}
+                        onContrastChange={setContrast}
+                        onSaturationChange={setSaturation}
+                        onBrightnessChange={setBrightness}
+                        onZoomChange={handleZoomChange}
+                        onOpacityChange={(e) => setOpacity(e)}
+                        setDisplayLayouts={setDisplayLayouts}
+                        setSelectedLayer={setSelectedLayer}
+                    />
                 )}
             </div>
             <div className='absolute top-0 right-0 p-5 text-xs min-w-96'>
@@ -862,83 +884,81 @@ export default function MapLayout({
                     </Popover>
                 </div>
             </div>
-            {
-                displayLayouts.addLayer && (
-                    <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm'>
-                        <div className='bg-white h-full lg:max-h-screen lg:w-1/2 rounded-lg p-5'>
-                            <div className='flex justify-between items-center'>
-                                <div>
-                                    <p className='font-semibold'>Add Layer</p>
-                                    <p className='font-normal'>Add a Personalized Layer</p>
-                                </div>
-                                <Button variant={"link"} onClick={() => setDisplayLayouts({ ...displayLayouts, addLayer: false })}>
-                                    <IoClose size={"13pt"} />
-                                </Button>
+            {displayLayouts.addLayer && (
+                <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm'>
+                    <div className='bg-white h-full lg:max-h-screen lg:w-1/2 rounded-lg p-5'>
+                        <div className='flex justify-between items-center'>
+                            <div>
+                                <p className='font-semibold'>Add Layer</p>
+                                <p className='font-normal'>Add a Personalized Layer</p>
                             </div>
-                            <div className='p-5'>
-                                <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-5">
-                                    <div className='flex flex-col gap-1 w-auto'>
-                                        <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "Upload" ? "bg-gray-900 text-white" : ""}`} onClick={() => setAddLayerSetings({ active: "Upload" })}><UploadIcon />Upload</Button>
-                                        <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "WMS Service" ? "bg-gray-900 text-white" : ""}`} onClick={() => setAddLayerSetings({ active: "WMS Service" })}><UploadIcon />WMS Service</Button>
-                                    </div>
-                                    {(addLayerSettings.active == "WMS Service") ? (
-                                        <div className='w-full'>
-                                            <h5 className='font-bold text-lg'>Upload with URL</h5>
-                                            <hr className='my-5' />
-                                            <p className='text-sm'>WMS Service URL</p>
-                                            <div className="flex flex-col gap-2 lg:flex-row items-center mb-2">
-                                                <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
-                                                    <SelectTrigger className="w-full lg:w-[180px]">
-                                                        <SelectValue defaultValue={"Geoserver"} placeholder="Select Map Vendor" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="Geoserver">Geoserver</SelectItem>
-                                                        <SelectItem value="Arcgis">Arcgis</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
-                                            </div>
-                                            <div className='flex justify-end'>
-                                                <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
-                                            </div>
-                                            <hr className='my-5' />
-                                            <div className='w-full max-h-96 overflow-auto bg-gray-100 border p-5 mb-5'>
-                                                {datasetResult.length === 0 && (
-                                                    <div className="flex flex-col justify-center items-center">
-                                                        <LuDatabase size={"30pt"} />
-                                                        <p className='font-bold'>Theres no data to show yet.</p>
-                                                        <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
-                                                    </div>
-                                                )}
-                                                <div className='grid grid-cols-4 gap-2'>
-                                                    {datasetResult.map((item, index) => (
-                                                        <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
-                                                            <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
-                                                            <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
-                                                            <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className='flex justify-end'>
-                                                <Button className='float-right right-0' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div className='w-full'>
-                                            <h5 className='font-bold text-lg'>Upload Layer</h5>
-                                            <hr className='my-5' />
-                                        </div>
-                                    )
-
-                                    }
-
+                            <Button variant={"link"} onClick={() => setDisplayLayouts({ ...displayLayouts, addLayer: false })}>
+                                <IoClose size={"13pt"} />
+                            </Button>
+                        </div>
+                        <div className='p-5'>
+                            <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-5">
+                                <div className='flex flex-col gap-1 w-auto'>
+                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "Upload" ? "bg-gray-900 text-white" : ""}`} onClick={() => setAddLayerSetings({ active: "Upload" })}><UploadIcon />Upload</Button>
+                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "WMS Service" ? "bg-gray-900 text-white" : ""}`} onClick={() => setAddLayerSetings({ active: "WMS Service" })}><UploadIcon />WMS Service</Button>
                                 </div>
+                                {(addLayerSettings.active == "WMS Service") ? (
+                                    <div className='w-full'>
+                                        <h5 className='font-bold text-lg'>Upload with URL</h5>
+                                        <hr className='my-5' />
+                                        <p className='text-sm'>WMS Service URL</p>
+                                        <div className="flex flex-col gap-2 lg:flex-row items-center mb-2">
+                                            <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
+                                                <SelectTrigger className="w-full lg:w-[180px]">
+                                                    <SelectValue defaultValue={"Geoserver"} placeholder="Select Map Vendor" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Geoserver">Geoserver</SelectItem>
+                                                    <SelectItem value="Arcgis">Arcgis</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
+                                        </div>
+                                        <div className='flex justify-end'>
+                                            <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
+                                        </div>
+                                        <hr className='my-5' />
+                                        <div className='w-full max-h-96 overflow-auto bg-gray-100 border p-5 mb-5'>
+                                            {datasetResult.length === 0 && (
+                                                <div className="flex flex-col justify-center items-center">
+                                                    <LuDatabase size={"30pt"} />
+                                                    <p className='font-bold'>Theres no data to show yet.</p>
+                                                    <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
+                                                </div>
+                                            )}
+                                            <div className='grid grid-cols-4 gap-2'>
+                                                {datasetResult.map((item, index) => (
+                                                    <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
+                                                        <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
+                                                        <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
+                                                        <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className='flex justify-end'>
+                                            <Button className='float-right right-0' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className='w-full'>
+                                        <h5 className='font-bold text-lg'>Upload Layer</h5>
+                                        <hr className='my-5' />
+                                    </div>
+                                )
+
+                                }
+
                             </div>
                         </div>
                     </div>
-                )
-            }
+                </div>
+            )}
         </div >
     )
 }

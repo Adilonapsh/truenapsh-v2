@@ -80,6 +80,7 @@ type WMSParams = {
 }
 
 type MapIsLoading = {
+    initLoading: boolean;
     zoomToMap: boolean;
     featureInfo: boolean;
 }

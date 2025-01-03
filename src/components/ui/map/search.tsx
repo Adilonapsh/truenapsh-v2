@@ -35,7 +35,7 @@ const Search: React.FC<SearchMapProps> = ({ onSearch }) => {
     return (
         <div className=''>
             <div className='flex items-center bg-white rounded-lg p-2 gap-1'>
-                <Input type='text' placeholder='Search for places or coordinates' className='border-none focus:w-72 transition-all duration-500 ease-out'
+                <Input type='text' placeholder='Search for places or coordinates' className='border-none w-64 transition-all duration-500 ease-out'
                     value={search}
                     onChange={(e) => setSearch(e.currentTarget.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { handleSearch() } }}

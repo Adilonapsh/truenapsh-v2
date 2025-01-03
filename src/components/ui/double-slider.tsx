@@ -37,7 +37,7 @@ export const DoubleRangeSlider: React.FC<DoubleRangeSliderProps> = ({
           <Slider.Range className="absolute bg-gray-800 rounded-full h-full" />
         </Slider.Track>
         <Slider.Thumb
-          className="w-5 h-5 bg-white border border-gray-300 rounded-full shadow focus:outline-none focus:ring-2 focus:ring-gray-500"
+          className="w-60 h-60 bg-white border border-gray-300 rounded-full shadow focus:outline-none focus:ring-2 focus:ring-gray-500"
           aria-label="Lower Value"
         />
         <Slider.Thumb
