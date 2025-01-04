@@ -64,7 +64,7 @@ import toast from 'react-hot-toast';
 import { DoubleRangeSlider } from '../double-slider';
 import { ChatWithAI } from '../chat-with-ai';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
 import MapMenu from './map-menu';
 import AnimatedLoadingScreen from '../loading-animation-screen';
 import { StylePanel } from './style-panel';
@@ -138,7 +138,6 @@ export default function MapLayout({
     const [addLayerSettings, setAddLayerSetings] = useState({
         active: "",
     })
-
 
 
     // MAP FUNCTIONS

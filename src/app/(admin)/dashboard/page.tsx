@@ -1,9 +1,6 @@
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+
 import { ProjectCard } from '@/components/ui/project/project-card';
-import { decrypt } from '@/lib/crypt';
 import { get } from '@/server/project';
-import { getServerSession } from 'next-auth';
-import { redirect } from 'next/navigation';
 
 import {
     ContextMenu,
@@ -12,19 +9,15 @@ import {
     ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { CopyIcon, TrashIcon } from 'lucide-react';
+import { Project } from '@/types/project.types';
 
 
 export default async function DashboardPage() {
-
-    const session = await getServerSession(authOptions);
-    const status = session ? 'authenticated' : 'unauthenticated';
-
-
-    if (status == "unauthenticated") {
-        redirect("/auth/login");
+    let projects
+    try {
+        projects = await get()
+    } catch (err) {
     }
-
-    const projects = await get()
 
     return (
         <div>
@@ -36,7 +29,7 @@ export default async function DashboardPage() {
             <div className="container mx-auto py-10">
                 <h1 className="text-3xl font-bold mb-6">Recent Projects</h1>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {projects.data.map((project, i) => (
+                    {projects?.data?.map((project: Project, i: number) => (
                         <div key={project.id}>
                             <ContextMenu>
                                 <ContextMenuTrigger>

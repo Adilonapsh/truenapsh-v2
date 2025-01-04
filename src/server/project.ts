@@ -16,7 +16,7 @@ export const get = async (): Promise<Project[]> => {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+            'accept': 'application/json',
         },
     });
 
@@ -31,7 +31,7 @@ export const project = async (id: string): Promise<Project> => {
         method: 'GET',
         headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+            'accept': 'application/json',
         },
     });
 

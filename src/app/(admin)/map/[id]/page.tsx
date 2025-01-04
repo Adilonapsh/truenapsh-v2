@@ -1,6 +1,7 @@
 
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import MapLayout from '@/components/ui/map/map-layout';
+import authUserSession from '@/lib/auth';
 import { project } from '@/server/project';
 import { Project } from '@/types/project.types';
 import { appendFile, stat } from 'fs';
@@ -14,16 +15,16 @@ import { Toaster } from 'react-hot-toast';
 
 export default async function MapPage(context: { params: { id: string } }) {
 
-    const { id } = context.params; // Pastikan params.id digunakan dengan benar
-    const session = await getServerSession(authOptions);
-    const status = session ? 'authenticated' : 'unauthenticated';
+    const { id } = await context.params;
+    const user = await authUserSession();
+    const status = user ? 'authenticated' : 'unauthenticated';
 
     if (status == "unauthenticated") {
         redirect("/auth/login");
     }
 
 
-    try{
+    try {
         const fetchedProject: Project = await project(id);
         return (
             <div>
@@ -48,7 +49,7 @@ export default async function MapPage(context: { params: { id: string } }) {
                 <MapLayout layersFetch={fetchedProject?.layers ?? []} />
             </div>
         )
-    }catch(error){
+    } catch (error) {
         console.error(error);
         redirect("/dashboard");
     }

@@ -8,21 +8,43 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { MapIcon, CompassIcon, GithubIcon, TwitterIcon } from 'lucide-react'
+import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState('')
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    setIsLoading(true);
     e.preventDefault()
+    const data = {
+      fullName,
+      username,
+      email,
+      password,
+      confirmPassword,
+    };
+    console.log(JSON.stringify(data));
+
+    const res = await fetch(`${process.env.NEXT_PUBLIC_AUTH_URL}/auth/register`, {
+      method: "POST",
+      headers: { "accept": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    const body = await res.json();
+    console.log(body);
+    setIsLoading(false);
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br flex items-center from-gray-100 to-gray-200 p-4 lg:p-8">
       <div className="mx-auto max-w-6xl">
-        <motion.div 
+        <motion.div
           className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -74,6 +96,20 @@ export default function RegisterPage() {
                     />
                   </div>
                   <div>
+                    <p htmlFor="full-name" className="text-gray-700 dark:text-gray-300">Username</p>
+                    <Input
+                      id="username"
+                      name="username"
+                      type="text"
+                      autoComplete="name"
+                      required
+                      className="mt-1"
+                      value={username}
+                      aria-autocomplete="list"
+                      onChange={(e) => setUsername(e.target.value)}
+                    />
+                  </div>
+                  <div>
                     <p htmlFor="email" className="text-gray-700 dark:text-gray-300">Email address</p>
                     <Input
                       id="email"
@@ -116,7 +152,11 @@ export default function RegisterPage() {
                     />
                   </div>
                   <Button type="submit" className="w-full bg-black hover:bg-gray-800 text-white dark:bg-white dark:hover:bg-gray-200 dark:text-black">
-                    Create Account
+                    {isLoading ? (
+                      <AiOutlineLoading3Quarters className='animate-spin' />
+                    ) : (
+                      <p>Create Account</p>
+                    )}
                   </Button>
                 </form>
               </CardContent>
