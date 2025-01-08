@@ -38,7 +38,6 @@ import { HiCubeTransparent } from 'react-icons/hi';
 import { TbZoomInAreaFilled } from 'react-icons/tb';
 import { MdOutlineStyle } from 'react-icons/md';
 import { FiFilter } from 'react-icons/fi';
-import { CiChat1 } from "react-icons/ci";
 
 import {
     DndContext,
@@ -57,11 +56,9 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import SortableItem from './sortable-item';
 import Image from 'next/image';
 import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, } from '@/services/map-services';
-import { FaVectorSquare } from 'react-icons/fa6';
 import { Input } from '../input';
 import { LuDatabase } from 'react-icons/lu';
 import toast from 'react-hot-toast';
-import { DoubleRangeSlider } from '../double-slider';
 import { ChatWithAI } from '../chat-with-ai';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { signOut, useSession } from 'next-auth/react';
@@ -69,6 +66,7 @@ import MapMenu from './map-menu';
 import AnimatedLoadingScreen from '../loading-animation-screen';
 import { StylePanel } from './style-panel';
 import IconLayerType from './icon-layer-type';
+import FlowDiagramWithDraggableNodes from '../flow/flow-components';
 
 export default function MapLayout({
     layersFetch
@@ -881,6 +879,12 @@ export default function MapLayout({
                             </div>
                         </PopoverContent>
                     </Popover>
+                </div>
+            </div>
+
+            <div className='absolute top-0 h-screen w-screen left-0 rounded p-5 z-10'>
+                <div className='bg-white w-full h-full p-5'>
+                    <FlowDiagramWithDraggableNodes />
                 </div>
             </div>
             {displayLayouts.addLayer && (

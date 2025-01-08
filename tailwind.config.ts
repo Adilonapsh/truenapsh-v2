@@ -88,4 +88,10 @@ export default {
     	}
     },
 	plugins: [require("tailwindcss-animate")],
+
+	safelist: [
+    {
+      pattern: /(blue|green|yellow|purple|indigo)-500/,
+    },
+  ],
 } satisfies Config;
