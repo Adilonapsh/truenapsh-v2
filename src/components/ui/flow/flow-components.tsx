@@ -262,7 +262,8 @@ function FlowDiagram() {
                                 <span className='flex items-center gap-1'>
                                     <MdElectricBolt /> Run
                                 </span>)
-                        }</Button>
+                        }
+                    </Button>
                 </div>
             </div>
         </div>

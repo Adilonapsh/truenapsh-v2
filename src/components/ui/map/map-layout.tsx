@@ -32,8 +32,8 @@ import {
 } from "@/components/ui/select"
 import { IoClose } from 'react-icons/io5';
 import { Button } from '../button';
-import { Eye, EyeClosed, Folder, LayersIcon, PlusCircleIcon, PlusIcon, Repeat2Icon, UploadIcon } from 'lucide-react';
-import { BiCollapse, BiGlobe, BiTrash } from 'react-icons/bi';
+import { Eye, EyeClosed, LayersIcon, PlusCircleIcon, PlusIcon, UploadIcon, X } from 'lucide-react';
+import { BiCollapse, BiLogOutCircle, BiTrash } from 'react-icons/bi';
 import { HiCubeTransparent } from 'react-icons/hi';
 import { TbZoomInAreaFilled } from 'react-icons/tb';
 import { MdOutlineStyle } from 'react-icons/md';
@@ -58,10 +58,11 @@ import Image from 'next/image';
 import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, } from '@/services/map-services';
 import { Input } from '../input';
 import { LuDatabase } from 'react-icons/lu';
+import { WiStars } from "react-icons/wi";
 import toast from 'react-hot-toast';
 import { ChatWithAI } from '../chat-with-ai';
-import { AiOutlineLoading3Quarters } from 'react-icons/ai';
-import { signOut, useSession } from 'next-auth/react';
+import { AiOutlineLoading3Quarters, AiOutlineSisternode } from 'react-icons/ai';
+import { signOut } from 'next-auth/react';
 import MapMenu from './map-menu';
 import AnimatedLoadingScreen from '../loading-animation-screen';
 import { StylePanel } from './style-panel';
@@ -83,6 +84,7 @@ export default function MapLayout({
         style: false,
         addLayer: false,
         aiChat: false,
+        node_workspace: false,
     });
     const [isLoading, setIsLoading] = useState<MapIsLoading>({
         initLoading: true,
@@ -689,6 +691,26 @@ export default function MapLayout({
                         <div className='flex gap-3 items-center'>
                             <TooltipProvider>
                                 <Tooltip>
+                                    <TooltipTrigger onClick={() => signOut()}>
+                                        <BiLogOutCircle size={"13pt"} />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Logout</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger onClick={() => setDisplayLayouts({ ...displayLayouts, aiChat: true })}>
+                                        <WiStars size={"13pt"} />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>AI Chat</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                                <Tooltip>
                                     <TooltipTrigger>
                                         <BiCollapse size={"13pt"} onClick={collapseAll} />
                                     </TooltipTrigger>
@@ -699,11 +721,11 @@ export default function MapLayout({
                             </TooltipProvider>
                             <TooltipProvider>
                                 <Tooltip>
-                                    <TooltipTrigger onClick={() => signOut()}>
-                                        <Folder size={"13pt"} />
+                                    <TooltipTrigger onClick={() => setDisplayLayouts({ ...displayLayouts, node_workspace: true })}>
+                                        <AiOutlineSisternode size={"13pt"} />
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                        <p>Datasets</p>
+                                        <p>Node Workspaces</p>
                                     </TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
@@ -840,9 +862,6 @@ export default function MapLayout({
                         <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white'>
                             <div>
                                 <p className='font-semibold mb-2 text-sm'>AI Helper</p>
-                                <p className='font-semibold'>
-                                    {selectedLayer.name}
-                                </p>
                             </div>
                             <Button variant={"link"} onClick={() => {
                                 setDisplayLayouts({ ...displayLayouts, aiChat: false })
@@ -881,12 +900,18 @@ export default function MapLayout({
                     </Popover>
                 </div>
             </div>
-
-            <div className='absolute top-0 h-screen w-screen left-0 rounded p-5 z-10'>
-                <div className='bg-white w-full h-full p-5'>
-                    <FlowDiagramWithDraggableNodes />
+            {displayLayouts.node_workspace && (
+                <div className='absolute top-0 h-screen w-screen left-0 rounded p-5 z-10'>
+                    <div className='bg-white w-full h-full p-5'>
+                        <div className='absolute flex top-0 right-0'>
+                            <Button variant={"ghost"} className='rounded-full p-3' onClick={(e) => { setDisplayLayouts({ ...displayLayouts, node_workspace: false }) }}>
+                                <X size={20} />
+                            </Button>
+                        </div>
+                        <FlowDiagramWithDraggableNodes />
+                    </div>
                 </div>
-            </div>
+            )}
             {displayLayouts.addLayer && (
                 <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm'>
                     <div className='bg-white h-full lg:max-h-screen lg:w-1/2 rounded-lg p-5'>
