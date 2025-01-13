@@ -778,7 +778,7 @@ export default function MapLayout({
                                                     <input
                                                         value={layer.name}
                                                         onChange={handleChangeLayerName(index)}
-                                                        className="font-medium text-blue-700 bg-transparent border-none focus:outline-none focus:ring-0"
+                                                        className="font-medium bg-transparent border-none focus:outline-none focus:ring-0"
                                                     />
 
                                                 </AccordionTrigger>

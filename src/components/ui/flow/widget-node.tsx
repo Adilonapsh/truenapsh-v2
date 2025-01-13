@@ -1,13 +1,14 @@
-import { ListOrdered } from "lucide-react";
+import { GitBranchIcon, ListOrdered } from "lucide-react";
 import { Input } from "../input";
 import { ChartBar, Database, FileInputIcon, FileOutput, Filter, MapIcon } from 'lucide-react'
 
-import { HiOutlineCursorClick } from "react-icons/hi";
-import { MdJoinFull } from "react-icons/md";
+import { HiOutlineCursorClick, HiSwitchHorizontal } from "react-icons/hi";
+import { MdJoinFull, MdLoop } from "react-icons/md";
 import { IoSwapVerticalOutline } from "react-icons/io5";
 import { Position } from "@xyflow/react";
 import { FaObjectGroup } from "react-icons/fa6";
 import { TbNumber123 } from "react-icons/tb";
+import { BiGitBranch } from "react-icons/bi";
 
 export const widgets = {
     "Flow": [
@@ -19,6 +20,12 @@ export const widgets = {
         { id: "map", type: 'map', label: 'Map', icon: MapIcon, color: 'yellow', handleSource: Position.Right, handleTarget: Position.Left, action: 'map' },
         { id: "database", type: 'database', label: 'Database', icon: Database, color: 'purple', handleSource: Position.Right, handleTarget: Position.Left, action: 'database' },
         { id: "analytics", type: 'analytics', label: 'Analytics', icon: ChartBar, color: 'indigo', handleSource: Position.Right, handleTarget: Position.Left, action: 'analytics' },
+    ],
+    "Operation":[
+        { id: "forloop", type: 'forloop', label: 'Loop', icon: MdLoop, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'forloop' },
+        { id: "ifelse", type: 'ifelse', label: 'If Else', icon: BiGitBranch, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'ifelse' },
+        { id: "while", type: 'while', label: 'While', icon: MdLoop, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'while' },
+        { id: "switch", type: 'switch', label: 'Switch', icon: HiSwitchHorizontal, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'switch' },
     ],
     "Data Preparation": [
         { id: "select", type: 'select', label: 'Select', icon: HiOutlineCursorClick, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'select' },

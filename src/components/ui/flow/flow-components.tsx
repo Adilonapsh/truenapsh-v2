@@ -139,7 +139,7 @@ function FlowDiagram() {
                     type,
                     position,
                     data: {
-                        label: `${nodeData.label.charAt(0).toUpperCase() + type.slice(1)}`,
+                        label: `${nodeData.label}`,
                         desc: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
                         action: nodeData.action,
                     },
@@ -161,24 +161,23 @@ function FlowDiagram() {
     }, [rfInstance]);
 
     const onRun = async () => {
-        // if (isRunning) {
-        //     setIsRunning(false);
-        //     const flow = rfInstance.toObject();
-        //     flow.edges.forEach((elem, index) => {
-        //         setTimeout(() => {
-        //             setEdges((eds) =>
-        //                 eds.map((edge) =>
-        //                     edge.id === elem.id ? { ...edge, animated: false } : edge
-        //                 )
-        //             );
-        //         }, 5000 * (index + 1)); // Adjust timeout based on index for staggered animation stop
-        //     });
-        // } else {
-        //     setIsRunning(true);
-        //     setEdges((eds) => eds.map((edge) => ({ ...edge, animated: true })));
-        // }
-        const flow = rfInstance.toObject();
-        console.log(convertToWorkflow(flow.nodes, flow.edges));
+        if (isRunning) {
+            setIsRunning(false);
+            const flow = rfInstance.toObject();
+            console.log(convertToWorkflow(flow.nodes, flow.edges));
+            flow.edges.forEach((elem, index) => {
+                setTimeout(() => {
+                    setEdges((eds) =>
+                        eds.map((edge) =>
+                            edge.id === elem.id ? { ...edge, animated: false } : edge
+                        )
+                    );
+                }, 5000 * (index + 1)); // Adjust timeout based on index for staggered animation stop
+            });
+        } else {
+            setIsRunning(true);
+            setEdges((eds) => eds.map((edge) => ({ ...edge, animated: true })));
+        }
     };
 
     const onDragStart = (event: DragEvent, nodeType: string, nodeData: any) => {
