@@ -84,7 +84,7 @@ export default function MapLayout({
         style: false,
         addLayer: false,
         aiChat: false,
-        node_workspace: false,
+        node_workspace: true,
     });
     const [isLoading, setIsLoading] = useState<MapIsLoading>({
         initLoading: true,
@@ -616,6 +616,15 @@ export default function MapLayout({
             }
         );
     }
+
+    const handleChangeLayerName = (event, index) => {
+        const layerIndex = layers[index];
+        if (layerIndex) {
+            const updatedLayers = [...layers];
+            updatedLayers[index] = { ...updatedLayers[index], name: event.target.value };
+            setLayers(updatedLayers);
+        }
+    }
     // END TOOL FUNCTIONS
 
     const handleOnSave = () => {
@@ -765,7 +774,14 @@ export default function MapLayout({
                                         <AccordionItem className='border-none' value={layer.id}>
                                             <div className='flex items-center gap-2'>
                                                 <IconLayerType layer={layer} />
-                                                <AccordionTrigger className='hover:no-underline text-sm py-2 w-64 capitalize'>{layer.name}</AccordionTrigger>
+                                                <AccordionTrigger className='hover:no-underline text-sm py-2 w-64 capitalize'>
+                                                    <input
+                                                        value={layer.name}
+                                                        onChange={handleChangeLayerName(index)}
+                                                        className="font-medium text-blue-700 bg-transparent border-none focus:outline-none focus:ring-0"
+                                                    />
+
+                                                </AccordionTrigger>
                                             </div>
                                             <AccordionContent className='text-xs border-none'>
                                                 <div className='flex justify-center gap-1 px-1'>

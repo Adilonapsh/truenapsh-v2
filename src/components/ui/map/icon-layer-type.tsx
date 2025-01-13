@@ -3,7 +3,7 @@ import React from 'react'
 import { BiGlobe } from 'react-icons/bi'
 import { FaVectorSquare } from 'react-icons/fa6'
 
-function IconLayerType({ layer, size = "13pt" }: { layer: Layer, size: string }) {
+function IconLayerType({ layer, size = "13pt" }: { layer: Layer, size?: string }) {
     return (
         <div>
             {(layer.map_service_vendor === 'Geoserver' || layer.map_service_vendor === 'ArcGIS') ? (

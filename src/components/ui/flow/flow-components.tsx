@@ -13,6 +13,8 @@ import {
     useEdgesState,
     ReactFlowProvider,
     useReactFlow,
+    XYPosition,
+    BackgroundVariant,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { nodeTypes } from './custom-nodes'
@@ -32,6 +34,7 @@ import {
 import { SaveIcon, StopCircle, Trash2Icon } from 'lucide-react'
 import { Button } from '../button'
 import { MdElectricBolt } from 'react-icons/md'
+import { convertToWorkflow } from '@/tools/flow-tools'
 
 
 // const nodeTypes = {
@@ -52,6 +55,7 @@ const initialNodes: Node[] = [
             label: 'Import Data',
             desc: "",
             is_loading: true,
+            action: "import",
         },
         position: { x: 250, y: 25 },
     },
@@ -66,16 +70,17 @@ export default function FlowDiagramWithDraggableNodes() {
 }
 
 function FlowDiagram() {
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
-    const [edges, setEdges, onEdgesChange] = useEdgesState([])
-    const [selectedNode, setSelectedNode] = useState<Node | null>(null)
-    const reactFlowWrapper = useRef<HTMLDivElement>(null)
+    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+    const reactFlowWrapper = useRef<HTMLDivElement>(null);
     const [rfInstance, setRfInstance] = useState(null);
     const [isRunning, setIsRunning] = useState(false);
-    const reactFlowInstance = useReactFlow()
+    const reactFlowInstance = useReactFlow();
+    const { getIntersectingNodes } = useReactFlow();
 
     const onConnect = useCallback(
-        (params) => setEdges((eds) => addEdge(params, eds)),
+        (params) => setEdges((eds) => addEdge({ ...params, type: 'smoothstep' }, eds)),
         [setEdges]
     )
 
@@ -91,7 +96,8 @@ function FlowDiagram() {
 
             const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect()
             const type = event.dataTransfer.getData('application/reactflow')
-
+            const nodeData = JSON.parse(event.dataTransfer.getData('application/nodedata'));
+            console.log(nodeData);
             if (typeof type === 'undefined' || !type || !reactFlowBounds) {
                 return
             }
@@ -101,14 +107,44 @@ function FlowDiagram() {
                 y: event.clientY - reactFlowBounds.top,
             })
 
-            const newNode: Node = {
-                id: Date.now().toString(),
-                type,
-                position,
-                data: {
-                    label: `${type.charAt(0).toUpperCase() + type.slice(1)}`,
-                    desc: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
-                },
+
+            let newNode: Node;
+            if (type === 'group-node') {
+                newNode = {
+                    id: `group-node-${Date.now()}`,
+                    type,
+                    position,
+                    data: {
+                        label: `${nodeData.label.charAt(0).toUpperCase() + type.slice(1)}`,
+                        desc: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+                        onGroupNameChange: (newName: string) => {
+                            setNodes((nds) =>
+                                nds.map((node) =>
+                                    node.id === newNode.id
+                                        ? { ...node, data: { ...node.data, label: newName } }
+                                        : node
+                                )
+                            );
+                        },
+                    },
+                    style: {
+                        width: 400,
+                        height: 300,
+                    },
+                    zIndex: 0,
+                };
+            } else {
+                newNode = {
+                    id: Date.now().toString(),
+                    type,
+                    position,
+                    data: {
+                        label: `${nodeData.label.charAt(0).toUpperCase() + type.slice(1)}`,
+                        desc: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+                        action: nodeData.action,
+                    },
+                    zIndex: 1,
+                };
             }
 
             setNodes((nds) => nds.concat(newNode))
@@ -125,28 +161,113 @@ function FlowDiagram() {
     }, [rfInstance]);
 
     const onRun = async () => {
-        if (isRunning) {
-            setIsRunning(false);
-            const flow = rfInstance.toObject();
-            flow.edges.forEach((elem, index) => {
-                setTimeout(() => {
-                    setEdges((eds) =>
-                        eds.map((edge) =>
-                            edge.id === elem.id ? { ...edge, animated: false } : edge
-                        )
-                    );
-                }, 5000 * (index + 1)); // Adjust timeout based on index for staggered animation stop
-            });
-        } else {
-            setIsRunning(true);
-            setEdges((eds) => eds.map((edge) => ({ ...edge, animated: true })));
-        }
+        // if (isRunning) {
+        //     setIsRunning(false);
+        //     const flow = rfInstance.toObject();
+        //     flow.edges.forEach((elem, index) => {
+        //         setTimeout(() => {
+        //             setEdges((eds) =>
+        //                 eds.map((edge) =>
+        //                     edge.id === elem.id ? { ...edge, animated: false } : edge
+        //                 )
+        //             );
+        //         }, 5000 * (index + 1)); // Adjust timeout based on index for staggered animation stop
+        //     });
+        // } else {
+        //     setIsRunning(true);
+        //     setEdges((eds) => eds.map((edge) => ({ ...edge, animated: true })));
+        // }
+        const flow = rfInstance.toObject();
+        console.log(convertToWorkflow(flow.nodes, flow.edges));
     };
 
-    const onDragStart = (event: DragEvent, nodeType: string) => {
+    const onDragStart = (event: DragEvent, nodeType: string, nodeData: any) => {
         event.dataTransfer.setData('application/reactflow', nodeType)
+        event.dataTransfer.setData('application/nodedata', JSON.stringify(nodeData))
         event.dataTransfer.effectAllowed = 'move'
     }
+
+    const onNodeDrag = useCallback((_: MouseEvent, node: Node) => {
+        // const intersections = getIntersectingNodes(node).map((n) => n.id);
+        // setNodes((ns) => {
+        //     const updatedNodes = ns.map((n) => {
+        //         console.log(intersections.find((id) => ns.find((n) => n.id === id)));
+        //         return ({
+        //             ...n,
+        //             // parentId: intersections.find((id) => ns.find((n) => n.id === id)?.type === 'group-node'),
+        //             className: intersections.includes(n.id) ? 'highlight' : '',
+        //         });
+        //     });
+        //     console.log('Updated nodes:', ns);
+        //     console.log(intersections);
+        //     return updatedNodes;
+        // });
+    }, []);
+
+    const updateNodePosition = (nodeToUpdate: Node, newPosition: XYPosition, newParent?: string) => {
+        setNodes((prevNodes) =>
+            prevNodes.map((n) =>
+                n.id === nodeToUpdate.id
+                    ? {
+                        ...n,
+                        position: newPosition,
+                        parentNode: newParent,
+                        extent: newParent ? 'parent' : undefined,
+                        zIndex: n.type === 'group-node' ? 0 : 1,
+                    }
+                    : n
+            )
+        );
+    };
+
+    const onNodeDragStop = useCallback((event, node, allNodes) => {
+        const groups = allNodes.filter((n) => n.type === 'group-node');
+        let newParentGroup = null;
+
+        for (const group of groups) {
+            if (group.id === node.id) continue;
+
+            const groupBounds = {
+                left: group.position.x,
+                right: group.position.x + (group.style?.width as number || 0),
+                top: group.position.y,
+                bottom: group.position.y + (group.style?.height as number || 0),
+            };
+
+            const nodeCenter = {
+                x: node.position.x + (node.width || 0) / 2,
+                y: node.position.y + (node.height || 0) / 2,
+            };
+
+            if (
+                nodeCenter.x >= groupBounds.left &&
+                nodeCenter.x <= groupBounds.right &&
+                nodeCenter.y >= groupBounds.top &&
+                nodeCenter.y <= groupBounds.bottom
+            ) {
+                newParentGroup = group;
+                break;
+            }
+        }
+
+        if (newParentGroup) {
+            const newPosition = {
+                x: node.position.x - newParentGroup.position.x,
+                y: node.position.y - newParentGroup.position.y,
+            };
+            updateNodePosition(node, newPosition, newParentGroup.id);
+        } else if (node.parentNode) {
+            // If the node was in a group but is now outside, update its position to absolute coordinates
+            const parentNode = allNodes.find((n) => n.id === node.parentNode);
+            if (parentNode) {
+                const newPosition = {
+                    x: parentNode.position.x + node.position.x,
+                    y: parentNode.position.y + node.position.y,
+                };
+                updateNodePosition(node, newPosition);
+            }
+        }
+    }, [setNodes]);
 
     const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
         setSelectedNode(node)
@@ -182,6 +303,8 @@ function FlowDiagram() {
                     edges={edges}
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
+                    onNodeDrag={onNodeDrag}
+                    onNodeDragStop={onNodeDragStop}
                     onInit={setRfInstance}
                     onConnect={onConnect}
                     onDragOver={onDragOver}
@@ -191,7 +314,7 @@ function FlowDiagram() {
                     connectionLineType={ConnectionLineType.SmoothStep}
                     fitView
                 >
-                    <Background />
+                    <Background variant={BackgroundVariant.Dots} />
                     <Controls />
                     <MiniMap />
                 </ReactFlow>

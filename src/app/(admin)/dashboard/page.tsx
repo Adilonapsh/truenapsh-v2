@@ -17,6 +17,7 @@ export default async function DashboardPage() {
     try {
         projects = await get()
     } catch (err) {
+        console.log(err);
     }
 
     return (

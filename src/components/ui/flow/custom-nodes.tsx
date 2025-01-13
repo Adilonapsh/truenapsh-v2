@@ -1,8 +1,9 @@
-import { Handle } from '@xyflow/react';
-import { Trash2, Copy } from 'lucide-react';
+import { Handle, NodeResizer } from '@xyflow/react';
+import { Trash2, Copy, FolderOpen } from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
 import { widgets } from './widget-node';
 import { LoadingBar } from '../loading-bar';
+import { useCallback, useState } from 'react';
 
 const handleStyle = { width: 10, height: 10 };
 
@@ -44,30 +45,62 @@ const NodeWrapper = ({
     </div>
 );
 
+export function GroupNode({ data, selected }) {
+    const [groupName, setGroupName] = useState(data.label);
+
+    const onGroupNameChange = useCallback((evt) => {
+        setGroupName(evt.target.value);
+        data.onGroupNameChange(evt.target.value);
+    }, [data]);
+
+    return (
+        <>
+            <NodeResizer minWidth={400} minHeight={200} isVisible={selected} />
+            <div className="bg-blue-50/50 border-2 border-dashed border-blue-200 rounded-lg p-4 w-full h-full" style={{ zIndex: 0 }}>
+                <div className="flex items-center gap-2 mb-2">
+                    <FolderOpen className="w-5 h-5 text-blue-500" />
+                    <input
+                        value={groupName}
+                        onChange={onGroupNameChange}
+                        className="font-medium text-blue-700 bg-transparent border-none focus:outline-none focus:ring-0"
+                    />
+                </div>
+            </div>
+        </>
+    );
+}
+
 export const nodeTypes = Object.values(widgets).flat().reduce((acc, widget) => {
     acc[widget.type] = (props) => {
-        return (
-            <NodeWrapper borderColor={`border-${widget.color}-500`} {...props}>
-                {widget.handleTarget ? (
-                    <Handle type="target" position={widget.handleTarget} style={handleStyle} />
-                ) : ""}
-                {widget.handleSource ? (
-                    <Handle type="source" position={widget.handleSource} style={handleStyle} />
-                ) : ""}
-                {props?.data?.is_loading ? (
-                    <div className='absolute top-0 left-0 h-1 w-full'>
-                        <LoadingBar className='w-full h-[0.11rem]' color={widget.color} indeterminate />
+        const type = props.type;
+        if (type.includes("-node")) {
+            if (type.includes("group")){
+                return <GroupNode {...props} />;
+            }
+        } else {
+            return (
+                <NodeWrapper borderColor={`border-${widget.color}-500`} {...props}>
+                    {widget.handleTarget ? (
+                        <Handle type="target" position={widget.handleTarget} style={handleStyle} />
+                    ) : ""}
+                    {widget.handleSource ? (
+                        <Handle type="source" position={widget.handleSource} style={handleStyle} />
+                    ) : ""}
+                    {props?.data?.is_loading ? (
+                        <div className='absolute top-0 left-0 h-1 w-full'>
+                            <LoadingBar className='w-full h-[0.11rem]' color={widget.color} indeterminate />
+                        </div>
+                    ) : ""}
+                    <div className="flex items-center">
+                        <widget.icon className={`mr-2 text-${widget.color}-500`} size={24} />
+                        <div>
+                            <div className="font-bold text-sm">{props.data.label}</div>
+                            <div className="font-normal text-sm">{props.data.desc}</div>
+                        </div>
                     </div>
-                ) : ""}
-                <div className="flex items-center">
-                    <widget.icon className={`mr-2 text-${widget.color}-500`} size={24} />
-                    <div>
-                        <div className="font-bold text-sm">{props.data.label}</div>
-                        <div className="font-normal text-sm">{props.data.desc}</div>
-                    </div>
-                </div>
-            </NodeWrapper>
-        );
+                </NodeWrapper>
+            );
+        }
     };
     return acc;
 }, {});

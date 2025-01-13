@@ -10,25 +10,28 @@ import { FaObjectGroup } from "react-icons/fa6";
 import { TbNumber123 } from "react-icons/tb";
 
 export const widgets = {
+    "Flow": [
+        { id: "group-node", type: 'group-node', label: 'Group Node', icon: FaObjectGroup, color: 'blue', handleSource: Position.Right, handleTarget: null },
+    ],
     "Input/Output": [
-        { id: "import", type: 'import', label: 'Import', icon: FileInputIcon, color: 'blue', handleSource: Position.Right, handleTarget: null },
-        { id: "export", type: 'export', label: 'Export', icon: FileOutput, color: 'green', handleSource: null, handleTarget: Position.Left },
-        { id: "map", type: 'map', label: 'Map', icon: MapIcon, color: 'yellow', handleSource: Position.Right, handleTarget: Position.Left },
-        { id: "database", type: 'database', label: 'Database', icon: Database, color: 'purple', handleSource: Position.Right, handleTarget: Position.Left },
-        { id: "analytics", type: 'analytics', label: 'Analytics', icon: ChartBar, color: 'indigo', handleSource: Position.Right, handleTarget: Position.Left },
+        { id: "import", type: 'import', label: 'Import', icon: FileInputIcon, color: 'blue', handleSource: Position.Right, handleTarget: null, action: 'import' },
+        { id: "export", type: 'export', label: 'Export', icon: FileOutput, color: 'green', handleSource: null, handleTarget: Position.Left, action: 'export' },
+        { id: "map", type: 'map', label: 'Map', icon: MapIcon, color: 'yellow', handleSource: Position.Right, handleTarget: Position.Left, action: 'map' },
+        { id: "database", type: 'database', label: 'Database', icon: Database, color: 'purple', handleSource: Position.Right, handleTarget: Position.Left, action: 'database' },
+        { id: "analytics", type: 'analytics', label: 'Analytics', icon: ChartBar, color: 'indigo', handleSource: Position.Right, handleTarget: Position.Left, action: 'analytics' },
     ],
     "Data Preparation": [
-        { id: "select", type: 'select', label: 'Select', icon: HiOutlineCursorClick, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left },
-        { id: "order-by", type: 'order-by', label: 'Order', icon: ListOrdered, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left },
-        { id: "limit", type: 'limit', label: 'Limit', icon: IoSwapVerticalOutline, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left },
-        { id: "filter", type: 'filter', label: 'Filter', icon: Filter, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left },
-        { id: "join", type: 'join', label: 'Join', icon: MdJoinFull, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left },
-        { id: "group-by", type: 'group-by', label: 'Group', icon: FaObjectGroup, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left },
-        { id: "count", type: 'count', label: 'Count', icon: TbNumber123, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left },
+        { id: "select", type: 'select', label: 'Select', icon: HiOutlineCursorClick, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'select' },
+        { id: "order-by", type: 'order-by', label: 'Order', icon: ListOrdered, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'order-by' },
+        { id: "limit", type: 'limit', label: 'Limit', icon: IoSwapVerticalOutline, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'limit' },
+        { id: "filter", type: 'filter', label: 'Filter', icon: Filter, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'filter' },
+        { id: "join", type: 'join', label: 'Join', icon: MdJoinFull, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'join' },
+        { id: "group-by", type: 'group-by', label: 'Group', icon: FaObjectGroup, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'group-by' },
+        { id: "count", type: 'count', label: 'Count', icon: TbNumber123, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'count' },
     ]
 }
 
-export function WidgetNode({ onDragStart }: { onDragStart: (event: DragEvent<Element>, nodeType: string) => void }) {
+export function WidgetNode({ onDragStart }: { onDragStart: (event: DragEvent<Element>, nodeType: string, nodeData: any) => void }) {
 
 
     return (
@@ -49,7 +52,7 @@ export function WidgetNode({ onDragStart }: { onDragStart: (event: DragEvent<Ele
                                     <div
                                         key={widget.id}
                                         className="bg-gray-50 cursor-move h-10 w-10 border flex flex-col items-center justify-center rounded-lg"
-                                        onDragStart={(event) => onDragStart(event, widget.type)}
+                                        onDragStart={(event) => onDragStart(event, widget.type, widget)}
                                         draggable
                                     >
                                         <widget.icon className={`text-${widget.color}-500`} size={20} />
