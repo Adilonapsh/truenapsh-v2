@@ -10,43 +10,42 @@ function convertToWorkflow(nodes: any[], edges: any[]) {
 
     console.log("Start Node : ", startNode);
     // Rekursi untuk membangun workflow
-    const traverseWorkflow = (nodeId: string, prevOutput = null): any => {
-        const node = nodeMap[nodeId];
+    const traverseWorkflow = (nodeId, edges, nodes, prevOutput = null) => {
+        const node = nodes.find((node) => node.id === nodeId);
         if (!node) return null;
 
         // Masukkan output dari node sebelumnya sebagai input
         node.data.input = prevOutput;
 
         // Proses data berdasarkan action
-        let output = null;
-        output = processActions(node.data.action)
-
-        console.log("output: ", output)
+        const output = processActions(node.data.action);
+        console.log(output);
 
         // Simpan output ke node
         node.data.output = output;
 
-        // Cari node berikutnya
-        const nextEdge = edges.find((edge) => edge.source === nodeId);
-        if (nextEdge) {
-            return {
-                action: node.data.action,
-                input: node.data.input,
-                output: node.data.output,
-                next: traverseWorkflow(nextEdge.target, output),
-            };
-        }
+        // Periksa apakah node ini bercabang
+        const isBranched = isNodeBranched(nodeId, edges);
+
+        // Ambil semua cabang
+        const branches = getBranches(nodeId, edges);
+
+        // Traversal untuk semua cabang (jika bercabang)
+        const next = branches.map((targetId) =>
+            traverseWorkflow(targetId, edges, nodes, output)
+        );
 
         return {
+            id: node.id,
             action: node.data.action,
             input: node.data.input,
             output: node.data.output,
+            branched: isBranched,
+            next: next.length > 0 ? next : null,
         };
     };
 
-    console.log("Transverse :", traverseWorkflow(startNode.id))
-
-    return traverseWorkflow(startNode.id);
+    return traverseWorkflow(startNode.id, edges, nodes);
 }
 
 
@@ -94,6 +93,21 @@ const processActions = (action: string) => {
     }
     return output;
 }
+
+const isNodeBranched = (nodeId, edges) => {
+    // Hitung jumlah edges yang memiliki source sesuai nodeId
+    const outgoingEdges = edges.filter((edge) => edge.source === nodeId);
+    return outgoingEdges.length > 1; // True jika lebih dari 1 edge
+};
+
+// Fungsi untuk mengambil semua cabang dari sebuah node
+const getBranches = (nodeId, edges) => {
+    // Ambil semua target node yang terhubung dari source nodeId
+    return edges
+        .filter((edge) => edge.source === nodeId)
+        .map((edge) => edge.target);
+};
+
 
 export {
     convertToWorkflow
