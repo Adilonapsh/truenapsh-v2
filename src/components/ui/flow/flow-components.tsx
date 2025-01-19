@@ -95,7 +95,8 @@ function FlowDiagram() {
                 },
                 data: {
                     ...nodeToClone.data,
-                    label: `${nodeToClone.data.label} (Copy)`,
+                    label: `${nodeToClone.data.label}`,
+                    is_loading: false,
                     onDuplicateNode: () => duplicateNode(id),
                     onDeleteNode: () => deleteNode(id),
                     onRunNode: () => runNode(id),
@@ -193,6 +194,7 @@ function FlowDiagram() {
                         onDeleteNode: () => deleteNode(id),
                         onRunNode: () => runNode(id),
                         metadata: {},
+                        is_loading: false,
 
                     },
                     zIndex: 1,
