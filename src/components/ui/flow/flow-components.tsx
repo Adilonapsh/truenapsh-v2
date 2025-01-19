@@ -24,7 +24,6 @@ import {
     Card,
     CardContent,
 } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import {
     Tabs,
     TabsContent,
@@ -35,6 +34,7 @@ import { SaveIcon, StopCircle, Trash2Icon } from 'lucide-react'
 import { Button } from '../button'
 import { MdElectricBolt } from 'react-icons/md'
 import { convertToWorkflow } from '@/tools/flow-tools'
+import SettingActions from './settings-actions'
 
 
 // const nodeTypes = {
@@ -45,8 +45,6 @@ import { convertToWorkflow } from '@/tools/flow-tools'
 //     filter: FilterNode,
 //     analytics: AnalyticsNode,
 // }
-
-
 const initialNodes: Node[] = [
     {
         id: '1',
@@ -59,7 +57,7 @@ const initialNodes: Node[] = [
         },
         position: { x: 250, y: 25 },
     },
-]
+];
 
 export default function FlowDiagramWithDraggableNodes() {
     return (
@@ -77,7 +75,7 @@ function FlowDiagram() {
     const [rfInstance, setRfInstance] = useState(null);
     const [isRunning, setIsRunning] = useState(false);
     const reactFlowInstance = useReactFlow();
-    const { getIntersectingNodes } = useReactFlow();
+    // const { getIntersectingNodes } = useReactFlow();
 
     const onConnect = useCallback(
         (params) => setEdges((eds) => addEdge({ ...params, type: 'smoothstep' }, eds)),
@@ -343,27 +341,10 @@ function FlowDiagram() {
                                                     <Trash2Icon size={15} />
                                                 </button>
                                             </div>
-
-                                            <div>
-                                                <label htmlFor="nodeLabel" className="mr-2 text-xs">Label:</label>
-                                                <Input
-                                                    id="nodeLabel"
-                                                    type="text"
-                                                    value={selectedNode?.data?.label}
-                                                    onChange={(e) => updateNodeProperties({ label: e.target.value })}
-                                                    className="border rounded"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label htmlFor="nodeLabel" className="mr-2 text-xs">Description:</label>
-                                                <Input
-                                                    id="nodeLabel"
-                                                    type="text"
-                                                    value={selectedNode?.data?.desc}
-                                                    onChange={(e) => updateNodeProperties({ desc: e.target.value })}
-                                                    className="border rounded"
-                                                />
-                                            </div>
+                                            <SettingActions
+                                                selectedNode={selectedNode}
+                                                updateNodeProperties={updateNodeProperties}
+                                            />
                                         </div>
                                     )}
                                 </CardContent>

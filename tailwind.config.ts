@@ -91,7 +91,7 @@ export default {
 
 	safelist: [
     {
-      pattern: /(blue|green|yellow|purple|indigo)-500/,
+      pattern: /(blue|green|yellow|purple|indigo|red)-500/,
     },
   ],
 } satisfies Config;

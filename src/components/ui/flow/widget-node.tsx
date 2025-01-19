@@ -1,4 +1,4 @@
-import { GitBranchIcon, ListOrdered } from "lucide-react";
+import { Link, ListOrdered } from "lucide-react";
 import { Input } from "../input";
 import { ChartBar, Database, FileInputIcon, FileOutput, Filter, MapIcon } from 'lucide-react'
 
@@ -20,8 +20,9 @@ export const widgets = {
         { id: "map", type: 'map', label: 'Map', icon: MapIcon, color: 'yellow', handleSource: Position.Right, handleTarget: Position.Left, action: 'map' },
         { id: "database", type: 'database', label: 'Database', icon: Database, color: 'purple', handleSource: Position.Right, handleTarget: Position.Left, action: 'database' },
         { id: "analytics", type: 'analytics', label: 'Analytics', icon: ChartBar, color: 'indigo', handleSource: Position.Right, handleTarget: Position.Left, action: 'analytics' },
+        { id: "http-request", type: 'http-request', label: 'Http Request', icon: Link, color: 'red', handleSource: Position.Right, handleTarget: null, action: 'http-request' },
     ],
-    "Operation":[
+    "Operation": [
         { id: "forloop", type: 'forloop', label: 'Loop', icon: MdLoop, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'forloop' },
         { id: "ifelse", type: 'ifelse', label: 'If Else', icon: BiGitBranch, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'ifelse' },
         { id: "while", type: 'while', label: 'While', icon: MdLoop, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'while' },
@@ -39,8 +40,6 @@ export const widgets = {
 }
 
 export function WidgetNode({ onDragStart }: { onDragStart: (event: DragEvent<Element>, nodeType: string, nodeData: any) => void }) {
-
-
     return (
         <div>
             <div className="mb-5">

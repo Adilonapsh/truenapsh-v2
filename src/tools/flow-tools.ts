@@ -67,6 +67,9 @@ const processActions = (action: string) => {
         case "analytics":
             output = "Analytics action";
             break;
+        case "http-request":
+            output = "Analytics action";
+            break;
         case "select":
             output = "Select data";
             break;
