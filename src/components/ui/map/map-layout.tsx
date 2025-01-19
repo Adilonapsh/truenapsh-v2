@@ -967,8 +967,8 @@ export default function MapLayout({
                         <div className='h-full p-5'>
                             <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-5">
                                 <div className='flex flex-col justify-center items-center gap-1 w-auto'>
-                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "Upload" ? "bg-gray-900 dark:bg-slate-800" : ""}`} onClick={() => setAddLayerSetings({ active: "Upload" })}><UploadIcon />Upload</Button>
-                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "WMS Service" ? "bg-gray-900 dark:bg-slate-800" : ""}`} onClick={() => setAddLayerSetings({ active: "WMS Service" })}><UploadIcon />WMS Service</Button>
+                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "Upload" ? "bg-gray-900 text-white dark:bg-slate-800" : ""}`} onClick={() => setAddLayerSetings({ active: "Upload" })}><UploadIcon />Upload</Button>
+                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "WMS Service" ? "bg-gray-900 text-white dark:bg-slate-800" : ""}`} onClick={() => setAddLayerSetings({ active: "WMS Service" })}><UploadIcon />WMS Service</Button>
                                 </div>
                                 <div className='w-full'>
                                     <h5 className='font-bold text-lg'>Upload with URL</h5>
@@ -992,7 +992,7 @@ export default function MapLayout({
                                     <hr className='my-5' />
                                 </div>
                             </div>
-                            <div className='h-[550px]'>
+                            <div className='h-[60%]'>
                                 {(addLayerSettings.active == "WMS Service") ? (
                                     <div className='h-full w-full'>
                                         <div className='h-full w-full overflow-auto bg-white border p-5 mb-5 rounded-lg dark:bg-background'>
@@ -1014,7 +1014,7 @@ export default function MapLayout({
                                                     ))}
                                                 </div>
                                             )}
-                                            {datasetProperties?.map_service_vendor == "ArcGIS" && datasetResult?.length === 0 && (
+                                            {datasetProperties?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
                                                 <div>
                                                     <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
                                                 </div>

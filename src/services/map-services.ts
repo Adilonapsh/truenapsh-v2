@@ -1,6 +1,7 @@
 // import { Layer, Location, MapServiceVendor, WMSParams } from "@/types/map.types";
 
 import { GetAllLayers, Layer, MapServiceVendor, ParsedLayer, WMSParams } from "@/types/map.types";
+import { v4 } from "uuid";
 
 const fetchGeoserverLayerBbox = async (url: string, layerId: string) => {
     const urls = `${url}?service=WMS&version=1.3.0&request=GetCapabilities`;
@@ -343,7 +344,7 @@ const transfromEsriServicesToFolder = async (url: string) => {
         if (services) {
             generateservices = services.map((service: any, j: number) => {
                 return {
-                    id: `${service.name}-${j}`,
+                    id: v4(),
                     name: service.name.replaceAll("_", " ").split("/")[1],
                     type: service.type,
                     children: null,
@@ -354,7 +355,7 @@ const transfromEsriServicesToFolder = async (url: string) => {
                 };
             });
             return {
-                id: `${name}-${i}`,
+                id: v4(),
                 name: name.replaceAll("_", " "),
                 type: "folder",
                 children: generateservices ? [...generateservices] : [],
