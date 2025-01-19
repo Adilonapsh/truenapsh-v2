@@ -40,6 +40,9 @@ export const widgets = {
 }
 
 export function WidgetNode({ onDragStart }: { onDragStart: (event: DragEvent<Element>, nodeType: string, nodeData: any) => void }) {
+
+    
+
     return (
         <div>
             <div className="mb-5">

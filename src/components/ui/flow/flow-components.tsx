@@ -35,6 +35,7 @@ import { Button } from '../button'
 import { MdElectricBolt } from 'react-icons/md'
 import { convertToWorkflow } from '@/tools/flow-tools'
 import SettingActions from './settings-actions'
+import { v4 as uuidv4 } from 'uuid';
 
 
 // const nodeTypes = {
@@ -78,6 +79,53 @@ function FlowDiagram() {
     const reactFlowInstance = useReactFlow();
     // const { getIntersectingNodes } = useReactFlow();
 
+    // ONE NODE
+    const duplicateNode = useCallback((nodeId: string) => {
+        setNodes((nds) => {
+            const nodeToClone = nds.find((n) => n.id === nodeId);
+            console.log("old Node", nodeToClone);
+            if (!nodeToClone) return nds;
+            const id = uuidv4();
+            const newNode = {
+                ...nodeToClone,
+                id: id,
+                position: {
+                    x: nodeToClone.position.x + 50,
+                    y: nodeToClone.position.y + 50,
+                },
+                data: {
+                    ...nodeToClone.data,
+                    label: `${nodeToClone.data.label} (Copy)`,
+                    onDuplicateNode: () => duplicateNode(id),
+                    onDeleteNode: () => deleteNode(id),
+                    onRunNode: () => runNode(id),
+                },
+            };
+
+            console.log("Duplicated", newNode);
+
+            return [...nds, newNode];
+        });
+    }, [setNodes]);
+
+    const deleteNode = useCallback((nodeId: string) => {
+        console.log("Ini Node ID", nodeId);
+        setNodes((nds) => nds.filter((node) => node.id !== nodeId));
+        setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+    }, [setNodes, setEdges]);
+
+    const runNode = useCallback((nodeId: string) => {
+        console.log("Run", nodeId);
+        const node = nodes.find((n) => n.id === nodeId);
+        if (node) {
+            console.log(`Running node ${nodeId}:`, node.data);
+            alert(`Node ${nodeId} (${node.data.label}) is running!`);
+        }
+    }, [nodes]);
+
+    // END ONE NODE
+
+
     const onConnect = useCallback(
         (params) => setEdges((eds) => addEdge({ ...params, type: 'smoothstep' }, eds)),
         [setEdges]
@@ -92,7 +140,6 @@ function FlowDiagram() {
         (event: DragEvent) => {
 
             event.preventDefault()
-
             const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect()
             const type = event.dataTransfer.getData('application/reactflow')
             const nodeData = JSON.parse(event.dataTransfer.getData('application/nodedata'));
@@ -109,7 +156,7 @@ function FlowDiagram() {
             let newNode: Node;
             if (type === 'group-node') {
                 newNode = {
-                    id: `group-node-${Date.now()}`,
+                    id: `group-node-${uuidv4()}`,
                     type,
                     position,
                     data: {
@@ -133,15 +180,20 @@ function FlowDiagram() {
                     zIndex: 0,
                 };
             } else {
+                const id = uuidv4();
                 newNode = {
-                    id: Date.now().toString(),
+                    id,
                     type,
                     position,
                     data: {
                         label: `${nodeData.label}`,
                         desc: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
                         action: nodeData.action,
+                        onDuplicateNode: () => duplicateNode(id),
+                        onDeleteNode: () => deleteNode(id),
+                        onRunNode: () => runNode(id),
                         metadata: {},
+
                     },
                     zIndex: 1,
                 };
@@ -286,13 +338,15 @@ function FlowDiagram() {
         }
     }, [selectedNode, setNodes])
 
-    const deleteNode = useCallback(() => {
+    const deleteNodes = useCallback(() => {
         if (selectedNode) {
             setNodes((nds) => nds.filter((node) => node.id !== selectedNode.id))
             setEdges((eds) => eds.filter((edge) => edge.source !== selectedNode.id && edge.target !== selectedNode.id))
             setSelectedNode(null)
         }
     }, [selectedNode, setNodes, setEdges])
+
+
 
     return (
         <div className="relative flex h-full">
@@ -339,7 +393,7 @@ function FlowDiagram() {
                                         <div>
                                             <div className='flex justify-between items-center'>
                                                 <h3 className="text-xs font-semibold">Node Properties</h3>
-                                                <button onClick={deleteNode} className="text-red-500 hover:text-red-700">
+                                                <button onClick={deleteNodes} className="text-red-500 hover:text-red-700">
                                                     <Trash2Icon size={15} />
                                                 </button>
                                             </div>

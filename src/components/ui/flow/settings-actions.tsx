@@ -87,14 +87,14 @@ function SettingActions({
                                     <Input
                                         id={input.id}
                                         type={input.type}
-                                        value={selectedNode.data?.metadata[input.id]}
+                                        value={selectedNode.data?.metadata[input.id] ?? ""}
                                         onChange={(e) => handleInputChange(e.target.value, input.id)}
                                         className="border rounded"
                                     />
 
                                 ) : (
                                     // <Select onValueChange={(e) => console.log(e) }>
-                                    <Select value={selectedNode.data?.metadata[input.id]} onValueChange={(e) => handleInputChange(e, input.id)}>
+                                    <Select value={selectedNode.data?.metadata[input.id] ?? ""} onValueChange={(e) => handleInputChange(e, input.id)}>
                                         <SelectTrigger className="w-full">
                                             <SelectValue placeholder={`Select ${input.label}`} />
                                         </SelectTrigger>
