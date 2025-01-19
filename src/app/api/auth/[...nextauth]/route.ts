@@ -1,5 +1,5 @@
 import { encrypt } from "@/lib/crypt";
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 export const authOptions = {
@@ -46,7 +46,7 @@ export const authOptions = {
             // console.log("Ini User Token", token);
             return token;
         },
-        async session({ session, token }) {
+        async session({ session, token }: { session: any; token: any }) {
             // console.log("Ini Token :", token);
             session.user = {
                 ...token,
@@ -59,15 +59,15 @@ export const authOptions = {
         },
     },
     pages: {
-        signIn: "/auth/signin",
-        error: "/auth/error",
+        signIn: "/auth/login",
+        error: "/auth/login",
     },
     debug: true,
     secret: process.env.NEXTAUTH_SECRET,
     session: {
         strategy: "jwt",
     },
-};
+} satisfies NextAuthOptions;
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

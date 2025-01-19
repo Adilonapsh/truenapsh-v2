@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Toggle } from "@/components/ui/toggle"
-import { Layer, MapboxLayerStyle } from "@/types/map.types"
+import { Layer, LayoutDisplay, MapboxLayerStyle } from "@/types/map.types"
 import { BiGlobe } from "react-icons/bi"
 import { FaVectorSquare } from "react-icons/fa6"
 import IconLayerType from "./icon-layer-type"
@@ -37,11 +37,10 @@ export function StylePanel(
         onBrightnessChange,
         onZoomChange,
         onOpacityChange,
-        displayLayouts,
         setDisplayLayouts,
         setSelectedLayer,
     }: {
-        selectedLayer: Layer
+        selectedLayer: Layer | null
         values: MapboxLayerStyle,
         setValues: React.Dispatch<React.SetStateAction<MapboxLayerStyle>>,
         onFillChange: (fill: string) => void,
@@ -52,9 +51,8 @@ export function StylePanel(
         onBrightnessChange: (brightness: number[]) => void,
         onZoomChange: (brightness: number[]) => void,
         onOpacityChange: (opacity: number) => void,
-        displayLayouts: object,
-        setDisplayLayouts: React.Dispatch<React.SetStateAction<object>>
-        setSelectedLayer: React.Dispatch<React.SetStateAction<Layer>>
+        setDisplayLayouts: React.Dispatch<React.SetStateAction<LayoutDisplay>>
+        setSelectedLayer: React.Dispatch<React.SetStateAction<Layer | null>>
     }) {
     return (
         <Card className="w-[320px] shadow-lg text-sm overflow-hidden">
@@ -65,12 +63,12 @@ export function StylePanel(
                     </div>
                     <div>
                         <p className="text-lg font-medium">Styles</p>
-                        <p className="text-xs">{selectedLayer.name}</p>
+                        <p className="text-xs">{selectedLayer?.name}</p>
                     </div>
                 </CardTitle>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
                     setSelectedLayer(null);
-                    setDisplayLayouts({ ...displayLayouts, style: false })
+                    setDisplayLayouts((prev) => ({ ...prev, style: false }));
                 }}>
                     <X className="h-4 w-4" />
                 </Button>
@@ -148,7 +146,7 @@ export function StylePanel(
                         <span className="w-12 text-right text-sm">{values.opacity}</span>
                     </div>
                     <Slider
-                        value={[values.opacity]}
+                        value={[values.opacity ?? 100]}
                         max={100}
                         step={1}
                         className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
@@ -212,7 +210,7 @@ export function StylePanel(
                         <span className="w-12 text-right text-sm">{values.stroke_width}</span>
                     </div>
                     <Slider
-                        value={[values.stroke_width]}
+                        value={[values.stroke_width ?? 100]}
                         max={100}
                         step={1}
                         className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
@@ -228,7 +226,7 @@ export function StylePanel(
                         <span className="w-12 text-right text-sm">{values.contrast}</span>
                     </div>
                     <Slider
-                        value={[values.contrast]}
+                        value={[values.contrast ?? 1]}
                         max={1}
                         min={-1}
                         step={0.001}
@@ -245,7 +243,7 @@ export function StylePanel(
                         <span className="w-12 text-right text-sm">{values.saturation}</span>
                     </div>
                     <Slider
-                        value={[values.saturation]}
+                        value={[values.saturation ?? 1]}
                         max={1}
                         min={-1}
                         step={0.001}
@@ -259,10 +257,10 @@ export function StylePanel(
                 <div className="grid gap-2">
                     <div className="flex items-center justify-between">
                         <Label className="text-xs">Brightness</Label>
-                        <span className="w-24 text-right text-sm">{values.brightness[0]} - {values.brightness[1]}</span>
+                        <span className="w-24 text-right text-sm">{values.brightness?.[0] ?? 0} - {values.brightness?.[1] ?? 1}</span>
                     </div>
                     <Slider
-                        value={values.brightness}
+                        value={values.brightness ?? [0, 1]}
                         min={0}
                         max={1}
                         step={0.001}
@@ -279,25 +277,26 @@ export function StylePanel(
                         <div className="flex items-center gap-2">
                             <Input
                                 type="number"
-                                value={values.zoom[0]}
+                                value={values.zoom?.[0] ?? 24}
                                 className="h-8 w-16"
                                 max={24}
                                 min={0}
                                 onChange={(e) => {
-                                    setValues({ ...values, zoom: [Number(e.target.value), values.zoom[1]] })
-                                    onZoomChange([Number(e.target.value), values.zoom[1]])
+                                    const newZoom = Number(e.target.value);
+                                    setValues({ ...values, zoom: [newZoom, values.zoom?.[1] ?? newZoom] });
+                                    onZoomChange([newZoom, values.zoom?.[1] ?? newZoom]);
                                 }}
                             />
                             <span>-</span>
                             <Input
                                 type="number"
-                                value={values.zoom[1]}
+                                value={values.zoom?.[1] ?? 24}
                                 className="h-8 w-16"
                                 max={24}
                                 min={0}
                                 onChange={(e) => {
-                                    setValues({ ...values, zoom: [values.zoom[0], Number(e.target.value)] })
-                                    onZoomChange([values.zoom[0], Number(e.target.value)])
+                                    setValues({ ...values, zoom: [values.zoom?.[0] ?? 24, Number(e.target.value)] })
+                                    onZoomChange([values.zoom?.[0] ?? 24, Number(e.target.value)])
                                 }}
                             />
                         </div>

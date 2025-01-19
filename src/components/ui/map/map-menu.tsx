@@ -28,10 +28,10 @@ function MapMenu(
     }:
         {
             children?: React.ReactNode
-            onNewTab?: void
-            onNewWindow?: void
-            onSave?: void
-            onShare?: void
+            onNewTab?: () => void
+            onNewWindow?:() =>  void
+            onSave?: () => void
+            onShare?:() =>  void
         }
 ) {
     const handleOnNewTab = () => {

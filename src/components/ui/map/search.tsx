@@ -34,7 +34,7 @@ const Search: React.FC<SearchMapProps> = ({ onSearch }) => {
 
     return (
         <div className=''>
-            <div className='flex items-center bg-white rounded-lg p-2 gap-1'>
+            <div className='flex items-center bg-white rounded-lg p-2 gap-1 dark:bg-background'>
                 <Input type='text' placeholder='Search for places or coordinates' className='border-none w-64 transition-all duration-500 ease-out'
                     value={search}
                     onChange={(e) => setSearch(e.currentTarget.value)}
@@ -51,10 +51,10 @@ const Search: React.FC<SearchMapProps> = ({ onSearch }) => {
                 </Button>
             </div>
             <div id='search-lists' className={`${(isInputFocused && listsPlaces.length != 0) ? 'block' : 'hidden'} mt-2 transition-all`}>
-                <div className='flex flex-col gap-2 bg-white rounded-lg p-2 max-h-[calc(100vh-9rem)] overflow-y-auto'>
+                <div className='flex flex-col gap-2 bg-white rounded-lg p-2 max-h-[calc(100vh-9rem)] overflow-y-auto dark:bg-background'>
                     {
                         listsPlaces && listsPlaces.map((place, index) => (
-                            <div key={index} className='p-2 hover:bg-slate-100 max-w-80 text-xs' onClick={() => {
+                            <div key={index} className='p-2 hover:bg-slate-100 max-w-80 text-xs dark:hover:bg-accent' onClick={() => {
                                 handleGoToLocation(index)
                             }}>
                                 {place.fullName}-{place.address}
