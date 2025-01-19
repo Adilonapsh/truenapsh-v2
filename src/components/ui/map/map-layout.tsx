@@ -69,6 +69,8 @@ import MapMenu from './map-menu';
 import AnimatedLoadingScreen from '../loading-animation-screen';
 import { StylePanel } from './style-panel';
 import IconLayerType from './icon-layer-type';
+import DirectoryTreeView from '../tree-view';
+import TreeDirectory from '../tree-view';
 
 export default function MapLayout({
     layersFetch
@@ -577,7 +579,6 @@ export default function MapLayout({
         }
     }
 
-
     const handleDatasets = async () => {
         const datasets = await getWMSServices(datasetProperties.url, datasetProperties.map_service_vendor);
         setDatasetResult(datasets);
@@ -591,7 +592,7 @@ export default function MapLayout({
         selectedDatasets.forEach(dataset => {
             const layerId = Math.random().toString(36).substring(7) + "_" + Date.now();
             const layerName = dataset.title;
-            const mapServiceUrl = datasetProperties.url;
+            const mapServiceUrl = dataset.url ? dataset.url : datasetProperties.url;
             const mapServiceLayerName = dataset.name;
             const mapServiceVendor = datasetProperties.map_service_vendor;
             const type = "2D";
@@ -664,7 +665,7 @@ export default function MapLayout({
                         const GEOSERVER_WMS_PARAMETER = "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
                         url = layer.map_service_url + GEOSERVER_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
                     } else if (layer.map_service_vendor == "ArcGIS") {
-                        const ESRI_WMS_PARAMETER = "/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image"
+                        const ESRI_WMS_PARAMETER = "/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=500,500&format=png&transparent=true&f=image"
                         url = layer.map_service_url + ESRI_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
                     }
                     if (!map.getLayer(layer.id)) {
@@ -904,7 +905,7 @@ export default function MapLayout({
             </div>
             {displayLayouts.addLayer && (
                 <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm'>
-                    <div className='bg-white h-full lg:max-h-screen lg:w-1/2 rounded-lg p-5'>
+                    <div className='relative h-full bg-white lg:max-h-screen lg:w-1/2 rounded-lg p-5'>
                         <div className='flex justify-between items-center'>
                             <div>
                                 <p className='font-semibold'>Add Layer</p>
@@ -914,34 +915,38 @@ export default function MapLayout({
                                 <IoClose size={"13pt"} />
                             </Button>
                         </div>
-                        <div className='p-5'>
+                        <div className='h-full p-5'>
                             <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-5">
-                                <div className='flex flex-col gap-1 w-auto'>
+                                <div className='flex flex-col justify-center items-center gap-1 w-auto'>
                                     <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "Upload" ? "bg-gray-900 text-white" : ""}`} onClick={() => setAddLayerSetings({ active: "Upload" })}><UploadIcon />Upload</Button>
                                     <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "WMS Service" ? "bg-gray-900 text-white" : ""}`} onClick={() => setAddLayerSetings({ active: "WMS Service" })}><UploadIcon />WMS Service</Button>
                                 </div>
+                                <div className='w-full'>
+                                    <h5 className='font-bold text-lg'>Upload with URL</h5>
+                                    <hr className='my-5' />
+                                    <p className='text-sm'>WMS Service URL</p>
+                                    <div className="flex flex-col gap-2 lg:flex-row items-center mb-2">
+                                        <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
+                                            <SelectTrigger className="w-full lg:w-[180px]">
+                                                <SelectValue defaultValue={"Geoserver"} placeholder="Select Map Vendor" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value={MapServiceVendor.GeoJSON}>Geoserver</SelectItem>
+                                                <SelectItem value={MapServiceVendor.ArcGIS}>ArcGIS</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
+                                    </div>
+                                    <div className='flex justify-end'>
+                                        <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
+                                    </div>
+                                    <hr className='my-5' />
+                                </div>
+                            </div>
+                            <div className='h-[550px]'>
                                 {(addLayerSettings.active == "WMS Service") ? (
-                                    <div className='w-full'>
-                                        <h5 className='font-bold text-lg'>Upload with URL</h5>
-                                        <hr className='my-5' />
-                                        <p className='text-sm'>WMS Service URL</p>
-                                        <div className="flex flex-col gap-2 lg:flex-row items-center mb-2">
-                                            <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
-                                                <SelectTrigger className="w-full lg:w-[180px]">
-                                                    <SelectValue defaultValue={"Geoserver"} placeholder="Select Map Vendor" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="Geoserver">Geoserver</SelectItem>
-                                                    <SelectItem value="Arcgis">Arcgis</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
-                                        </div>
-                                        <div className='flex justify-end'>
-                                            <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
-                                        </div>
-                                        <hr className='my-5' />
-                                        <div className='w-full max-h-96 overflow-auto bg-gray-100 border p-5 mb-5'>
+                                    <div className='h-full w-full'>
+                                        <div className='h-full w-full overflow-auto bg-white border p-5 mb-5 rounded-lg'>
                                             {datasetResult?.length === 0 && (
                                                 <div className="flex flex-col justify-center items-center">
                                                     <LuDatabase size={"30pt"} />
@@ -949,29 +954,34 @@ export default function MapLayout({
                                                     <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
                                                 </div>
                                             )}
-                                            <div className='grid grid-cols-4 gap-2'>
-                                                {datasetResult?.map((item, index) => (
-                                                    <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
-                                                        <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
-                                                        <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
-                                                        <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                            {datasetProperties?.map_service_vendor == "Geoserver" && (
+                                                <div className='grid grid-cols-4 gap-2'>
+                                                    {datasetResult?.map((item, index) => (
+                                                        <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
+                                                            <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
+                                                            <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
+                                                            <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {datasetProperties?.map_service_vendor == "ArcGIS" && (
+                                                <div>
+                                                    <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
+                                                </div>
+                                            )}
                                         </div>
                                         <div className='flex justify-end'>
                                             <Button className='float-right right-0' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
                                         </div>
                                     </div>
+
                                 ) : (
                                     <div className='w-full'>
                                         <h5 className='font-bold text-lg'>Upload Layer</h5>
                                         <hr className='my-5' />
                                     </div>
-                                )
-
-                                }
-
+                                )}
                             </div>
                         </div>
                     </div>

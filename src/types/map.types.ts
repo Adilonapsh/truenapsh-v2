@@ -106,6 +106,7 @@ type ParsedLayer = {
     title: string;
     legend: string | undefined | null;
     thumbnail: string | undefined | null;
+    url?: string | undefined | null;
     index?: number | undefined | null;
     id?: string | undefined | null;
 }

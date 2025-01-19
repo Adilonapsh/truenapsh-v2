@@ -38,7 +38,7 @@ const getFeatureInfo = async (e: mapboxgl.MapMouseEvent, layers: Layer | Layer[]
     const properties: Array<object> = [];
     const layerList = Array.isArray(layers) ? layers : [layers];
     for (const layer of layerList) {
-        if(layer.visible){
+        if (layer.visible) {
             if (layer.map_service_vendor === "Geoserver" || layer.map_service_vendor === "ArcGIS") {
                 if (layer.map_service_vendor === "Geoserver") {
                     const url = generateFeatureInfoURL(lat, lng, layer);
@@ -279,6 +279,8 @@ const getEsriServices = async (url: string) => {
     }
 }
 
+
+
 const getGeoserverServices = async (url: string) => {
     try {
         const urls = `${url.replace("/wms", "")}/ows?service=WMS&version=1.3.0&request=GetCapabilities`;
@@ -323,9 +325,44 @@ const getWMSServices = async (url: string, map_service_vendor: string) => {
     if (map_service_vendor == "Geoserver") {
         return getGeoserverServices(url);
     } else {
-        return getEsriServices(url);
+        const transform = await transfromEsriServicesToFolder(url);
+        console.log(transform);
+        return transform;
+        // return getEsriServices(url);
     }
 
+}
+
+const transfromEsriServicesToFolder = async (url: string) => {
+    let getFolder = await getEsriServices(url);
+    let folder = getFolder.folders;
+    let generateFolder = await Promise.all(folder.map(async (name: string, i: number) => {
+        let getServices = await getEsriServices(`${url}/${name}`);
+        let services = getServices.services;
+        let generateservices;
+        if (services) {
+            generateservices = services.map((service: any, j: number) => {
+                return {
+                    id: `${service.name}-${j}`,
+                    name: service.name.replaceAll("_", " ").split("/")[1],
+                    type: service.type,
+                    children: null,
+                    metadata: {
+                        type: service.type,
+                        url: `${url}${service.name}/${service.type}?f=json`
+                    }
+                };
+            });
+            return {
+                id: `${name}-${i}`,
+                name: name.replaceAll("_", " "),
+                type: "folder",
+                children: generateservices ? [...generateservices] : [],
+            };
+        }
+    }));
+    generateFolder = generateFolder.filter(folder => folder !== undefined);
+    return generateFolder;
 }
 
 export {
@@ -339,5 +376,6 @@ export {
     convertWMSToVectorData,
     //     getEsriLayers,
     //     getEsriServices,
+    transfromEsriServicesToFolder,
     getWMSServices,
 }
