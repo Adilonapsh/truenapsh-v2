@@ -105,6 +105,12 @@ export default function MapLayout({
             thumbnail: "/assets/basemap/Light.png"
         },
         {
+            id: "Mapbox Dark",
+            name: "Mapbox Dark",
+            url: "mapbox://styles/mapbox/dark-v11",
+            thumbnail: "/assets/basemap/Light.png"
+        },
+        {
             id: "Google Satellite",
             name: "Google Satellite",
             url: "http://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}&s=Ga",
@@ -705,8 +711,8 @@ export default function MapLayout({
                 </div>
             )}
             <div className='absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto'>
-                <div className='bg-white px-5 py-2 rounded w-80 text-sm'>
-                    <div className='flex justify-between items-center sticky top-0 py-2 bg-white'>
+                <div className='bg-white px-5 py-2 rounded w-80 text-sm dark:bg-background'>
+                    <div className='flex justify-between items-center sticky top-0 py-2 bg-white dark:bg-background'>
                         <h5 className='text-md font-bold'>Workspaces</h5>
                         <div className='flex gap-3 items-center'>
                             <TooltipProvider>
@@ -793,8 +799,8 @@ export default function MapLayout({
             </div>
             <div className='absolute top-0 right-0 p-5 text-xs min-w-96' id='layerInfo'>
                 {displayLayouts.layerInfo ?
-                    <div className='bg-white rounded-lg max-h-[calc(100vh-15rem)] max-w-xl overflow-auto'>
-                        <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white'>
+                    <div className='bg-white rounded-lg max-h-[calc(100vh-15rem)] max-w-xl overflow-auto dark:bg-background'>
+                        <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white dark:bg-background'>
                             <div>
                                 <p className='font-semibold mb-2 text-sm'>Layer Information</p>
                                 <p className='font-semibold'>
@@ -816,8 +822,8 @@ export default function MapLayout({
                                                 <tbody>
                                                     {Object.keys(layer.properties).map((body, i) => (
                                                         <tr key={i}>
-                                                            <th className='border border-gray-100 text-start text-wrap w-[100px] capitalize px-2 py-1'>{body}</th>
-                                                            <td className='border border-gray-100 text-wrap px-2'>{layer.properties[body as keyof typeof layer.properties]}</td>
+                                                            <th className='border border-accent text-start text-wrap w-[100px] capitalize px-2 py-1'>{body}</th>
+                                                            <td className='border border-accent text-wrap px-2'>{layer.properties[body as keyof typeof layer.properties]}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -858,8 +864,8 @@ export default function MapLayout({
             </div>
             <div className='absolute top-0 right-0 p-5 text-xs min-w-96'>
                 {displayLayouts.aiChat && (
-                    <div className='bg-white rounded-lg max-h-[calc(100vh-9rem)] overflow-y-auto'>
-                        <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white'>
+                    <div className='bg-white rounded-lg max-h-[calc(100vh-9rem)] overflow-y-auto dark:bg-background'>
+                        <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white dark:bg-background'>
                             <div>
                                 <p className='font-semibold mb-2 text-sm'>AI Helper</p>
                                 <p className='font-semibold'>
@@ -879,12 +885,12 @@ export default function MapLayout({
                 )}
             </div>
             <div className='absolute bottom-2 right-14 mb-5 ml-28'>
-                <div className='bg-white p-2 text-xs rounded-lg min-w-52 text-center'>
+                <div className='bg-white p-2 text-xs rounded-lg min-w-52 text-center dark:bg-background'>
                     {mousePosition?.lng.toFixed(9)}, {mousePosition?.lat.toFixed(9)}
                 </div>
             </div>
             <div className='absolute bottom-14 right-14 mb-5 ml-28'>
-                <div className='bg-white w-14 h-14 rounded-lg'>
+                <div className='bg-white w-14 h-14 rounded-lg dark:bg-background'>
                     <Popover>
                         <PopoverTrigger>
                             <div className='flex justify-center items-center h-full p-1'>
@@ -904,8 +910,8 @@ export default function MapLayout({
                 </div>
             </div>
             {displayLayouts.addLayer && (
-                <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm'>
-                    <div className='relative h-full bg-white lg:max-h-screen lg:w-1/2 rounded-lg p-5'>
+                <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm' >
+                    <div className='relative h-full bg-white lg:max-h-screen lg:w-1/2 rounded-lg p-5 dark:bg-background'>
                         <div className='flex justify-between items-center'>
                             <div>
                                 <p className='font-semibold'>Add Layer</p>
@@ -918,8 +924,8 @@ export default function MapLayout({
                         <div className='h-full p-5'>
                             <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-5">
                                 <div className='flex flex-col justify-center items-center gap-1 w-auto'>
-                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "Upload" ? "bg-gray-900 text-white" : ""}`} onClick={() => setAddLayerSetings({ active: "Upload" })}><UploadIcon />Upload</Button>
-                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "WMS Service" ? "bg-gray-900 text-white" : ""}`} onClick={() => setAddLayerSetings({ active: "WMS Service" })}><UploadIcon />WMS Service</Button>
+                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "Upload" ? "bg-gray-900 dark:bg-slate-800" : ""}`} onClick={() => setAddLayerSetings({ active: "Upload" })}><UploadIcon />Upload</Button>
+                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "WMS Service" ? "bg-gray-900 dark:bg-slate-800" : ""}`} onClick={() => setAddLayerSetings({ active: "WMS Service" })}><UploadIcon />WMS Service</Button>
                                 </div>
                                 <div className='w-full'>
                                     <h5 className='font-bold text-lg'>Upload with URL</h5>
@@ -946,9 +952,9 @@ export default function MapLayout({
                             <div className='h-[550px]'>
                                 {(addLayerSettings.active == "WMS Service") ? (
                                     <div className='h-full w-full'>
-                                        <div className='h-full w-full overflow-auto bg-white border p-5 mb-5 rounded-lg'>
+                                        <div className='h-full w-full overflow-auto bg-white border p-5 mb-5 rounded-lg dark:bg-background'>
                                             {datasetResult?.length === 0 && (
-                                                <div className="flex flex-col justify-center items-center">
+                                                <div className="h-full flex flex-col justify-center items-center">
                                                     <LuDatabase size={"30pt"} />
                                                     <p className='font-bold'>Theres no data to show yet.</p>
                                                     <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
@@ -965,7 +971,7 @@ export default function MapLayout({
                                                     ))}
                                                 </div>
                                             )}
-                                            {datasetProperties?.map_service_vendor == "ArcGIS" && (
+                                            {datasetProperties?.map_service_vendor == "ArcGIS" && datasetResult?.length === 0 && (
                                                 <div>
                                                     <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
                                                 </div>
