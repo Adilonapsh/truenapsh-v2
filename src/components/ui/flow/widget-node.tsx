@@ -50,7 +50,7 @@ export function WidgetNode({ onDragStart }: { onDragStart: (event: DragEvent<Ele
                     <div key={category} className="mb-4">
                         <div className="flex gap-1 items-center">
                             <h3 className="text-xs font-semibold mb-2">{category}</h3>
-                            <h3 className="text-xs font-semibold text-gray-600 mb-2">({widgets.length})</h3>
+                            <h3 className="text-xs font-semibold text-foreground mb-2">({widgets.length})</h3>
                         </div>
                         <div className="grid grid-cols-5 gap-2">
                             {widgets.map((widget) => (
@@ -63,7 +63,7 @@ export function WidgetNode({ onDragStart }: { onDragStart: (event: DragEvent<Ele
                                     >
                                         <widget.icon className={`text-${widget.color}-500`} size={20} />
                                     </div>
-                                    <span className="text-[8pt] text-center mt-1 text-gray-600">{widget.label}</span>
+                                    <span className="text-[8pt] text-center mt-1 text-foreground">{widget.label}</span>
                                 </div>
                             ))}
                         </div>

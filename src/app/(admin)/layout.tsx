@@ -30,7 +30,7 @@ export default function RootLayout({
 
 
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="light">
       <body
         className={`${workSans.variable} ${manRope.variable} antialiased`}
       >

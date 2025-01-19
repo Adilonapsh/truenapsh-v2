@@ -338,8 +338,8 @@ export default function MapLayout({
                     } else {
                         console.error("Full extent is not available in the response.");
                     }
-                }).catch((error) => {
-                    console.log("Map reference is not defined.");
+                }).catch((err) => {
+                    console.log("Map reference is not defined.", err);
                 });
         }
         setIsLoading({ ...isLoading, zoomToMap: false });
@@ -802,7 +802,7 @@ export default function MapLayout({
                                                 <AccordionTrigger className='hover:no-underline text-sm py-2 w-64 capitalize'>
                                                     <input
                                                         value={layer.name}
-                                                        onChange={handleChangeLayerName(index)}
+                                                        onChange={(e) => handleChangeLayerName(e, index)}
                                                         className="font-medium bg-transparent border-none focus:outline-none focus:ring-0"
                                                     />
                                                 </AccordionTrigger>

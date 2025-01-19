@@ -124,6 +124,7 @@ type LayoutDisplay = {
     style: boolean,
     addLayer: boolean,
     aiChat: boolean,
+    node_workspace: boolean,
 }
 
 export type {

@@ -54,6 +54,7 @@ const initialNodes: Node[] = [
             desc: "",
             is_loading: true,
             action: "import",
+            metadata: {}
         },
         position: { x: 250, y: 25 },
     },
@@ -95,7 +96,6 @@ function FlowDiagram() {
             const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect()
             const type = event.dataTransfer.getData('application/reactflow')
             const nodeData = JSON.parse(event.dataTransfer.getData('application/nodedata'));
-            console.log(nodeData);
             if (typeof type === 'undefined' || !type || !reactFlowBounds) {
                 return
             }
@@ -124,6 +124,7 @@ function FlowDiagram() {
                                 )
                             );
                         },
+                        metadata: {},
                     },
                     style: {
                         width: 400,
@@ -140,6 +141,7 @@ function FlowDiagram() {
                         label: `${nodeData.label}`,
                         desc: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
                         action: nodeData.action,
+                        metadata: {},
                     },
                     zIndex: 1,
                 };
@@ -159,22 +161,22 @@ function FlowDiagram() {
     }, [rfInstance]);
 
     const onRun = async () => {
-        if (isRunning) {
-            setIsRunning(false);
+        setIsRunning((prevIsRunning) => !prevIsRunning);
+        if (rfInstance) {
             const flow = rfInstance.toObject();
-            console.log(convertToWorkflow(flow.nodes, flow.edges));
-            flow.edges.forEach((elem, index) => {
-                setTimeout(() => {
-                    setEdges((eds) =>
-                        eds.map((edge) =>
-                            edge.id === elem.id ? { ...edge, animated: false } : edge
-                        )
-                    );
-                }, 5000 * (index + 1)); // Adjust timeout based on index for staggered animation stop
-            });
-        } else {
-            setIsRunning(true);
-            setEdges((eds) => eds.map((edge) => ({ ...edge, animated: true })));
+            if (isRunning) {
+                console.log(convertToWorkflow(flow.nodes, flow.edges));
+                setEdges((eds) => eds.map((edge) => ({ ...edge, animated: true })));
+                flow.edges.forEach((elem, index) => {
+                    setTimeout(() => {
+                        setEdges((eds) =>
+                            eds.map((edge) =>
+                                edge.id === elem.id ? { ...edge, animated: false } : edge
+                            )
+                        );
+                    }, 5000 * (index + 1));
+                });
+            }
         }
     };
 
@@ -355,8 +357,8 @@ function FlowDiagram() {
             </div>
             <div className='absolute right-0 text-black'>
                 <div className='flex gap-2'>
-                    <Button variant={"outline"} onClick={onSave}><SaveIcon /> Save</Button>
-                    <Button variant={"outline"} onClick={onRun}>
+                    <Button variant={"outline"} onClick={onSave} className='text-foreground'><SaveIcon /> Save</Button>
+                    <Button variant={"outline"} onClick={onRun} className='text-foreground'>
                         {
                             isRunning ? (
                                 <span className='flex items-center gap-1'>

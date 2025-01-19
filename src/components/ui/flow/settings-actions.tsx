@@ -10,9 +10,7 @@ import {
 import {
     Select,
     SelectContent,
-    SelectGroup,
     SelectItem,
-    SelectLabel,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
@@ -30,6 +28,16 @@ const settingsInputs: { [key: string]: any[] } = {
                 "DELETE"
             ]
         },
+    ],
+    "export": [
+        {
+            id: "type", label: "Type", type: "select", options: [
+                "CSV",
+                "JSON",
+                "GEOJSON",
+                "Excel",
+            ]
+        },
     ]
 }
 
@@ -41,6 +49,11 @@ function SettingActions({
     selectedNode: Node | null,
     updateNodeProperties: (node: Partial<Node>) => void
 }) {
+
+    const handleInputChange = (value: string, id: string) => {
+        console.log(value, id);
+        updateNodeProperties({ ...selectedNode.data, metadata: { ...selectedNode.data?.metadata, [id]: value } })
+    }
     return (
         <div>
             <div>
@@ -74,14 +87,14 @@ function SettingActions({
                                     <Input
                                         id={input.id}
                                         type={input.type}
-                                        value={selectedNode.data[input.id]}
-                                        onChange={(e) => updateNodeProperties({ [input.id]: e.target.value })}
+                                        value={selectedNode.data?.metadata[input.id]}
+                                        onChange={(e) => handleInputChange(e.target.value, input.id)}
                                         className="border rounded"
                                     />
 
                                 ) : (
                                     // <Select onValueChange={(e) => console.log(e) }>
-                                    <Select onValueChange={(e) => updateNodeProperties({ [input.id]: e })}>
+                                    <Select value={selectedNode.data?.metadata[input.id]} onValueChange={(e) => handleInputChange(e, input.id)}>
                                         <SelectTrigger className="w-full">
                                             <SelectValue placeholder={`Select ${input.label}`} />
                                         </SelectTrigger>

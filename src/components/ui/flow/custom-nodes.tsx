@@ -94,8 +94,8 @@ export const nodeTypes = Object.values(widgets).flat().reduce((acc, widget) => {
                     <div className="flex items-center">
                         <widget.icon className={`mr-2 text-${widget.color}-500`} size={24} />
                         <div>
-                            <div className="font-bold text-sm">{props.data.label}</div>
-                            <div className="font-normal text-sm">{props.data.desc}</div>
+                            <div className="font-bold text-sm text-black dark:text-white">{props.data.label}</div>
+                            <div className="font-normal text-sm text-black dark:text-white">{props.data.desc}</div>
                         </div>
                     </div>
                 </NodeWrapper>
