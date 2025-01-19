@@ -19,13 +19,8 @@ const searchPlaces = async (search: string, lang: string = "EN-en") => {
             if (search) {
                 const response = await fetch(
                     "/api/maps/location?" +
-                    new URLSearchParams({
-                        search,
-                        lang,
-                    }),
-                    {
-                        mode: "no-cors",
-                    }
+                    new URLSearchParams({ search, lang, }),
+                    { mode: "no-cors", }
                 );
                 const data = await response.json();
                 return data.data;

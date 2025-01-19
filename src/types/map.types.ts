@@ -1,4 +1,4 @@
-import { ColorSpecification, ExpressionSpecification, FunctionSpecification } from "mapbox-gl";
+import { ColorSpecification, ExpressionSpecification } from "mapbox-gl";
 import React from "react";
 import { MapRef } from "react-map-gl";
 
@@ -40,16 +40,18 @@ type Layer = {
     description?: string;
     map_service_url: string;
     map_service_layer_name: string;
-    map_service_vendor: MapServiceVendor;
+    map_service_vendor: MapServiceVendor | "Geoserver" | "ArcGIS" | "GeoJSON";
     type: string;
     visible: boolean;
     min_zoom?: number;
     max_zoom?: number;
     status?: string;
     metadata?: object;
+    rendered?: number;
 }
 
 enum MapServiceVendor {
+    Null = "",
     Geoserver = "Geoserver",
     ArcGIS = "ArcGIS",
     GeoJSON = "GeoJSON",
@@ -89,14 +91,14 @@ type Coordinate = [number, number];
 type BoundingBox = [Coordinate, Coordinate];
 
 type MapboxLayerStyle = {
-    opacity?: number;
-    fill?: string | ColorSpecification;
-    stroke?: string | ExpressionSpecification | FunctionSpecification<string>;
-    stroke_width?: number;
-    contrast?: number;
-    saturation?: number;
-    brightness?: number[];
-    zoom?: number[];
+    opacity?: number | undefined;
+    fill?: string | ColorSpecification | undefined;
+    stroke?: string | ColorSpecification | undefined;
+    stroke_width?: number | undefined;
+    contrast?: number | undefined;
+    saturation?: number | undefined;
+    brightness?: number[] | undefined;
+    zoom?: number[] | undefined;
 };
 
 type ParsedLayer = {
@@ -116,6 +118,13 @@ type InfoFeature = {
     properties: object;
 }
 
+type LayoutDisplay = {
+    layerInfo: boolean,
+    style: boolean,
+    addLayer: boolean,
+    aiChat: boolean,
+}
+
 export type {
     Place,
     Layer,
@@ -129,5 +138,6 @@ export type {
     LayerNode,
     GetAllLayers,
     InfoFeature,
+    LayoutDisplay,
 }
 export { MapServiceVendor };

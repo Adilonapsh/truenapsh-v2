@@ -30,7 +30,7 @@ export const DoubleRangeSlider: React.FC<DoubleRangeSliderProps> = ({
         min={min}
         max={max}
         step={step}
-        value={values}
+        value={values ?? 0}
         onValueChange={handleChange}
       >
         <Slider.Track className="relative bg-gray-200 rounded-full h-2 flex-1">

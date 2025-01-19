@@ -1,7 +1,7 @@
 "use client"
 import MapView from '@/components/ui/map-view'
 import Search from '@/components/ui/map/search';
-import { BoundingBox, InfoFeature, Layer, Location, MapboxLayerStyle, MapIsLoading, ParsedLayer, Place } from '@/types/map.types';
+import { BoundingBox, InfoFeature, Layer, LayoutDisplay, Location, MapboxLayerStyle, MapIsLoading, MapServiceVendor, ParsedLayer, Place } from '@/types/map.types';
 import { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
 import React, { useEffect, useRef, useState } from 'react'
 import { MapRef } from 'react-map-gl';
@@ -76,11 +76,11 @@ export default function MapLayout({
     layersFetch: Layer[]
 }) {
 
-    const mapRef = useRef<MapRef>(null);
+    const mapRef = useRef<MapRef | null>(null);
     const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
     const [mousePosition, setMousePosition] = useState<{ lat: number; lng: number } | null>(null);
     const [currentMapClick, setCurrentMapClick] = useState<Location | null>(null);
-    const [displayLayouts, setDisplayLayouts] = useState({
+    const [displayLayouts, setDisplayLayouts] = useState<LayoutDisplay>({
         layerInfo: false,
         style: false,
         addLayer: false,
@@ -127,7 +127,7 @@ export default function MapLayout({
         brightness: [0, 1],
         zoom: [0, 24],
     })
-    const [selectedLayer, setSelectedLayer] = useState<Layer>({})
+    const [selectedLayer, setSelectedLayer] = useState<Layer | null>(null)
     const [datasetProperties, setDatasetProperties] = useState({
         url: "",
         map_service_vendor: ""
@@ -208,14 +208,17 @@ export default function MapLayout({
 
     const handleMapClick = async (event: MapMouseEvent) => {
         setIsLoading({ ...isLoading, featureInfo: true })
-        const map = mapRef?.current?.getMap();
+        const map = mapRef.current?.getMap();
         const latLng: Location = event.lngLat;
         addOrUpdateMarker(latLng.lng, latLng.lat)
-        setCurrentMapClick({ lng: latLng.lng, lat: latLng.lat })
+        setCurrentMapClick({ lng: latLng.lng, lat: latLng.lat });
         setDisplayLayouts({ ...displayLayouts, layerInfo: true });
-        const info = await getFeatureInfo(event, selectedLayer.length > 0 ? selectedLayer : layers, map)
-        setInfoFeatures(info);
-        setIsLoading({ ...isLoading, featureInfo: false })
+        setInfoFeatures([]);
+        if (map) {
+            const info = await getFeatureInfo(event, selectedLayer ? selectedLayer : layers, map) as InfoFeature[];
+            setInfoFeatures(info);
+        }
+        setIsLoading({ ...isLoading, featureInfo: false });
     }
 
     const handleChangeBasemap = (index: number) => {
@@ -251,7 +254,7 @@ export default function MapLayout({
                 }
                 setActiveBasemap(index);
                 setTimeout(() => {
-                    setLayers(layers.map((layer, i) => i === 0 ? { ...layer, test: layer.test + 1 } : layer));
+                    setLayers(layers.map((layer, i) => i === 0 ? { ...layer, rendered: layer.rendered ? 0 + 1 : 1 } : layer));
                 }, 500);
             }
         }
@@ -353,10 +356,10 @@ export default function MapLayout({
         if (map && layerId) {
             const layer = map.getLayer(layerId) as LayerSpecification | undefined;
             if (layer) {
-                if (layer?.minzoom && layer?.maxzoom) {
+                if (layer.minzoom && layer.maxzoom) {
                     setMapboxLayerStyle((prev) => ({
                         ...prev,
-                        zoom: [parseInt(layer.minzoom), parseInt(layer.maxzoom)],
+                        zoom: [layer.minzoom ?? 0, layer.maxzoom ?? 24],
                     }));
                 }
 
@@ -391,10 +394,13 @@ export default function MapLayout({
                     const stroke = layer.paint[strokeKey] as DataDrivenPropertyValueSpecification<ColorSpecification> | undefined;
                     const outline = layer.paint[outlineKey] as DataDrivenPropertyValueSpecification<ColorSpecification> | undefined;
 
-                    setMapboxLayerStyle((prev) => ({
-                        ...prev,
-                        stroke: stroke ?? outline ?? "#000000",
-                    }));
+                    setMapboxLayerStyle((prev) => {
+                        const updatedStroke = stroke ?? outline ?? "#000000";
+                        return {
+                            ...prev,
+                            stroke: typeof updatedStroke === 'string' ? updatedStroke : undefined,
+                        };
+                    });
 
                     // handle brightness
                     const brightnessMinKey = `${layer.type}-brightness-min` as keyof typeof layer.paint;
@@ -496,15 +502,18 @@ export default function MapLayout({
 
     const setPaint = (paint_type: string, value: string | number) => {
         const map = mapRef?.current?.getMap();
-        const layerId = selectedLayer.id;
-        if (map && value) {
-            const type = map.getLayer(layerId)?.type
-            if (type) {
-                map.setPaintProperty(
-                    selectedLayer.id,
-                    type + paint_type,
-                    value
-                );
+        if (selectedLayer) {
+            const layerId = selectedLayer.id;
+            if (map && value) {
+                const type = map.getLayer(layerId)?.type
+                if (type) {
+                    const paintType = type + paint_type as keyof mapboxgl.PaintSpecification;
+                    map.setPaintProperty(
+                        selectedLayer.id,
+                        paintType,
+                        value
+                    );
+                }
             }
         }
     }
@@ -516,13 +525,15 @@ export default function MapLayout({
     }
     const setStroke = (value: string) => {
         const map = mapRef?.current?.getMap();
-        const layerId = selectedLayer.id;
-        const type = map.getLayer(layerId)?.type
-        setMapboxLayerStyle({ ...mapboxLayerStyle, stroke: value })
-        if (type == "fill") {
-            setPaint("-outline-color", value)
-        } else {
-            setPaint("-stroke-color", value)
+        if (selectedLayer && map) {
+            const layerId = selectedLayer.id;
+            const type = map.getLayer(layerId)?.type
+            setMapboxLayerStyle({ ...mapboxLayerStyle, stroke: value })
+            if (type == "fill") {
+                setPaint("-outline-color", value)
+            } else {
+                setPaint("-stroke-color", value)
+            }
         }
     }
     const setStrokeWidth = (value: number) => {
@@ -537,28 +548,32 @@ export default function MapLayout({
         setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: value })
         setPaint("-saturation", value)
     }
-    const setBrightness = (values: [number, number]) => {
+    const setBrightness = (values: number[]) => {
         setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: values })
         setPaint("-brightness-min", values[0])
         setPaint("-brightness-max", values[1])
     }
 
-    const handleZoomChange = (values: [number, number]) => {
+    const handleZoomChange = (values: number[]) => {
         setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: values })
         const map = mapRef?.current?.getMap();
-        const layerId = selectedLayer.id;
-        map?.setLayerZoomRange(layerId, values[0], values[1])
+        if (selectedLayer && map) {
+            const layerId = selectedLayer.id;
+            map.setLayerZoomRange(layerId, values[0], values[1])
+        }
     }
 
     const setOpacity = (value: number) => {
         const map = mapRef?.current?.getMap();
-        const layerId = selectedLayer.id;
-        const type = map?.getLayer(layerId)?.type
-        const val = parseInt(value, 10) / 100;
-        setMapboxLayerStyle({ ...mapboxLayerStyle, opacity: parseFloat(value) ?? 0 })
-        setPaint("-opacity", val)
-        if (type == "circle") {
-            setPaint("-stroke-opacity", val)
+        if (selectedLayer) {
+            const layerId = selectedLayer.id;
+            const type = map?.getLayer(layerId)?.type
+            const val = value / 100;
+            setMapboxLayerStyle({ ...mapboxLayerStyle, opacity: value ?? 0 })
+            setPaint("-opacity", val)
+            if (type == "circle") {
+                setPaint("-stroke-opacity", val)
+            }
         }
     }
 
@@ -591,30 +606,34 @@ export default function MapLayout({
                 description: "",
                 map_service_url: mapServiceUrl,
                 map_service_layer_name: mapServiceLayerName,
-                map_service_vendor: mapServiceVendor,
+                map_service_vendor: mapServiceVendor as MapServiceVendor,
                 type: type,
                 visible: visible,
                 min_zoom: minZoom,
                 max_zoom: maxZoom,
                 status: status,
-                test: 1
+                rendered: 1
             }]);
         });
         setSelectedDatasets([]);
     }
 
     const handleConvertToVector = async (layer: Layer) => {
-        const map = mapRef?.current?.getMap();
-        toast.promise(
-            convertWMSToVectorData(layer, map, layers).then(vectorLayer => {
-                setLayers(prevLayers => [...prevLayers, ...vectorLayer]);
-            }),
-            {
-                loading: 'Loading...',
-                success: 'Conversion successful.',
-                error: 'Error during conversion',
-            }
-        );
+        const map = mapRef.current?.getMap();
+        if (map) {
+            toast.promise(
+                convertWMSToVectorData(layer, map, layers).then(vectorLayer => {
+                    if (vectorLayer) {
+                        setLayers(prevLayers => [...prevLayers, ...vectorLayer]);
+                    }
+                }),
+                {
+                    loading: 'Loading...',
+                    success: 'Conversion successful.',
+                    error: 'Error during conversion',
+                }
+            );
+        }
     }
     // END TOOL FUNCTIONS
 
@@ -623,7 +642,7 @@ export default function MapLayout({
             setTimeout(() => {
                 const rand = Math.random();
                 if (rand > 0.5) {
-                    resolve();
+                    resolve(null);
                 }
                 reject();
             }, 2000);
@@ -744,7 +763,7 @@ export default function MapLayout({
                                     <SortableItem key={layer.id} id={layer.id}>
                                         <AccordionItem className='border-none' value={layer.id}>
                                             <div className='flex items-center gap-2'>
-                                                <IconLayerType layer={layer} />
+                                                <IconLayerType size='13pt' layer={layer} />
                                                 <AccordionTrigger className='hover:no-underline text-sm py-2 w-64 capitalize'>{layer.name}</AccordionTrigger>
                                             </div>
                                             <AccordionContent className='text-xs border-none'>
@@ -843,7 +862,7 @@ export default function MapLayout({
                             <div>
                                 <p className='font-semibold mb-2 text-sm'>AI Helper</p>
                                 <p className='font-semibold'>
-                                    {selectedLayer.name}
+                                    {selectedLayer?.name}
                                 </p>
                             </div>
                             <Button variant={"link"} onClick={() => {
@@ -923,7 +942,7 @@ export default function MapLayout({
                                         </div>
                                         <hr className='my-5' />
                                         <div className='w-full max-h-96 overflow-auto bg-gray-100 border p-5 mb-5'>
-                                            {datasetResult.length === 0 && (
+                                            {datasetResult?.length === 0 && (
                                                 <div className="flex flex-col justify-center items-center">
                                                     <LuDatabase size={"30pt"} />
                                                     <p className='font-bold'>Theres no data to show yet.</p>
@@ -931,7 +950,7 @@ export default function MapLayout({
                                                 </div>
                                             )}
                                             <div className='grid grid-cols-4 gap-2'>
-                                                {datasetResult.map((item, index) => (
+                                                {datasetResult?.map((item, index) => (
                                                     <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
                                                         <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
                                                         <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />

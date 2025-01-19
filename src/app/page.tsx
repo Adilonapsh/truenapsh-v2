@@ -179,7 +179,7 @@ export default function Home() {
                 </NavigationMenuItem>
               </NavigationMenuList>
             </NavigationMenu>
-            <button href="#" className="px-4 py-2 bg-black rounded-full text-white text-sm font-bold">Contact Us</button>
+            <button className="px-4 py-2 bg-black rounded-full text-white text-sm font-bold">Contact Us</button>
           </div>
         </div>
       </div>
@@ -201,7 +201,7 @@ export default function Home() {
           <p className="hidden lg:block">|</p>
           <p className="w-full lg:w-1/3 text-center lg:text-start">Explore New Horizons with a Trusted Mapping Platform, Proven to Help You Navigate, Discover, and Plan with Precision.</p>
           <p className="hidden lg:block">|</p>
-          <button href="#" className="px-5 py-3 bg-[#f6fbff] text-black text-sm font-bold">OUR SERVICES</button>
+          <button className="px-5 py-3 bg-[#f6fbff] text-black text-sm font-bold">OUR SERVICES</button>
         </div>
       </div>
       <div className="min-h-96 py-10">

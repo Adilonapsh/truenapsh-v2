@@ -32,43 +32,45 @@ const fetchGeoserverLayerBbox = async (url: string, layerId: string) => {
     }
 };
 
-const getFeatureInfo = async (e: mapboxgl.MapMouseEvent, layers: Layer | Layer[], mapRef: React.RefObject<mapboxgl.Map>) => {
+const getFeatureInfo = async (e: mapboxgl.MapMouseEvent, layers: Layer | Layer[], mapRef: mapboxgl.Map) => {
     const lat = e.lngLat.lat;
     const lng = e.lngLat.lng;
     const properties: Array<object> = [];
     const layerList = Array.isArray(layers) ? layers : [layers];
     for (const layer of layerList) {
-        if (layer.map_service_vendor === "Geoserver" || layer.map_service_vendor === "ArcGIS") {
-            if (layer.map_service_vendor === "Geoserver") {
-                const url = generateFeatureInfoURL(lat, lng, layer);
-                const response = await fetch(url);
-                const data = await response.json();
-                if (data.features.length > 0) {
-                    properties.push({
-                        layer_name: layer.name,
-                        properties: data.features[0].properties,
-                    });
+        if(layer.visible){
+            if (layer.map_service_vendor === "Geoserver" || layer.map_service_vendor === "ArcGIS") {
+                if (layer.map_service_vendor === "Geoserver") {
+                    const url = generateFeatureInfoURL(lat, lng, layer);
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    if (data.features.length > 0) {
+                        properties.push({
+                            layer_name: layer.name,
+                            properties: data.features[0].properties,
+                        });
+                    }
+                } else if (layer.map_service_vendor === "ArcGIS") {
+                    const url = generateFeatureInfoURL(lat, lng, layer);
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    if (data.results.length > 0) {
+                        properties.push({
+                            layer_name: layer.name,
+                            properties: data.results[0].attributes,
+                        });
+                    }
                 }
-            } else if (layer.map_service_vendor === "ArcGIS") {
-                const url = generateFeatureInfoURL(lat, lng, layer);
-                const response = await fetch(url);
-                const data = await response.json();
-                if (data.results.length > 0) {
-                    properties.push({
-                        layer_name: layer.name,
-                        properties: data.results[0].attributes,
-                    });
-                }
-            }
-        } else {
-            const selectedFeatures = mapRef.queryRenderedFeatures({
-                layers: [layer.map_service_layer_name],
-            });
-            if (selectedFeatures && selectedFeatures.length > 0) {
-                properties.push({
-                    layer_name: layer.name,
-                    properties: selectedFeatures[0].properties,
+            } else {
+                const selectedFeatures = mapRef.queryRenderedFeatures({
+                    layers: [layer.map_service_layer_name],
                 });
+                if (selectedFeatures && selectedFeatures.length > 0) {
+                    properties.push({
+                        layer_name: layer.name,
+                        properties: selectedFeatures[0].properties,
+                    });
+                }
             }
         }
     }
@@ -279,7 +281,7 @@ const getEsriServices = async (url: string) => {
 
 const getGeoserverServices = async (url: string) => {
     try {
-        const urls = `${url.replace("wms", "")}ows?service=WMS&version=1.3.0&request=GetCapabilities`;
+        const urls = `${url.replace("/wms", "")}/ows?service=WMS&version=1.3.0&request=GetCapabilities`;
         const response = await fetch(urls);
         const body = await response.text();
         const parser = new DOMParser();
@@ -309,9 +311,9 @@ const getGeoserverServices = async (url: string) => {
         return allLayers;
     } catch (err: unknown) {
         if (err instanceof Error) {
-            console.error("Error caught:", err.message);
+            console.log("Error caught:", err.message);
         } else {
-            console.error("Unknown error caught:", err);
+            console.log("Unknown error caught:", err);
         }
     }
 }
