@@ -2,7 +2,7 @@
 import MapView from '@/components/ui/map-view'
 import Search from '@/components/ui/map/search';
 import { BoundingBox, InfoFeature, Layer, LayoutDisplay, Location, MapboxLayerStyle, MapIsLoading, MapServiceVendor, ParsedLayer, Place } from '@/types/map.types';
-import { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
+import { ColorSpecification, DataDrivenPropertyValueSpecification, GeoJSONFeature, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
 import React, { useEffect, useRef, useState } from 'react'
 import { MapRef } from 'react-map-gl';
 import mapboxgl from 'mapbox-gl';
@@ -69,6 +69,9 @@ import { StylePanel } from './style-panel';
 import IconLayerType from './icon-layer-type';
 import FlowDiagramWithDraggableNodes from '../flow/flow-components';
 import TreeDirectory from '../tree-view';
+import { handleFileChosen } from '@/tools/map-tools';
+import { v4 } from 'uuid';
+import { map } from 'zod';
 
 export default function MapLayout({
     layersFetch
@@ -595,7 +598,7 @@ export default function MapLayout({
 
     const handleAddLayerToMap = async () => {
         selectedDatasets.forEach(dataset => {
-            const layerId = Math.random().toString(36).substring(7) + "_" + Date.now();
+            const layerId = v4();
             const layerName = dataset.title;
             const mapServiceUrl = dataset.url ? dataset.url : datasetProperties.url;
             const mapServiceLayerName = dataset.name;
@@ -709,9 +712,155 @@ export default function MapLayout({
         }
     }, [layers]);
 
+    const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+    };
+
+    const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        const file = event.dataTransfer.files;
+        try {
+            Array.from(file).forEach((fl) => {
+                if (fl.name.includes(".geojson")) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const data = JSON.parse(reader.result as string);
+                        handleAddUploadToMap({
+                            layerName: fl.name.split(".")[0],
+                            data: data
+                        })
+                    };
+                    return reader.readAsText(fl);
+                } else {
+                    throw new Error("Selected file is not a .geojson file");
+                }
+            });
+        } catch (err) {
+            console.log(err);
+            toast.error("Harap Masukkan File Geojson");
+        }
+    };
+
+    const handleAddUploadToMap = async ({ layerName, mapServiceUrl = "", layerCode = "", data }: { layerName: string, mapServiceUrl?: string, layerCode?: string, data: GeoJSON.GeoJSON }) => {
+        const layerId = v4();
+        const mapServiceLayerName = layerCode;
+        const mapServiceVendor = MapServiceVendor.GeoJSON;
+        const type = "2D";
+        const visible = true;
+        const minZoom = 0;
+        const maxZoom = 24;
+        const status = "Local";
+
+
+        const map = mapRef.current?.getMap();
+
+        const geometryTypes = [...new Set(data.features.map(feature => feature.geometry.type))];
+
+        if (map) {
+            map.addSource(layerId, {
+                type: 'geojson',
+                data: data,
+            })
+
+            if (geometryTypes.includes("Polygon") || geometryTypes.includes("MultiPolygon")) {
+                setLayers(prevLayers => [...prevLayers, {
+                    id: `${layerId}-fill`,
+                    name: layerName + " Polygon",
+                    description: "",
+                    map_service_url: mapServiceUrl,
+                    map_service_layer_name: mapServiceLayerName,
+                    map_service_vendor: mapServiceVendor as MapServiceVendor,
+                    type: type,
+                    visible: visible,
+                    min_zoom: minZoom,
+                    max_zoom: maxZoom,
+                    status: status,
+                    rendered: 1
+                }]);
+
+                map.addLayer({
+                    id: `${layerId}-fill`,
+                    type: "fill",
+                    source: layerId,
+                    minzoom: 0,
+                    maxzoom: 24,
+                    filter: ["in", "$type", "Polygon"],
+                    paint: {
+                        "fill-opacity": visible ? 0.5 : 0,
+                        "fill-color": "#627BC1"
+                    },
+                });
+            }
+            if (geometryTypes.includes("LineString") || geometryTypes.includes("MultiLineString")) {
+                setLayers(prevLayers => [...prevLayers, {
+                    id: `${layerId}-line`,
+                    name: layerName + " Linestring",
+                    description: "",
+                    map_service_url: mapServiceUrl,
+                    map_service_layer_name: mapServiceLayerName,
+                    map_service_vendor: mapServiceVendor as MapServiceVendor,
+                    type: type,
+                    visible: visible,
+                    min_zoom: minZoom,
+                    max_zoom: maxZoom,
+                    status: status,
+                    rendered: 1
+                }]);
+
+                map.addLayer({
+                    id: `${layerId}-line`,
+                    type: "line",
+                    source: layerId,
+                    minzoom: 0,
+                    maxzoom: 24,
+                    filter: ["in", "$type", "LineString"],
+                    paint: {
+                        "line-color": "#627BC1",
+                        "line-width": 2,
+                        "line-opacity": visible ? 1 : 0
+                    }
+                });
+            }
+            if (geometryTypes.includes("Point") || geometryTypes.includes("MultiPoint")) {
+                setLayers(prevLayers => [...prevLayers, {
+                    id: `${layerId}-point`,
+                    name: layerName + " Point",
+                    description: "",
+                    map_service_url: mapServiceUrl,
+                    map_service_layer_name: mapServiceLayerName,
+                    map_service_vendor: mapServiceVendor as MapServiceVendor,
+                    type: type,
+                    visible: visible,
+                    min_zoom: minZoom,
+                    max_zoom: maxZoom,
+                    status: status,
+                    rendered: 1
+                }]);
+                map.addLayer({
+                    id: `${layerId}-point`,
+                    type: "circle",
+                    source: layerId,
+                    minzoom: 0,
+                    maxzoom: 24,
+                    filter: ["in", "$type", "Point"],
+                    paint: {
+                        "circle-radius": 5,
+                        "circle-color": "#627BC1",
+                        "circle-opacity": visible ? 1 : 0
+                    }
+                });
+            }
+        }
+    }
+
 
     return (
-        <div className='relative h-dvh'>
+        <div
+            className='relative h-dvh'
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+        >
             <MapView mapRef={mapRef} onMouseMove={(event) => onMouseMove(event as MapMouseEvent)} onClick={(event) => handleMapClick(event as MapMouseEvent)} onLoad={onMapLoad} onStyleData={onStyleData} />
             {showLoading && (
                 <div className={`absolute top-0 h-screen w-screen flex justify-center items-center z-10 ${isLoading.initLoading ? "" : "opacity-0"} transition-all duration-500`}>

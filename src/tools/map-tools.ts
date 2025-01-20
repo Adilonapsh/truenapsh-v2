@@ -47,7 +47,8 @@ const isCoordinates = (str: string) => {
 }
 
 
+
 export {
     searchPlaces,
-    isCoordinates
+    isCoordinates,
 }

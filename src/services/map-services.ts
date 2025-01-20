@@ -64,7 +64,7 @@ const getFeatureInfo = async (e: mapboxgl.MapMouseEvent, layers: Layer | Layer[]
                 }
             } else {
                 const selectedFeatures = mapRef.queryRenderedFeatures({
-                    layers: [layer.map_service_layer_name],
+                    layers: [layer.id],
                 });
                 if (selectedFeatures && selectedFeatures.length > 0) {
                     properties.push({

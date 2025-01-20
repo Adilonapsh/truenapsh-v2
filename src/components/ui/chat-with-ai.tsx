@@ -9,7 +9,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { CopyIcon, Send, StopCircle } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle } from 'lucide-react'
-import { createPrompt } from '@/lib/promptTemplate'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw';
 import '../../app/css/markdownStyle.css';
@@ -30,7 +29,9 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ke
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
-
+        handleInputChange({
+            target: { value: '' }
+        } as React.ChangeEvent<HTMLInputElement>);
         if (!input.trim()) return;
 
         try {
@@ -42,6 +43,8 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ke
             console.error('Error sending message:', err);
             setError('Terjadi kesalahan saat mengirim pesan. Pastikan LM Studio berjalan dan terhubung.');
         }
+
+
     };
 
     const handleStop = () => {
@@ -55,7 +58,7 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ke
             try {
                 await navigator.clipboard.writeText(code);
                 setCopied(true);
-                setTimeout(() => setCopied(false), 2000); // Reset status setelah 2 detik
+                setTimeout(() => setCopied(false), 2000);
             } catch (err) {
                 console.error("Gagal menyalin teks:", err);
             }
