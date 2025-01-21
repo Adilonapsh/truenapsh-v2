@@ -2,7 +2,7 @@
 import MapView from '@/components/ui/map-view'
 import Search from '@/components/ui/map/search';
 import { BoundingBox, InfoFeature, Layer, LayoutDisplay, Location, MapboxLayerStyle, MapIsLoading, MapServiceVendor, ParsedLayer, Place } from '@/types/map.types';
-import { ColorSpecification, DataDrivenPropertyValueSpecification, GeoJSONFeature, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
+import { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
 import React, { useEffect, useRef, useState } from 'react'
 import { MapRef } from 'react-map-gl';
 import mapboxgl from 'mapbox-gl';
@@ -69,9 +69,9 @@ import { StylePanel } from './style-panel';
 import IconLayerType from './icon-layer-type';
 import FlowDiagramWithDraggableNodes from '../flow/flow-components';
 import TreeDirectory from '../tree-view';
-import { handleFileChosen } from '@/tools/map-tools';
 import { v4 } from 'uuid';
-import { map } from 'zod';
+import * as turf from '@turf/turf';
+import shp from 'shpjs';
 
 export default function MapLayout({
     layersFetch
@@ -721,19 +721,26 @@ export default function MapLayout({
         event.preventDefault();
         const file = event.dataTransfer.files;
         try {
-            Array.from(file).forEach((fl) => {
+            Array.from(file).forEach(async (fl) => {
                 if (fl.name.includes(".geojson")) {
                     const reader = new FileReader();
                     reader.onload = () => {
-                        const data = JSON.parse(reader.result as string);
+                        const geojsonData = JSON.parse(reader.result as string);
                         handleAddUploadToMap({
-                            layerName: fl.name.split(".")[0],
-                            data: data
+                            layerName: fl.name.split(".")[0].replaceAll("_", " "),
+                            data: geojsonData
                         })
                     };
-                    return reader.readAsText(fl);
+                    reader.readAsText(fl);
+                } else if (fl.name.includes(".zip")) {
+                    const buffer = await fl.arrayBuffer();
+                    const shapeData = await shp(buffer);
+                    handleAddUploadToMap({
+                        layerName: fl.name.split(".")[0].replaceAll("_", " "),
+                        data: shapeData
+                    })
                 } else {
-                    throw new Error("Selected file is not a .geojson file");
+                    throw new Error("Selected file must be .geojson or .zip");
                 }
             });
         } catch (err) {
@@ -762,6 +769,20 @@ export default function MapLayout({
                 type: 'geojson',
                 data: data,
             })
+
+            let bounds = turf.bbox(data);
+            bounds = bounds.slice(0, 4);
+
+            map.fitBounds(bounds, {
+                padding: {
+                    top: 50,
+                    bottom: 50,
+                    left: 50,
+                    right: 50
+                },
+                duration: 1000
+            });
+
 
             if (geometryTypes.includes("Polygon") || geometryTypes.includes("MultiPolygon")) {
                 setLayers(prevLayers => [...prevLayers, {
