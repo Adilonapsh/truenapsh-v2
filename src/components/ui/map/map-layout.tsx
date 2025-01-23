@@ -1,10 +1,12 @@
 "use client"
-import MapView from '@/components/ui/map-view'
+import MapView from '@/components/ui/map-view';
 import Search from '@/components/ui/map/search';
 import { BoundingBox, InfoFeature, Layer, LayoutDisplay, Location, MapboxLayerStyle, MapIsLoading, MapServiceVendor, ParsedLayer, Place } from '@/types/map.types';
 import { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
 import React, { useEffect, useRef, useState } from 'react'
 import { MapRef } from 'react-map-gl';
+import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 import mapboxgl from 'mapbox-gl';
 import {
     Accordion,
@@ -85,6 +87,7 @@ export default function MapLayout({
 }) {
 
     const mapRef = useRef<MapRef | null>(null);
+    const drawRef = useRef<MapboxDraw | null>(null); // Ref untuk MapboxDraw
     const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
     const [mousePosition, setMousePosition] = useState<{ lat: number; lng: number } | null>(null);
     const [currentMapClick, setCurrentMapClick] = useState<Location | null>(null);
@@ -197,6 +200,76 @@ export default function MapLayout({
                         "raster-opacity": layer.visible ? 1 : 0,
                     },
                 });
+            });
+
+            const customStyles = [
+                {
+                    id: 'gl-draw-polygon-fill',
+                    type: 'fill',
+                    filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
+                    paint: {
+                        'fill-color': '#FFD700', // Warna isian
+                        'fill-opacity': 0.5, // Transparansi isian
+                    },
+                },
+                {
+                    id: 'gl-draw-polygon-stroke',
+                    type: 'line',
+                    filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
+                    paint: {
+                        'line-color': '#FF4500', // Warna garis tepi
+                        'line-width': 2, // Ketebalan garis
+                    },
+                },
+                {
+                    id: 'gl-draw-line',
+                    type: 'line',
+                    filter: ['all', ['==', '$type', 'LineString'], ['!=', 'mode', 'static']],
+                    paint: {
+                        'line-color': '#1E90FF', // Warna garis
+                        'line-width': 3, // Ketebalan garis
+                    },
+                },
+                {
+                    id: 'gl-draw-point',
+                    type: 'circle',
+                    filter: ['all', ['==', '$type', 'Point'], ['!=', 'mode', 'static']],
+                    paint: {
+                        'circle-radius': 5, // Ukuran titik
+                        'circle-color': '#32CD32', // Warna titik
+                    },
+                },
+            ];
+
+
+            const draw = new MapboxDraw({
+                displayControlsDefault: false,
+                styles: customStyles,
+                controls: {
+                    polygon: true,
+                    line_string: true,
+                    point: true,
+                    trash: true,
+                    combine_features: false,
+                    uncombine_features: false,
+                },
+            });
+
+            // Add draw control to map
+            drawRef.current = draw; // Simpan instance ke ref
+            map.addControl(draw, 'bottom-right');
+
+            // Event listeners for draw interactions
+            map.on('draw.create', (e: { features: GeoJSON.Feature[] }) => {
+                console.log('Feature created:', e.features[0]);
+            });
+
+            map.on('draw.update', (e: { features: GeoJSON.Feature[] }) => {
+                console.log('Feature updated:', e.features[0]);
+            });
+
+            map.on('draw.delete', (e: { features: GeoJSON.Feature[] }) => {
+                console.log('Feature deleted:', e.features[0]);
             });
         }
         setIsLoading({ ...isLoading, initLoading: false });
