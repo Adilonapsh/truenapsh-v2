@@ -4,3 +4,4 @@
 4. Add Accordion in style panel
 5. Add Register Flow 
 6. Add Function to the flow workspaces
+7. Add Bookmark Camera

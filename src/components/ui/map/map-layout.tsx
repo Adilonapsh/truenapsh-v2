@@ -71,7 +71,12 @@ import FlowDiagramWithDraggableNodes from '../flow/flow-components';
 import TreeDirectory from '../tree-view';
 import { v4 } from 'uuid';
 import * as turf from '@turf/turf';
+import * as toGeoJSON from "@tmcw/togeojson";
 import shp from 'shpjs';
+import JSZip from "jszip";
+import * as topojson from "topojson-client";
+import * as wkt from "wkt";
+
 
 export default function MapLayout({
     layersFetch
@@ -742,8 +747,64 @@ export default function MapLayout({
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: shapeData as GeoJSON.GeoJSON
                     });
+                } else if (fl.name.includes(".gpkg")) {
+                    toast.error("Geopackage in progress");
+                } else if (fl.name.includes(".kml")) {
+                    const text = await fl.text();
+
+                    // Parse KML into DOM
+                    const parser = new DOMParser();
+                    const kml = parser.parseFromString(text, "application/xml");
+
+                    // Convert KML to GeoJSON
+                    const geojson = toGeoJSON.kml(kml);
+                    handleAddUploadToMap({
+                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
+                        data: geojson as GeoJSON.GeoJSON
+                    });
+                } else if (fl.name.includes(".kmz")) {
+                    const zip = new JSZip();
+                    const content = await zip.loadAsync(fl);
+
+                    const kmlFile = Object.keys(content.files).find((filename) =>
+                        filename.endsWith(".kml")
+                    );
+                    if (!kmlFile) {
+                        throw new Error("No KML file found in KMZ archive.");
+                    }
+
+                    const kmlText = await content.files[kmlFile].async("text");
+                    const parser = new DOMParser();
+                    const kml = parser.parseFromString(kmlText, "application/xml");
+                    const geojson = toGeoJSON.kml(kml);
+                    handleAddUploadToMap({
+                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
+                        data: geojson as GeoJSON.GeoJSON
+                    });
+                } else if (fl.name.includes(".topojson")) {
+                    const text = await fl.text();
+                    const topojsonData = JSON.parse(text);
+                    const geojson = topojson.feature(topojsonData, topojsonData.objects[Object.keys(topojsonData.objects)[0]]);
+                    handleAddUploadToMap({
+                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
+                        data: geojson as GeoJSON.GeoJSON
+                    });
+                } else if (fl.name.includes(".wkt")) {
+                    const text = await fl.text();
+                    const geojson = {
+                        type: "FeatureCollection",
+                        features: [{
+                            type: "Feature",
+                            geometry: wkt.parse(text),
+                            properties: {}
+                        }]
+                    };
+                    handleAddUploadToMap({
+                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
+                        data: geojson as GeoJSON.GeoJSON
+                    });
                 } else {
-                    throw new Error("Selected file must be .geojson or .zip");
+                    throw new Error("Selected file must be .geojson, .gpkg, .kml, .kmz or .zip");
                 }
             });
         } catch (err) {

@@ -335,11 +335,11 @@ const getWMSServices = async (url: string, map_service_vendor: string) => {
 }
 
 const transfromEsriServicesToFolder = async (url: string) => {
-    let getFolder = await getEsriServices(url);
-    let folder = getFolder.folders;
+    const getFolder = await getEsriServices(url);
+    const folder = getFolder.folders;
     let generateFolder = await Promise.all(folder.map(async (name: string, i: number) => {
-        let getServices = await getEsriServices(`${url}/${name}`);
-        let services = getServices.services;
+        const getServices = await getEsriServices(`${url}/${name}`);
+        const services = getServices.services;
         let generateservices;
         if (services) {
             generateservices = services.map((service: any, j: number) => {

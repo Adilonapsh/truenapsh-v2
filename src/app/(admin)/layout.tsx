@@ -1,10 +1,11 @@
 'use client'
 
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Work_Sans, Manrope } from "next/font/google";
+import { Work_Sans, Manrope } from "next/font/google";
 import "../globals.css";
 import "../css/custom.css"
 import { SessionProvider } from "next-auth/react";
+import { ThemeProvider } from 'next-themes'
 
 
 const workSans = Work_Sans({
@@ -34,9 +35,16 @@ export default function RootLayout({
       <body
         className={`${workSans.variable} ${manRope.variable} antialiased`}
       >
-        <SessionProvider>
-          {children}
-        </SessionProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SessionProvider>
+            {children}
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
