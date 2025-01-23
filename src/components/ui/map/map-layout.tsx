@@ -528,11 +528,11 @@ export default function MapLayout({
         }
     }
 
-
     const setFill = (value: string) => {
         setMapboxLayerStyle({ ...mapboxLayerStyle, fill: value })
         setPaint("-color", value)
     }
+
     const setStroke = (value: string) => {
         const map = mapRef?.current?.getMap();
         if (selectedLayer && map) {
@@ -546,14 +546,17 @@ export default function MapLayout({
             }
         }
     }
+
     const setStrokeWidth = (value: number) => {
         setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width: value })
         setPaint("-stroke-width", value)
     }
+
     const setContrast = (value: number) => {
         setMapboxLayerStyle({ ...mapboxLayerStyle, contrast: value })
         setPaint("-contrast", value)
     }
+
     const setSaturation = (value: number) => {
         setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: value })
         setPaint("-saturation", value)
@@ -589,7 +592,7 @@ export default function MapLayout({
 
     const handleDatasets = async () => {
         const datasets = await getWMSServices(datasetProperties.url, datasetProperties.map_service_vendor);
-        setDatasetResult(datasets);
+        setDatasetResult(datasets ?? []);
     }
     const handleSelectedDatasets = (index: number) => {
         const layer: ParsedLayer = datasetResult[index];
@@ -645,7 +648,7 @@ export default function MapLayout({
         }
     }
 
-    const handleChangeLayerName = (event, index) => {
+    const handleChangeLayerName = (event: React.ChangeEvent<HTMLInputElement>, index: number) => {
         const layerIndex = layers[index];
         if (layerIndex) {
             const updatedLayers = [...layers];
@@ -736,9 +739,9 @@ export default function MapLayout({
                     const buffer = await fl.arrayBuffer();
                     const shapeData = await shp(buffer);
                     handleAddUploadToMap({
-                        layerName: fl.name.split(".")[0].replaceAll("_", " "),
-                        data: shapeData
-                    })
+                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
+                        data: shapeData as GeoJSON.GeoJSON
+                    });
                 } else {
                     throw new Error("Selected file must be .geojson or .zip");
                 }
@@ -749,131 +752,112 @@ export default function MapLayout({
         }
     };
 
-    const handleAddUploadToMap = async ({ layerName, mapServiceUrl = "", layerCode = "", data }: { layerName: string, mapServiceUrl?: string, layerCode?: string, data: GeoJSON.GeoJSON }) => {
-        const layerId = v4();
-        const mapServiceLayerName = layerCode;
-        const mapServiceVendor = MapServiceVendor.GeoJSON;
-        const type = "2D";
-        const visible = true;
-        const minZoom = 0;
-        const maxZoom = 24;
-        const status = "Local";
-
-
+    const handleAddUploadToMap = async ({
+        layerName,
+        mapServiceUrl = "",
+        layerCode = "",
+        data
+    }: {
+        layerName: string,
+        mapServiceUrl?: string,
+        layerCode?: string,
+        data: GeoJSON.GeoJSON
+    }) => {
         const map = mapRef.current?.getMap();
+        if (!map) return;
 
-        const geometryTypes = [...new Set(data.features.map(feature => feature.geometry.type))];
+        const layerId = v4();
+        const commonLayerProps = {
+            map_service_url: mapServiceUrl,
+            map_service_layer_name: layerCode,
+            map_service_vendor: MapServiceVendor.GeoJSON,
+            type: "2D",
+            visible: true,
+            min_zoom: 0,
+            max_zoom: 24,
+            status: "Local",
+            rendered: 1
+        };
 
-        if (map) {
-            map.addSource(layerId, {
-                type: 'geojson',
-                data: data,
-            })
+        const geometryTypes = [...new Set((data as GeoJSON.FeatureCollection).features.map(feature => feature.geometry.type))];
 
-            let bounds = turf.bbox(data);
-            bounds = bounds.slice(0, 4);
+        // Add source
+        map.addSource(layerId, {
+            type: 'geojson',
+            data: data,
+        });
 
-            map.fitBounds(bounds, {
-                padding: {
-                    top: 50,
-                    bottom: 50,
-                    left: 50,
-                    right: 50
-                },
-                duration: 1000
-            });
+        // Fit bounds
+        const bounds: [number, number, number, number] = turf.bbox(data).slice(0, 4) as [number, number, number, number];
+        map.fitBounds(bounds, {
+            padding: { top: 50, bottom: 50, left: 50, right: 50 },
+            duration: 1000
+        });
 
-
-            if (geometryTypes.includes("Polygon") || geometryTypes.includes("MultiPolygon")) {
-                setLayers(prevLayers => [...prevLayers, {
-                    id: `${layerId}-fill`,
-                    name: layerName + " Polygon",
-                    description: "",
-                    map_service_url: mapServiceUrl,
-                    map_service_layer_name: mapServiceLayerName,
-                    map_service_vendor: mapServiceVendor as MapServiceVendor,
-                    type: type,
-                    visible: visible,
-                    min_zoom: minZoom,
-                    max_zoom: maxZoom,
-                    status: status,
-                    rendered: 1
-                }]);
-
-                map.addLayer({
-                    id: `${layerId}-fill`,
-                    type: "fill",
-                    source: layerId,
-                    minzoom: 0,
-                    maxzoom: 24,
-                    filter: ["in", "$type", "Polygon"],
+        // Layer rendering configurations
+        const layerConfigs = [
+            {
+                types: ["Polygon", "MultiPolygon"],
+                layerType: "fill" as const,
+                nameSuffix: "Polygon",
+                layerProps: {
                     paint: {
-                        "fill-opacity": visible ? 0.5 : 0,
+                        "fill-opacity": 0.5,
                         "fill-color": "#627BC1"
-                    },
-                });
-            }
-            if (geometryTypes.includes("LineString") || geometryTypes.includes("MultiLineString")) {
-                setLayers(prevLayers => [...prevLayers, {
-                    id: `${layerId}-line`,
-                    name: layerName + " Linestring",
-                    description: "",
-                    map_service_url: mapServiceUrl,
-                    map_service_layer_name: mapServiceLayerName,
-                    map_service_vendor: mapServiceVendor as MapServiceVendor,
-                    type: type,
-                    visible: visible,
-                    min_zoom: minZoom,
-                    max_zoom: maxZoom,
-                    status: status,
-                    rendered: 1
-                }]);
-
-                map.addLayer({
-                    id: `${layerId}-line`,
-                    type: "line",
-                    source: layerId,
-                    minzoom: 0,
-                    maxzoom: 24,
-                    filter: ["in", "$type", "LineString"],
+                    }
+                }
+            },
+            {
+                types: ["LineString", "MultiLineString"],
+                layerType: "line" as const,
+                nameSuffix: "Linestring",
+                layerProps: {
                     paint: {
                         "line-color": "#627BC1",
                         "line-width": 2,
-                        "line-opacity": visible ? 1 : 0
+                        "line-opacity": 1
                     }
-                });
-            }
-            if (geometryTypes.includes("Point") || geometryTypes.includes("MultiPoint")) {
-                setLayers(prevLayers => [...prevLayers, {
-                    id: `${layerId}-point`,
-                    name: layerName + " Point",
-                    description: "",
-                    map_service_url: mapServiceUrl,
-                    map_service_layer_name: mapServiceLayerName,
-                    map_service_vendor: mapServiceVendor as MapServiceVendor,
-                    type: type,
-                    visible: visible,
-                    min_zoom: minZoom,
-                    max_zoom: maxZoom,
-                    status: status,
-                    rendered: 1
-                }]);
-                map.addLayer({
-                    id: `${layerId}-point`,
-                    type: "circle",
-                    source: layerId,
-                    minzoom: 0,
-                    maxzoom: 24,
-                    filter: ["in", "$type", "Point"],
+                }
+            },
+            {
+                types: ["Point", "MultiPoint"],
+                layerType: "circle" as const,
+                nameSuffix: "Point",
+                layerProps: {
                     paint: {
                         "circle-radius": 5,
                         "circle-color": "#627BC1",
-                        "circle-opacity": visible ? 1 : 0
+                        "circle-opacity": 1
                     }
+                }
+            }
+        ];
+
+        layerConfigs.forEach(config => {
+            if (config.types.some(type => geometryTypes.includes(type as "Point" | "MultiPoint" | "LineString" | "MultiLineString" | "Polygon" | "MultiPolygon" | "GeometryCollection"))) {
+                const layerSubId = config.layerType === "circle" ? "point" : config.layerType;
+                const fullLayerId = `${layerId}-${layerSubId}`;
+
+                // Add layer to state
+                setLayers(prevLayers => [...prevLayers, {
+                    ...commonLayerProps,
+                    id: fullLayerId,
+                    name: `${layerName} ${config.nameSuffix}`
+                }]);
+
+                // Add map layer
+                map.addLayer({
+                    id: fullLayerId,
+                    type: config.layerType,
+                    source: layerId,
+                    minzoom: 0,
+                    maxzoom: 24,
+                    filter: ["in", "$type", config.types[0]],
+                    paint: config.layerProps.paint
                 });
             }
-        }
-    }
+        });
+    };
 
 
     return (
@@ -1026,7 +1010,7 @@ export default function MapLayout({
                                                 <tbody>
                                                     {Object.keys(layer.properties).map((body, i) => (
                                                         <tr key={i}>
-                                                            <th className='border border-accent text-start text-wrap w-[100px] capitalize px-2 py-1'>{body}</th>
+                                                            <th className='border border-accent text-start text-wrap w-[100px] capitalize px-2 py-1'>{body.replaceAll("_", " ")}</th>
                                                             <td className='border border-accent text-wrap px-2'>{layer.properties[body as keyof typeof layer.properties]}</td>
                                                         </tr>
                                                     ))}

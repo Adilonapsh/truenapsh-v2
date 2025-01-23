@@ -1,5 +1,5 @@
 1. Masukkan layer esri (done)
-2. Ambil File Esri dari URL 
+2. Ambil File Esri dari URL (Done)
 3. Ambil Layer Info dari Esri (done)
 4. Add Accordion in style panel
 5. Add Register Flow 

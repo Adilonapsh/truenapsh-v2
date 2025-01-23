@@ -137,7 +137,7 @@ const getBBOX = (lat: number, lng: number, z: number) => {
 //     });
 // };
 
-const convertWMSToVectorData = async (selectedLayer: Layer, mapRef: React.RefObject<mapboxgl.Map>, layers: Layer[]) => {
+const convertWMSToVectorData = async (selectedLayer: Layer, mapRef: mapboxgl.Map, layers: Layer[]) => {
     // eslint-disable-next-line prefer-const
     let infoLayers = [];
     try {

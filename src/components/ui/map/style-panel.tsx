@@ -12,6 +12,7 @@ import { Layer, LayoutDisplay, MapboxLayerStyle } from "@/types/map.types"
 import { BiGlobe } from "react-icons/bi"
 import { FaVectorSquare } from "react-icons/fa6"
 import IconLayerType from "./icon-layer-type"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../accordion"
 
 interface StyleValue {
     opacity: number
@@ -156,121 +157,7 @@ export function StylePanel(
                         }}
                     />
                 </div>
-                <div className="grid gap-2">
-                    <Label className="text-xs">Fill</Label>
-                    <div className="flex items-center gap-2">
-                        <div className="relative flex h-8 w-20 overflow-hidden rounded border">
-                            <input
-                                type="color"
-                                value={values.fill}
-                                className="absolute h-[150%] w-[150%] -translate-x-2 -translate-y-2 cursor-pointer"
-                                onChange={(e) => {
-                                    setValues({ ...values, fill: e.target.value })
-                                    onFillChange(e.target.value)
-                                }}
-                            />
-                        </div>
-                        <Input
-                            value={values.fill}
-                            className="font-mono"
-                            onChange={(e) => {
-                                setValues({ ...values, fill: e.target.value })
-                                onFillChange(e.target.value)
-                            }}
-                        />
-                    </div>
-                </div>
-                <div className="grid gap-2">
-                    <Label className="text-xs">Stroke</Label>
-                    <div className="flex items-center gap-2">
-                        <div className="relative flex h-8 w-20 overflow-hidden rounded border">
-                            <input
-                                type="color"
-                                value={values.stroke}
-                                className="absolute h-[150%] w-[150%] -translate-x-2 -translate-y-2 cursor-pointer"
-                                onChange={(e) => {
-                                    setValues({ ...values, stroke: e.target.value })
-                                    onStrokeChange(e.target.value)
-                                }}
-                            />
-                        </div>
-                        <Input
-                            value={values.stroke}
-                            className="font-mono"
-                            onChange={(e) => {
-                                setValues({ ...values, stroke: e.target.value })
-                                onStrokeChange(e.target.value)
-                            }}
-                        />
-                    </div>
-                </div>
-                <div className="grid gap-2">
-                    <div className="flex items-center justify-between">
-                        <Label className="text-xs">Stroke Width</Label>
-                        <span className="w-12 text-right text-sm">{values.stroke_width}</span>
-                    </div>
-                    <Slider
-                        value={[values.stroke_width ?? 100]}
-                        max={100}
-                        step={1}
-                        className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-                        onValueChange={([stroke_width]) => {
-                            setValues({ ...values, stroke_width })
-                            onStrokeWidthChange(stroke_width)
-                        }}
-                    />
-                </div>
-                <div className="grid gap-2">
-                    <div className="flex items-center justify-between">
-                        <Label className="text-xs">Contrast</Label>
-                        <span className="w-12 text-right text-sm">{values.contrast}</span>
-                    </div>
-                    <Slider
-                        value={[values.contrast ?? 1]}
-                        max={1}
-                        min={-1}
-                        step={0.001}
-                        className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-                        onValueChange={([contrast]) => {
-                            setValues({ ...values, contrast })
-                            onContrastChange(contrast)
-                        }}
-                    />
-                </div>
-                <div className="grid gap-2">
-                    <div className="flex items-center justify-between">
-                        <Label className="text-xs">Saturation</Label>
-                        <span className="w-12 text-right text-sm">{values.saturation}</span>
-                    </div>
-                    <Slider
-                        value={[values.saturation ?? 1]}
-                        max={1}
-                        min={-1}
-                        step={0.001}
-                        className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-                        onValueChange={([saturation]) => {
-                            setValues({ ...values, saturation })
-                            onSaturationChange(saturation)
-                        }}
-                    />
-                </div>
-                <div className="grid gap-2">
-                    <div className="flex items-center justify-between">
-                        <Label className="text-xs">Brightness</Label>
-                        <span className="w-24 text-right text-sm">{values.brightness?.[0] ?? 0} - {values.brightness?.[1] ?? 1}</span>
-                    </div>
-                    <Slider
-                        value={values.brightness ?? [0, 1]}
-                        min={0}
-                        max={1}
-                        step={0.001}
-                        className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-                        onValueChange={(brightness) => {
-                            setValues({ ...values, brightness })
-                            onBrightnessChange(brightness)
-                        }}
-                    />
-                </div>
+
                 <div className="grid gap-2">
                     <div className="flex items-center justify-between">
                         <Label className="text-xs">Zoom</Label>
@@ -278,7 +165,7 @@ export function StylePanel(
                             <Input
                                 type="number"
                                 value={values.zoom?.[0] ?? 24}
-                                className="h-8 w-16"
+                                className="h-8 w-20"
                                 max={24}
                                 min={0}
                                 onChange={(e) => {
@@ -291,7 +178,7 @@ export function StylePanel(
                             <Input
                                 type="number"
                                 value={values.zoom?.[1] ?? 24}
-                                className="h-8 w-16"
+                                className="h-8 w-20"
                                 max={24}
                                 min={0}
                                 onChange={(e) => {
@@ -313,6 +200,145 @@ export function StylePanel(
                         }}
                     />
                 </div>
+
+                <Accordion type="single" collapsible>
+                    <AccordionItem value="item-1">
+                        <AccordionTrigger>Vector</AccordionTrigger>
+                        <AccordionContent>
+                            <div className="grid gap-4">
+                                <div className="grid gap-2">
+                                    <Label className="text-xs">Fill</Label>
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative flex h-8 w-20 overflow-hidden rounded border">
+                                            <input
+                                                type="color"
+                                                value={values.fill}
+                                                className="absolute h-[150%] w-[150%] -translate-x-2 -translate-y-2 cursor-pointer"
+                                                onChange={(e) => {
+                                                    setValues({ ...values, fill: e.target.value })
+                                                    onFillChange(e.target.value)
+                                                }}
+                                            />
+                                        </div>
+                                        <Input
+                                            value={values.fill}
+                                            className="font-mono"
+                                            onChange={(e) => {
+                                                setValues({ ...values, fill: e.target.value })
+                                                onFillChange(e.target.value)
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label className="text-xs">Stroke</Label>
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative flex h-8 w-20 overflow-hidden rounded border">
+                                            <input
+                                                type="color"
+                                                value={values.stroke}
+                                                className="absolute h-[150%] w-[150%] -translate-x-2 -translate-y-2 cursor-pointer"
+                                                onChange={(e) => {
+                                                    setValues({ ...values, stroke: e.target.value })
+                                                    onStrokeChange(e.target.value)
+                                                }}
+                                            />
+                                        </div>
+                                        <Input
+                                            value={values.stroke}
+                                            className="font-mono"
+                                            onChange={(e) => {
+                                                setValues({ ...values, stroke: e.target.value })
+                                                onStrokeChange(e.target.value)
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="grid gap-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs">Stroke Width</Label>
+                                        <span className="w-12 text-right text-sm">{values.stroke_width}</span>
+                                    </div>
+                                    <Slider
+                                        value={[values.stroke_width ?? 100]}
+                                        max={100}
+                                        step={1}
+                                        className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
+                                        onValueChange={([stroke_width]) => {
+                                            setValues({ ...values, stroke_width })
+                                            onStrokeWidthChange(stroke_width)
+                                        }}
+                                    />
+                                </div>
+
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+
+                <Accordion type="single" collapsible>
+                    <AccordionItem value="item-1">
+                        <AccordionTrigger>Raster</AccordionTrigger>
+                        <AccordionContent>
+                            <div className="grid gap-4">
+
+                                <div className="grid gap-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs">Contrast</Label>
+                                        <span className="w-12 text-right text-sm">{values.contrast}</span>
+                                    </div>
+                                    <Slider
+                                        value={[values.contrast ?? 1]}
+                                        max={1}
+                                        min={-1}
+                                        step={0.001}
+                                        className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
+                                        onValueChange={([contrast]) => {
+                                            setValues({ ...values, contrast })
+                                            onContrastChange(contrast)
+                                        }}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs">Saturation</Label>
+                                        <span className="w-12 text-right text-sm">{values.saturation}</span>
+                                    </div>
+                                    <Slider
+                                        value={[values.saturation ?? 1]}
+                                        max={1}
+                                        min={-1}
+                                        step={0.001}
+                                        className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
+                                        onValueChange={([saturation]) => {
+                                            setValues({ ...values, saturation })
+                                            onSaturationChange(saturation)
+                                        }}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs">Brightness</Label>
+                                        <span className="w-24 text-right text-sm">{values.brightness?.[0] ?? 0} - {values.brightness?.[1] ?? 1}</span>
+                                    </div>
+                                    <Slider
+                                        value={values.brightness ?? [0, 1]}
+                                        min={0}
+                                        max={1}
+                                        step={0.001}
+                                        className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
+                                        onValueChange={(brightness) => {
+                                            setValues({ ...values, brightness })
+                                            onBrightnessChange(brightness)
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+
+
             </CardContent>
         </Card >
     )
