@@ -40,7 +40,7 @@ import { TbZoomInAreaFilled } from 'react-icons/tb';
 import { MapRef } from 'react-map-gl';
 import { Button } from '../button';
 
-import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, } from '@/services/map-services';
+import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, transfromEsriServicesToFolder, } from '@/services/map-services';
 import {
     closestCorners,
     DndContext,
@@ -77,12 +77,15 @@ import IconLayerType from './icon-layer-type';
 import MapMenu from './map-menu';
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
+import { Datasets } from "@/types/datasets.types";
 
 
 export default function MapLayout({
-    layersFetch
+    layersFetch,
+    datasetsFetch
 }: {
-    layersFetch: Layer[]
+    layersFetch: Layer[],
+    datasetsFetch: any
 }) {
 
     const mapRef = useRef<MapRef | null>(null);
@@ -150,12 +153,15 @@ export default function MapLayout({
         map_service_vendor: ""
     })
     const [datasetResult, setDatasetResult] = useState<ParsedLayer[]>([]);
+
     const [selectedDatasets, setSelectedDatasets] = useState<ParsedLayer[]>([]);
     const [infoFeatures, setInfoFeatures] = useState<InfoFeature[]>([])
     const [addLayerSettings, setAddLayerSetings] = useState({
         active: "",
     })
     const [toggleEdit, setToggleEdit] = useState<boolean>(false);
+    const [datasets, setDatasets] = useState<Datasets[]>(datasetsFetch)
+
 
 
     // MAP FUNCTIONS
@@ -361,6 +367,7 @@ export default function MapLayout({
         );
         console.log(layers)
     }
+
     const isSourceUsed = (sourceId: string): boolean => {
         const map = mapRef?.current?.getMap();
         const layers = map?.getStyle()?.layers || [];
@@ -647,6 +654,7 @@ export default function MapLayout({
         setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: value })
         setPaint("-saturation", value)
     }
+
     const setBrightness = (values: number[]) => {
         setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: values })
         setPaint("-brightness-min", values[0])
@@ -678,8 +686,10 @@ export default function MapLayout({
 
     const handleDatasets = async () => {
         const datasets = await getWMSServices(datasetProperties.url, datasetProperties.map_service_vendor);
+        console.log("Ini Uplaod D: ", datasets);
         setDatasetResult(datasets ?? []);
     }
+
     const handleSelectedDatasets = (index: number) => {
         const layer: ParsedLayer = datasetResult[index];
         setSelectedDatasets([...selectedDatasets, { ...layer, index }]);
@@ -772,7 +782,7 @@ export default function MapLayout({
                         const GEOSERVER_WMS_PARAMETER = "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
                         url = layer.map_service_url + GEOSERVER_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
                     } else if (layer.map_service_vendor == "ArcGIS") {
-                        const ESRI_WMS_PARAMETER = "/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=500,500&format=png&transparent=true&f=image"
+                        const ESRI_WMS_PARAMETER = "/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=250,250&format=png&transparent=true&f=image"
                         url = layer.map_service_url + ESRI_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
                     }
                     if (!map.getLayer(layer.id)) {
@@ -1034,6 +1044,10 @@ export default function MapLayout({
         }
     };
 
+    const handleFolderClick = async (e, data: Datasets) => {
+        const transformedFolder = await transfromEsriServicesToFolder(data.url);
+        setDatasetResult(transformedFolder ?? []);
+    }
 
     return (
         <div
@@ -1297,7 +1311,7 @@ export default function MapLayout({
                         <div className='h-full p-5'>
                             <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-5">
                                 <div className='flex flex-col justify-center items-center gap-1 w-auto'>
-                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "Upload" ? "bg-gray-900 text-white dark:bg-slate-800" : ""}`} onClick={() => setAddLayerSetings({ active: "Upload" })}><UploadIcon />Upload</Button>
+                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "Upload" ? "bg-gray-900 text-white dark:bg-slate-800" : ""}`} onClick={() => setAddLayerSetings({ active: "datasets" })}><UploadIcon />Datasets</Button>
                                     <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "WMS Service" ? "bg-gray-900 text-white dark:bg-slate-800" : ""}`} onClick={() => setAddLayerSetings({ active: "WMS Service" })}><UploadIcon />WMS Service</Button>
                                 </div>
                                 <div className='w-full'>
@@ -1354,11 +1368,51 @@ export default function MapLayout({
                                             <Button className='float-right right-0' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
                                         </div>
                                     </div>
-
                                 ) : (
-                                    <div className='w-full'>
-                                        <h5 className='font-bold text-lg'>Upload Layer</h5>
-                                        <hr className='my-5' />
+                                    <div className='h-full w-full'>
+                                        <div className="h-full flex gap-4 overflow-auto">
+                                            <div className="w-1/3 h-full overflow-auto">
+                                                <ul className="flex flex-col gap-1">
+                                                    {datasets.map((item, index) => (
+                                                        <li
+                                                            key={index}
+                                                            className="px-3 py-2 rounded-lg bg-slate-50 hover:bg-slate-200 cursor-pointer"
+                                                            onClick={(e) => { handleFolderClick(e, item) }}
+                                                        >
+                                                            {item.name}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                            <div className='h-full w-full rounded-lg dark:bg-background'>
+                                                {datasetResult?.length === 0 && (
+                                                    <div className="h-full flex flex-col justify-center items-center">
+                                                        <LuDatabase size={"30pt"} />
+                                                        <p className='font-bold'>Theres no data to show yet.</p>
+                                                        <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
+                                                    </div>
+                                                )}
+                                                {datasetProperties?.map_service_vendor == "Geoserver" && (
+                                                    <div className='grid grid-cols-4 gap-2'>
+                                                        {datasetResult?.map((item, index) => (
+                                                            <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
+                                                                <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
+                                                                <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
+                                                                <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {datasetProperties?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
+                                                    <div>
+                                                        <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className='flex justify-end'>
+                                            <Button className='float-right right-0' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
+                                        </div>
                                     </div>
                                 )}
                             </div>

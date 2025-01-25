@@ -1,16 +1,11 @@
 
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import MapLayout from '@/components/ui/map/map-layout';
 import authUserSession from '@/lib/auth';
+import { get } from '@/server/dataset';
 import { project } from '@/server/project';
 import { Project } from '@/types/project.types';
-import { appendFile, stat } from 'fs';
-import { getServerSession } from 'next-auth';
-import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { useRouter } from 'next/navigation';
 
-import React, { useEffect } from 'react'
 import { Toaster } from 'react-hot-toast';
 
 export default async function MapPage(context: { params: { id: string } }) {
@@ -26,6 +21,7 @@ export default async function MapPage(context: { params: { id: string } }) {
 
     try {
         const fetchedProject: Project = await project(id);
+        const fetchedDatasets = await get();
         return (
             <div>
                 <Toaster
@@ -46,7 +42,7 @@ export default async function MapPage(context: { params: { id: string } }) {
                         },
                     }}
                 />
-                <MapLayout layersFetch={fetchedProject?.layers ?? []} />
+                <MapLayout layersFetch={fetchedProject?.layers ?? []} datasetsFetch={fetchedDatasets?.data ?? []} />
             </div>
         )
     } catch (error) {

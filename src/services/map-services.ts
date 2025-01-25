@@ -327,7 +327,6 @@ const getWMSServices = async (url: string, map_service_vendor: string) => {
         return getGeoserverServices(url);
     } else {
         const transform = await transfromEsriServicesToFolder(url);
-        console.log(transform);
         return transform;
         // return getEsriServices(url);
     }
