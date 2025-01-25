@@ -1,7 +1,5 @@
 "use client"
 
-import { useState } from "react"
-import { X } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,10 +7,9 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Toggle } from "@/components/ui/toggle"
 import { Layer, LayoutDisplay, MapboxLayerStyle } from "@/types/map.types"
-import { BiGlobe } from "react-icons/bi"
-import { FaVectorSquare } from "react-icons/fa6"
-import IconLayerType from "./icon-layer-type"
+import { PenIcon, X } from 'lucide-react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../accordion"
+import IconLayerType from "./icon-layer-type"
 
 interface StyleValue {
     opacity: number
@@ -40,6 +37,7 @@ export function StylePanel(
         onOpacityChange,
         setDisplayLayouts,
         setSelectedLayer,
+        handleEditFeatures,
     }: {
         selectedLayer: Layer | null
         values: MapboxLayerStyle,
@@ -54,6 +52,7 @@ export function StylePanel(
         onOpacityChange: (opacity: number) => void,
         setDisplayLayouts: React.Dispatch<React.SetStateAction<LayoutDisplay>>
         setSelectedLayer: React.Dispatch<React.SetStateAction<Layer | null>>
+        handleEditFeatures: () => void,
     }) {
     return (
         <Card className="w-[320px] shadow-lg text-sm overflow-hidden">
@@ -75,17 +74,8 @@ export function StylePanel(
                 </Button>
             </CardHeader>
             <div className="flex items-center justify-center gap-1 border-b border-t pt-2 px-4 pb-2 mt-2">
-                <Toggle size="sm" aria-label="Toggle italic">
-                    <svg
-                        className="h-4 w-4"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                    >
-                        <path d="M19 4h-9M14 20H5M14.7 5l-5.4 14" />
-                    </svg>
+                <Toggle size="sm" aria-label="Toggle italic" onClick={handleEditFeatures}>
+                    <PenIcon />
                 </Toggle>
                 <Toggle size="sm" aria-label="Toggle layout">
                     <svg

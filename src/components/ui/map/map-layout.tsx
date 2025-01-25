@@ -1,83 +1,82 @@
 "use client"
-import MapView from '@/components/ui/map-view';
-import Search from '@/components/ui/map/search';
-import { BoundingBox, InfoFeature, Layer, LayoutDisplay, Location, MapboxLayerStyle, MapIsLoading, MapServiceVendor, ParsedLayer, Place } from '@/types/map.types';
-import { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
-import React, { useEffect, useRef, useState } from 'react'
-import { MapRef } from 'react-map-gl';
-import MapboxDraw from '@mapbox/mapbox-gl-draw';
-import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
-import mapboxgl from 'mapbox-gl';
 import {
     Accordion,
     AccordionContent,
     AccordionItem,
     AccordionTrigger,
-} from "@/components/ui/accordion"
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip"
+} from "@/components/ui/accordion";
+import MapView from '@/components/ui/map-view';
+import Search from '@/components/ui/map/search';
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@/components/ui/popover";
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select"
-import { IoClose } from 'react-icons/io5';
-import { Button } from '../button';
-import { Eye, EyeClosed, LayersIcon, PlusCircleIcon, PlusIcon, UploadIcon, X } from 'lucide-react';
-import { BiCollapse, BiLogOutCircle, BiTrash } from 'react-icons/bi';
-import { HiCubeTransparent } from 'react-icons/hi';
-import { TbZoomInAreaFilled } from 'react-icons/tb';
-import { MdOutlineStyle } from 'react-icons/md';
-import { FiFilter } from 'react-icons/fi';
-
+} from "@/components/ui/select";
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { BoundingBox, InfoFeature, Layer, LayoutDisplay, Location, MapboxLayerStyle, MapIsLoading, MapServiceVendor, ParsedLayer, Place } from '@/types/map.types';
+import MapboxDraw from '@mapbox/mapbox-gl-draw';
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
+import { Eye, EyeClosed, LayersIcon, PlusCircleIcon, PlusIcon, UploadIcon, X } from 'lucide-react';
+import mapboxgl, { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
+import React, { useEffect, useRef, useState } from 'react';
+import { BiCollapse, BiLogOutCircle, BiTrash } from 'react-icons/bi';
+import { FiFilter } from 'react-icons/fi';
+import { HiCubeTransparent } from 'react-icons/hi';
+import { IoClose } from 'react-icons/io5';
+import { MdOutlineStyle } from 'react-icons/md';
+import { TbZoomInAreaFilled } from 'react-icons/tb';
+import { MapRef } from 'react-map-gl';
+import { Button } from '../button';
+
+import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, } from '@/services/map-services';
+import {
+    closestCorners,
     DndContext,
+    DragEndEvent,
     PointerSensor,
     useSensor,
     useSensors,
-    closestCorners,
-    DragEndEvent,
 } from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
     arrayMove,
     SortableContext,
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import SortableItem from './sortable-item';
+import * as toGeoJSON from "@tmcw/togeojson";
+import * as turf from '@turf/turf';
+import JSZip from "jszip";
+import { signOut } from 'next-auth/react';
 import Image from 'next/image';
-import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, } from '@/services/map-services';
-import { Input } from '../input';
+import toast from 'react-hot-toast';
+import { AiOutlineLoading3Quarters, AiOutlineSisternode } from 'react-icons/ai';
 import { LuDatabase } from 'react-icons/lu';
 import { WiStars } from "react-icons/wi";
-import toast from 'react-hot-toast';
-import { ChatWithAI } from '../chat-with-ai';
-import { AiOutlineLoading3Quarters, AiOutlineSisternode } from 'react-icons/ai';
-import { signOut } from 'next-auth/react';
-import MapMenu from './map-menu';
-import AnimatedLoadingScreen from '../loading-animation-screen';
-import { StylePanel } from './style-panel';
-import IconLayerType from './icon-layer-type';
-import FlowDiagramWithDraggableNodes from '../flow/flow-components';
-import TreeDirectory from '../tree-view';
-import { v4 } from 'uuid';
-import * as turf from '@turf/turf';
-import * as toGeoJSON from "@tmcw/togeojson";
 import shp from 'shpjs';
-import JSZip from "jszip";
 import * as topojson from "topojson-client";
+import { v4 } from 'uuid';
 import * as wkt from "wkt";
+import { ChatWithAI } from '../chat-with-ai';
+import FlowDiagramWithDraggableNodes from '../flow/flow-components';
+import { Input } from '../input';
+import AnimatedLoadingScreen from '../loading-animation-screen';
+import TreeDirectory from '../tree-view';
+import IconLayerType from './icon-layer-type';
+import MapMenu from './map-menu';
+import SortableItem from './sortable-item';
+import { StylePanel } from './style-panel';
 
 
 export default function MapLayout({
@@ -96,7 +95,7 @@ export default function MapLayout({
         style: false,
         addLayer: false,
         aiChat: false,
-        node_workspace: true,
+        node_workspace: false,
     });
     const [isLoading, setIsLoading] = useState<MapIsLoading>({
         initLoading: true,
@@ -156,6 +155,7 @@ export default function MapLayout({
     const [addLayerSettings, setAddLayerSetings] = useState({
         active: "",
     })
+    const [toggleEdit, setToggleEdit] = useState<boolean>(false);
 
 
     // MAP FUNCTIONS
@@ -208,7 +208,7 @@ export default function MapLayout({
                     type: 'fill',
                     filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
                     paint: {
-                        'fill-color': '#FFD700', // Warna isian
+                        'fill-color': '#2A3A75', // Warna isian
                         'fill-opacity': 0.5, // Transparansi isian
                     },
                 },
@@ -217,7 +217,7 @@ export default function MapLayout({
                     type: 'line',
                     filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
                     paint: {
-                        'line-color': '#FF4500', // Warna garis tepi
+                        'line-color': '#1E90FF', // Warna garis tepi
                         'line-width': 2, // Ketebalan garis
                     },
                 },
@@ -236,11 +236,12 @@ export default function MapLayout({
                     filter: ['all', ['==', '$type', 'Point'], ['!=', 'mode', 'static']],
                     paint: {
                         'circle-radius': 5, // Ukuran titik
-                        'circle-color': '#32CD32', // Warna titik
+                        'circle-color': '#1E90FF', // Warna titik
+                        'circle-stroke-color': '#FFFFFF', // Warna Stroke
+                        'circle-stroke-width': 2, // Warna Stroke
                     },
                 },
             ];
-
 
             const draw = new MapboxDraw({
                 displayControlsDefault: false,
@@ -255,11 +256,9 @@ export default function MapLayout({
                 },
             });
 
-            // Add draw control to map
-            drawRef.current = draw; // Simpan instance ke ref
+            drawRef.current = draw;
             map.addControl(draw, 'bottom-right');
 
-            // Event listeners for draw interactions
             map.on('draw.create', (e: { features: GeoJSON.Feature[] }) => {
                 console.log('Feature created:', e.features[0]);
             });
@@ -295,14 +294,15 @@ export default function MapLayout({
     };
 
     const handleMapClick = async (event: MapMouseEvent) => {
+        const mode = drawRef.current?.getMode();
         setIsLoading({ ...isLoading, featureInfo: true })
         const map = mapRef.current?.getMap();
         const latLng: Location = event.lngLat;
         addOrUpdateMarker(latLng.lng, latLng.lat)
         setCurrentMapClick({ lng: latLng.lng, lat: latLng.lat });
-        setDisplayLayouts({ ...displayLayouts, layerInfo: true });
         setInfoFeatures([]);
-        if (map) {
+        if (map && mode == 'simple_select') {
+            setDisplayLayouts({ ...displayLayouts, layerInfo: true });
             const info = await getFeatureInfo(event, selectedLayer ? selectedLayer : layers, map) as InfoFeature[];
             setInfoFeatures(info);
         }
@@ -361,15 +361,23 @@ export default function MapLayout({
         );
         console.log(layers)
     }
+    const isSourceUsed = (sourceId: string): boolean => {
+        const map = mapRef?.current?.getMap();
+        const layers = map?.getStyle()?.layers || [];
+        return layers.some((layer) => layer.source === sourceId);
+    };
 
     const handleRemoveLayer = (index: number) => {
         const map = mapRef?.current?.getMap();
         const layerId = layers[index].id;
         if (map && layerId) {
             const layer = map.getLayer(layerId);
+            const is_source_used = isSourceUsed(layer?.source ?? "")
             if (layer) {
                 map.removeLayer(layerId);
-                map.removeSource(layer?.source ?? "")
+                if (!is_source_used) {
+                    map.removeSource(layer?.source ?? "")
+                }
             }
         }
         setLayers((prevLayers) => prevLayers.filter((_, i) => i !== index));
@@ -737,6 +745,7 @@ export default function MapLayout({
     // END TOOL FUNCTIONS
 
     const handleOnSave = () => {
+        saveFeaturesToLayer()
         toast.promise(new Promise((resolve, reject) => {
             setTimeout(() => {
                 const rand = Math.random();
@@ -993,6 +1002,38 @@ export default function MapLayout({
         });
     };
 
+    const handleEditFeatures = () => {
+        const map = mapRef?.current?.getMap();
+        if (selectedLayer) {
+            const layerId = selectedLayer.id;
+            const source_id = map?.getLayer(layerId)?.source
+            const data = map?.getSource(source_id ?? "")?.serialize()
+            const toggleEdits = !toggleEdit
+            setToggleEdit(toggleEdits);
+            if (!toggleEdit) {
+                drawRef.current?.add(data.data);
+            } else {
+                const features = drawRef.current?.getAll();
+                const source = map?.getSource(source_id ?? "") as mapboxgl.GeoJSONSource
+                source.setData(features);
+                drawRef.current?.deleteAll();
+            }
+        }
+    }
+
+    const saveFeaturesToLayer = () => {
+        if (drawRef.current) {
+            const features = drawRef.current.getAll();
+            if (drawRef.current) {
+                drawRef.current.deleteAll();
+            }
+            handleAddUploadToMap({
+                layerName: "Untitled Layer " + layers.length + 1,
+                data: features
+            })
+        }
+    };
+
 
     return (
         <div
@@ -1181,6 +1222,7 @@ export default function MapLayout({
                         onOpacityChange={(e) => setOpacity(e)}
                         setDisplayLayouts={setDisplayLayouts}
                         setSelectedLayer={setSelectedLayer}
+                        handleEditFeatures={handleEditFeatures}
                     />
                 )}
             </div>
