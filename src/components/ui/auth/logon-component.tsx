@@ -24,7 +24,7 @@ export default function LoginComponent() {
             email,
             password,
             redirect: true,
-            callbackUrl: "/dashboard",
+            callbackUrl: "/admin/dashboard",
         });
         if (result?.ok) {
             console.log("Login successful!");

@@ -85,7 +85,7 @@ export default function MapLayout({
     datasetsFetch
 }: {
     layersFetch: Layer[],
-    datasetsFetch: any
+    datasetsFetch: Datasets[]
 }) {
 
     const mapRef = useRef<MapRef | null>(null);
@@ -1324,7 +1324,7 @@ export default function MapLayout({
                                                 <SelectValue defaultValue={"Geoserver"} placeholder="Select Map Vendor" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value={MapServiceVendor.GeoJSON}>Geoserver</SelectItem>
+                                                <SelectItem value={MapServiceVendor.Geoserver}>Geoserver</SelectItem>
                                                 <SelectItem value={MapServiceVendor.ArcGIS}>ArcGIS</SelectItem>
                                             </SelectContent>
                                         </Select>

@@ -21,7 +21,7 @@ export const get = async (): Promise<Project[]> => {
     });
 
     const json = await data.json();
-    return json;
+    return json.data;
 }
 
 export const project = async (id: string): Promise<Project> => {

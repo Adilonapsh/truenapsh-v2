@@ -12,7 +12,7 @@ export async function middleware(req: Request) {
     }
 
     if (token && (req.url.includes("auth"))) {
-        return NextResponse.redirect(new URL('/dashboard', req.url));
+        return NextResponse.redirect(new URL('/admin/dashboard', req.url));
     }
 
 
@@ -27,7 +27,7 @@ export async function middleware(req: Request) {
 export const config = {
     matcher: [
         '/auth/:path*',
-        '/dashboard/:path*',
+        '/admin/:path*',
         '/map/:path*'
     ],
 };

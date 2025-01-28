@@ -146,10 +146,10 @@ const convertWMSToVectorData = async (selectedLayer: Layer, mapRef: mapboxgl.Map
         );
         const data = await response.json();
 
-        const layerID = `vector_${selectedLayer?.map_service_layer_name}_${Date.now()}`
-        const sourceID = `${layerID}_source`;
+        const layerID = v4()
+        const sourceID = v4();
         // SOURCE LAYER
-        mapRef.addSource(`${layerID}_source`, {
+        mapRef.addSource(sourceID, {
             type: "geojson",
             data: data,
         });
