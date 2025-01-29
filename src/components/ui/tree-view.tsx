@@ -6,6 +6,7 @@ import FileGrid from './file-grid'
 import { cn } from "@/lib/utils"
 import { FaVectorSquare } from 'react-icons/fa6'
 import { BiGlobe } from 'react-icons/bi'
+import { Datasets } from '@/types/datasets.types'
 
 type TreeNode = {
     name: string
@@ -89,12 +90,13 @@ function TreeNode({ node, level, path, onSelect, selectedPath }: TreeNodeProps) 
     )
 }
 
-export default function TreeDirectory({ data, setSelectedDatasets, selectedDatasets }: { data: TreeNode[], setSelectedDatasets: any, selectedDatasets: any }) {
+export default function TreeDirectory({ data, setSelectedDatasets, selectedDatasets, activeDatasets }: { data: TreeNode[], setSelectedDatasets: (datasets: any[]) => void, selectedDatasets: any[], activeDatasets: Datasets }) {
     const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null)
     const [selectedPath, setSelectedPath] = useState<string | null>(null)
 
     const handleSelect = (node: TreeNode, path: string) => {
         const layer = {
+            id: node.id,
             name: node.name,
             title: node.name,
             legend: "",
@@ -107,11 +109,10 @@ export default function TreeDirectory({ data, setSelectedDatasets, selectedDatas
         setSelectedNode(node)
         setSelectedPath(path)
     }
-
     return (
-        <div className="flex border rounded-lg p-4 max-w-4xl w-full">
+        <div className="flex border-r-1 p-4 max-w-4xl w-full">
             <div className="w-1/2 pr-4 border-r">
-                <h2 className="text-lg font-semibold mb-4">Directory Structure</h2>
+                <h2 className="text-lg font-semibold mb-4">{activeDatasets.name} Directory Structure</h2>
                 {data.map((node, index) => (
                     <TreeNode
                         key={index}
@@ -123,7 +124,7 @@ export default function TreeDirectory({ data, setSelectedDatasets, selectedDatas
                     />
                 ))}
             </div>
-            <div className="w-1/2 pl-4 ">
+            <div className="w-1/2 pl-4 sticky">
                 <h2 className="text-lg font-semibold mb-4">File/Folder Details</h2>
                 {selectedNode && <FileGrid node={selectedNode} path={selectedPath || ''} />}
             </div>

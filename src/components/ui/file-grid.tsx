@@ -22,7 +22,7 @@ export default function FileGrid({ node, path }: { node: TreeNode, path: string 
                 </div>
             </div>
         )
-        
+
     } else if (node.type === 'file') {
         return (
             <div className="space-y-4">
@@ -48,17 +48,19 @@ export default function FileGrid({ node, path }: { node: TreeNode, path: string 
                     <p><strong>Path:</strong> {path}</p>
                     <p><strong>Contents:</strong></p>
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                    {node.children?.map((child, index) => (
-                        <div key={index} className="flex flex-col items-center p-2 border rounded">
-                            {child.type === 'folder' ? (
-                                <Folder className="w-8 h-8 text-blue-500" />
-                            ) : (
-                                <File className="w-8 h-8 text-gray-500" />
-                            )}
-                            <span className="mt-2 text-sm text-center break-all">{child.name}</span>
-                        </div>
-                    ))}
+                <div className='h-[30vh] overflow-auto'>
+                    <div className="grid grid-cols-1 gap-4">
+                        {node.children?.map((child, index) => (
+                            <div key={index} className="flex flex-col items-center p-2 border rounded">
+                                {child.type === 'folder' ? (
+                                    <Folder className="w-8 h-8 text-blue-500" />
+                                ) : (
+                                    <File className="w-8 h-8 text-gray-500" />
+                                )}
+                                <span className="mt-2 text-sm text-center break-all">{child.name}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         )

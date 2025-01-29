@@ -1,10 +1,7 @@
-// layout.tsx
 import "@/app/globals.css"
+import { getServerSession } from "next-auth"
 import { Manrope, Work_Sans } from "next/font/google"
 import { LayoutClient } from "./layout-client"
-import { getSession } from "next-auth/react"
-import { redirect } from "next/navigation"
-import { getServerSession } from "next-auth"
 
 const workSans = Work_Sans({
   variable: "--font-work-sans",
@@ -147,7 +144,7 @@ export default async function RootLayout({
 }>) {
 
   const session = await getServerSession()
-  data.user = session.user
+  data.user = session?.user
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${workSans.variable} ${manRope.variable} antialiased`}>

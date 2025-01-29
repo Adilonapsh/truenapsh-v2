@@ -35,6 +35,7 @@ function MapView({
                 hash={true}
                 onLoad={onLoad}
                 onStyleData={onStyleData}
+                preserveDrawingBuffer={true}
             >
                 <ScaleControl />
                 <NavigationControl position="bottom-right" />

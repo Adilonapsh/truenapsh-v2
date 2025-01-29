@@ -25,13 +25,15 @@ function MapMenu(
         onNewWindow,
         onSave,
         onShare,
+        onExit,
     }:
         {
             children?: React.ReactNode
             onNewTab?: () => void
-            onNewWindow?:() =>  void
+            onNewWindow?: () => void
             onSave?: () => void
-            onShare?:() =>  void
+            onShare?: () => void
+            onExit?: () => void
         }
 ) {
     const handleOnNewTab = () => {
@@ -72,6 +74,9 @@ function MapMenu(
                                 <MenubarItem>PNG</MenubarItem>
                             </MenubarSubContent>
                         </MenubarSub>
+                        <MenubarItem onClick={onExit}>
+                            Exit
+                        </MenubarItem>
                     </MenubarContent>
                 </MenubarMenu>
                 <MenubarMenu>

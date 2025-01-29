@@ -1,14 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import Image from "next/image"
-import { MoreHorizontal, Pencil, Settings } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { motion } from "framer-motion"
+import Image from "next/image"
+import { useState } from "react"
 
 interface ProjectCardProps {
     title: string
@@ -35,7 +31,7 @@ export default function ProjectCard({
     return (
         <TooltipProvider>
             <Card
-                className="w-full max-w-md border bg-white dark:bg-gray-950 shadow-lg border-0 cursor-pointer group"
+                className="w-full max-w-md border bg-white dark:bg-gray-950 shadow-lg cursor-pointer group"
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 onClick={onClick}

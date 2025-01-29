@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import ProjectCard from '@/components/ui/project/project-card';
 import { get } from '@/server/project';
 import { Project } from '@/types/project.types';
@@ -24,7 +24,7 @@ export default function DashboardPage() {
             setLoadingProject(false)
         };
         fetchProjects();
-    }, [projects]);
+    }, []);
 
     return (
         <div>
@@ -58,7 +58,7 @@ export default function DashboardPage() {
                 {loadingProject ? (
                     Array(3).fill(0).map((_, i) => (
                         <div key={i} className="animate-pulse">
-                            <Card className="w-full max-w-md border bg-gray-100 dark:bg-gray-900 shadow-lg border-0">
+                            <Card className="w-full max-w-md border bg-gray-100 dark:bg-gray-900 shadow-lg">
                                 <CardHeader className="p-0 relative overflow-hidden aspect-video bg-gray-200 dark:bg-gray-700" />
                                 <CardContent className="p-4 space-y-2">
                                     <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />

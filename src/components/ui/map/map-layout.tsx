@@ -28,7 +28,7 @@ import {
 import { BoundingBox, InfoFeature, Layer, LayoutDisplay, Location, MapboxLayerStyle, MapIsLoading, MapServiceVendor, ParsedLayer, Place } from '@/types/map.types';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
-import { Eye, EyeClosed, LayersIcon, PlusCircleIcon, PlusIcon, UploadIcon, X } from 'lucide-react';
+import { Eye, EyeClosed, LayersIcon, PlusCircleIcon, PlusIcon, X } from 'lucide-react';
 import mapboxgl, { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
 import React, { useEffect, useRef, useState } from 'react';
 import { BiCollapse, BiLogOutCircle, BiTrash } from 'react-icons/bi';
@@ -40,7 +40,22 @@ import { TbZoomInAreaFilled } from 'react-icons/tb';
 import { MapRef } from 'react-map-gl';
 import { Button } from '../button';
 
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle
+} from "@/components/ui/card";
+import {
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+} from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, transfromEsriServicesToFolder, } from '@/services/map-services';
+import { Datasets } from "@/types/datasets.types";
 import {
     closestCorners,
     DndContext,
@@ -72,12 +87,12 @@ import { ChatWithAI } from '../chat-with-ai';
 import FlowDiagramWithDraggableNodes from '../flow/flow-components';
 import { Input } from '../input';
 import AnimatedLoadingScreen from '../loading-animation-screen';
+import { ScrollArea } from "../scroll-area";
 import TreeDirectory from '../tree-view';
 import IconLayerType from './icon-layer-type';
 import MapMenu from './map-menu';
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
-import { Datasets } from "@/types/datasets.types";
 
 
 export default function MapLayout({
@@ -161,6 +176,7 @@ export default function MapLayout({
     })
     const [toggleEdit, setToggleEdit] = useState<boolean>(false);
     const [datasets, setDatasets] = useState<Datasets[]>(datasetsFetch)
+    const [activeDatasets, setActiveDatasets] = useState<Datasets>(null);
 
 
 
@@ -692,7 +708,15 @@ export default function MapLayout({
 
     const handleSelectedDatasets = (index: number) => {
         const layer: ParsedLayer = datasetResult[index];
-        setSelectedDatasets([...selectedDatasets, { ...layer, index }]);
+        const existingIndex = selectedDatasets.findIndex(dataset => dataset.index === index);
+        if (existingIndex >= 0) {
+            const newDatasets = [...selectedDatasets];
+            newDatasets.splice(existingIndex, 1);
+            setSelectedDatasets(newDatasets);
+        } else {
+            setSelectedDatasets([...selectedDatasets, { ...layer, index }]);
+        }
+        console.log(selectedDatasets);
     }
 
     const handleAddLayerToMap = async () => {
@@ -756,6 +780,7 @@ export default function MapLayout({
 
     const handleOnSave = () => {
         saveFeaturesToLayer()
+        handlePrint()
         toast.promise(new Promise((resolve, reject) => {
             setTimeout(() => {
                 const rand = Math.random();
@@ -770,6 +795,10 @@ export default function MapLayout({
             error: 'Failed to save.',
         })
         return;
+    }
+
+    const handleOnExit = () => {
+        window.location.assign('/admin/dashboard');
     }
 
     useEffect(() => {
@@ -819,6 +848,7 @@ export default function MapLayout({
 
     const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
+        console.log(event);
         const file = event.dataTransfer.files;
         try {
             Array.from(file).forEach(async (fl) => {
@@ -1045,8 +1075,22 @@ export default function MapLayout({
     };
 
     const handleFolderClick = async (e, data: Datasets) => {
+        setActiveDatasets(data);
         const transformedFolder = await transfromEsriServicesToFolder(data.url);
         setDatasetResult(transformedFolder ?? []);
+    }
+
+    const handlePrint = async () => {
+        const map = mapRef.current;
+        const mapCanvas = map?.getCanvas();
+        const dataUrl = mapCanvas?.toDataURL('image/png');
+
+        const link = document.createElement('a');
+        link.download = 'map.png';
+        link.href = dataUrl || '';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     return (
@@ -1172,7 +1216,7 @@ export default function MapLayout({
                 <Search onSearch={handleSearch} />
             </div>
             <div className='absolute top-0 mt-5 ml-[22rem] font-bold'>
-                <MapMenu onSave={handleOnSave}></MapMenu>
+                <MapMenu onSave={handleOnSave} onExit={handleOnExit}></MapMenu>
             </div>
             <div className='absolute top-0 right-0 p-5 text-xs min-w-96' id='layerInfo'>
                 {displayLayouts.layerInfo ?
@@ -1308,114 +1352,131 @@ export default function MapLayout({
                                 <IoClose size={"13pt"} />
                             </Button>
                         </div>
-                        <div className='h-full p-5'>
-                            <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-5">
-                                <div className='flex flex-col justify-center items-center gap-1 w-auto'>
-                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "Upload" ? "bg-gray-900 text-white dark:bg-slate-800" : ""}`} onClick={() => setAddLayerSetings({ active: "datasets" })}><UploadIcon />Datasets</Button>
-                                    <Button variant={"outline"} className={`w-full lg:w-60 ${addLayerSettings.active == "WMS Service" ? "bg-gray-900 text-white dark:bg-slate-800" : ""}`} onClick={() => setAddLayerSetings({ active: "WMS Service" })}><UploadIcon />WMS Service</Button>
-                                </div>
-                                <div className='w-full'>
-                                    <h5 className='font-bold text-lg'>Upload with URL</h5>
-                                    <hr className='my-5' />
-                                    <p className='text-sm'>WMS Service URL</p>
-                                    <div className="flex flex-col gap-2 lg:flex-row items-center mb-2">
-                                        <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
-                                            <SelectTrigger className="w-full lg:w-[180px]">
-                                                <SelectValue defaultValue={"Geoserver"} placeholder="Select Map Vendor" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value={MapServiceVendor.Geoserver}>Geoserver</SelectItem>
-                                                <SelectItem value={MapServiceVendor.ArcGIS}>ArcGIS</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
-                                    </div>
-                                    <div className='flex justify-end'>
-                                        <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
-                                    </div>
-                                    <hr className='my-5' />
-                                </div>
-                            </div>
-                            <div className='h-[60%]'>
-                                {(addLayerSettings.active == "WMS Service") ? (
-                                    <div className='h-full w-full'>
-                                        <div className='h-full w-full overflow-auto bg-white border p-5 mb-5 rounded-lg dark:bg-background'>
-                                            {datasetResult?.length === 0 && (
-                                                <div className="h-full flex flex-col justify-center items-center">
-                                                    <LuDatabase size={"30pt"} />
-                                                    <p className='font-bold'>Theres no data to show yet.</p>
-                                                    <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
-                                                </div>
-                                            )}
-                                            {datasetProperties?.map_service_vendor == "Geoserver" && (
-                                                <div className='grid grid-cols-4 gap-2'>
-                                                    {datasetResult?.map((item, index) => (
-                                                        <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
-                                                            <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
-                                                            <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
-                                                            <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            {datasetProperties?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
+                        <div className='h-full px-2 py-5'>
+                            <Tabs defaultValue="datasets" className="w-full h-full">
+                                <TabsList className="grid w-full grid-cols-2">
+                                    <TabsTrigger value="datasets">Datasets</TabsTrigger>
+                                    <TabsTrigger value="wms">WMS</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="wms">
+                                    <Card>
+                                        <CardHeader>
+                                            <div className="flex items-center justify-between">
                                                 <div>
-                                                    <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
+                                                    <CardTitle>WMS</CardTitle>
+                                                    <CardDescription>
+                                                        Use your WMS to this map
+                                                    </CardDescription>
                                                 </div>
-                                            )}
-                                        </div>
-                                        <div className='flex justify-end'>
-                                            <Button className='float-right right-0' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className='h-full w-full'>
-                                        <div className="h-full flex gap-4 overflow-auto">
-                                            <div className="w-1/3 h-full overflow-auto">
-                                                <ul className="flex flex-col gap-1">
-                                                    {datasets.map((item, index) => (
-                                                        <li
-                                                            key={index}
-                                                            className="px-3 py-2 rounded-lg bg-slate-50 hover:bg-slate-200 cursor-pointer"
-                                                            onClick={(e) => { handleFolderClick(e, item) }}
-                                                        >
-                                                            {item.name}
-                                                        </li>
-                                                    ))}
-                                                </ul>
+                                                {selectedDatasets.length > 0 && (<p className="text-xs">{selectedDatasets.length} Layer Selected</p>)}
                                             </div>
-                                            <div className='h-full w-full rounded-lg dark:bg-background'>
-                                                {datasetResult?.length === 0 && (
-                                                    <div className="h-full flex flex-col justify-center items-center">
-                                                        <LuDatabase size={"30pt"} />
-                                                        <p className='font-bold'>Theres no data to show yet.</p>
-                                                        <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
-                                                    </div>
-                                                )}
-                                                {datasetProperties?.map_service_vendor == "Geoserver" && (
-                                                    <div className='grid grid-cols-4 gap-2'>
-                                                        {datasetResult?.map((item, index) => (
-                                                            <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
-                                                                <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
-                                                                <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
-                                                                <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2">
+                                            <div className="flex flex-col gap-2 lg:flex-row items-center mb-2">
+                                                <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
+                                                    <SelectTrigger className="w-full lg:w-[180px]">
+                                                        <SelectValue defaultValue={"Geoserver"} placeholder="Select Map Vendor" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value={MapServiceVendor.Geoserver}>Geoserver</SelectItem>
+                                                        <SelectItem value={MapServiceVendor.ArcGIS}>ArcGIS</SelectItem>
+                                                        {/* <SelectItem value={MapServiceVendor.GeoJSON}>Geojson</SelectItem> */}
+                                                    </SelectContent>
+                                                </Select>
+                                                <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
+                                                <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
+                                            </div>
+                                            <div className='h-[50vh] w-full'>
+                                                <div className='h-full w-full overflow-auto bg-white border p-5 mb-2 rounded-lg dark:bg-background'>
+                                                    {datasetResult?.length === 0 && (
+                                                        <div className="h-full flex flex-col justify-center items-center">
+                                                            <LuDatabase size={"30pt"} />
+                                                            <p className='font-bold'>Theres no data to show yet.</p>
+                                                            <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
+                                                        </div>
+                                                    )}
+                                                    {datasetProperties?.map_service_vendor == "Geoserver" && (
+                                                        <div className='grid grid-cols-4 gap-2'>
+                                                            {datasetResult?.map((item, index) => (
+                                                                <div key={index} onClick={() => handleSelectedDatasets(index)} className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''}`}>
+                                                                    <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video hover:scale-105 transition-all" width={200} height={100} />
+                                                                    <PlusCircleIcon size={'24'} className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'}`} />
+                                                                    <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    {datasetProperties?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
+                                                        <div>
+                                                            <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-end">
+                                                <Button className='' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </TabsContent>
+                                <TabsContent value="datasets">
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Datasets</CardTitle>
+                                            <CardDescription>Select Your Layer</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2">
+                                            <div className='h-[55vh] w-full'>
+                                                <div className="h-full flex gap-4 overflow-auto border rounded-lg">
+                                                    <ScrollArea className="h-full w-1/2 border-r">
+                                                        <div className="p-2 space-y-1 ">
+                                                            {datasets.map((dataset, index) => (
+                                                                <Button
+                                                                    key={index}
+                                                                    variant="ghost"
+                                                                    className={cn("w-full justify-start font-normal", (activeDatasets?.id == dataset.id) ? "bg-accent" : "")}
+                                                                    onClick={(e) => { handleFolderClick(e, dataset) }}
+                                                                >
+                                                                    {dataset.name}
+                                                                </Button>
+                                                            ))}
+                                                        </div>
+                                                    </ScrollArea>
+                                                    <div className='h-full w-full rounded-lg dark:bg-background'>
+                                                        {datasetResult?.length === 0 && (
+                                                            <div className="h-full flex flex-col justify-center items-center">
+                                                                <LuDatabase size={"30pt"} />
+                                                                <p className='font-bold'>Theres no data to show yet.</p>
+                                                                <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
                                                             </div>
-                                                        ))}
+                                                        )}
+                                                        {activeDatasets?.map_service_vendor == "Geoserver" && (
+                                                            <div className='grid grid-cols-4 gap-2'>
+                                                                {datasetResult?.map((item, index) => (
+                                                                    <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
+                                                                        <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
+                                                                        <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
+                                                                        <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        {activeDatasets?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
+                                                            <div className="relative">
+                                                                <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} activeDatasets={activeDatasets} />
+                                                            </div>
+                                                        )}
+
                                                     </div>
-                                                )}
-                                                {datasetProperties?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
-                                                    <div>
-                                                        <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
-                                                    </div>
-                                                )}
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className='flex justify-end'>
-                                            <Button className='float-right right-0' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                                            <div className='flex justify-end'>
+                                                <Button className='' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </TabsContent>
+                            </Tabs>
                         </div>
                     </div>
                 </div>
