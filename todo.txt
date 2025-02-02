@@ -1,7 +1,7 @@
 1. Masukkan layer esri (done)
 2. Ambil File Esri dari URL (Done)
 3. Ambil Layer Info dari Esri (done)
-4. Add Accordion in style panel
+4. Add Accordion in style panel (Done)
 5. Add Register Flow 
 6. Add Function to the flow workspaces
 7. Add Bookmark Camera

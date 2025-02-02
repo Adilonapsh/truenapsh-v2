@@ -93,6 +93,7 @@ import IconLayerType from './icon-layer-type';
 import MapMenu from './map-menu';
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
+import M3U8VideoPlayer from "../hls";
 
 
 export default function MapLayout({
@@ -721,6 +722,7 @@ export default function MapLayout({
 
     const handleAddLayerToMap = async () => {
         selectedDatasets.forEach(dataset => {
+            console.log("datasert", dataset);
             const layerId = v4();
             const layerName = dataset.title;
             const mapServiceUrl = dataset.url ? dataset.url : datasetProperties.url;
@@ -806,6 +808,8 @@ export default function MapLayout({
         if (map) {
             layers.forEach(layer => {
                 if (layer.map_service_vendor == "Geoserver" || layer.map_service_vendor == "ArcGIS") {
+                    console.log(layer)
+
                     let url = "";
                     if (layer.map_service_vendor == "Geoserver") {
                         const GEOSERVER_WMS_PARAMETER = "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
@@ -1233,7 +1237,6 @@ export default function MapLayout({
                             </Button>
                         </div>
                         <div className='text-xs px-5'>
-
                             {infoFeatures.map((layer, index) => (
                                 <Accordion key={index} type="single" collapsible>
                                     <AccordionItem value={`item-${index}`} className='border-none'>
@@ -1241,12 +1244,31 @@ export default function MapLayout({
                                         <AccordionContent className='text-xs'>
                                             <table className='w-full border'>
                                                 <tbody>
-                                                    {Object.keys(layer.properties).map((body, i) => (
-                                                        <tr key={i}>
-                                                            <th className='border border-accent text-start text-wrap w-[100px] capitalize px-2 py-1'>{body.replaceAll("_", " ")}</th>
-                                                            <td className='border border-accent text-wrap px-2'>{layer.properties[body as keyof typeof layer.properties]}</td>
-                                                        </tr>
-                                                    ))}
+                                                    {Object.keys(layer.properties).map((body, i) =>
+                                                        body.includes("video") ? (
+                                                            <tr key={i}>
+                                                                <th className='border border-accent text-start text-wrap w-[100px] capitalize px-2 py-1'>
+                                                                    {body.replaceAll("_", " ")}
+                                                                </th>
+                                                                <td className='border border-accent text-wrap px-2'>
+                                                                    {typeof layer.properties[body as keyof typeof layer.properties] === 'string' && layer.properties[body as keyof typeof layer.properties].startsWith("http") ? (
+                                                                        <M3U8VideoPlayer src={layer.properties[body as keyof typeof layer.properties]} placeholderImage="/assets/placeholder.svg" />
+                                                                    ) : (
+                                                                        <span>{layer.properties[body as keyof typeof layer.properties]}</span>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        ) : (
+                                                            <tr key={i}>
+                                                                <th className='border border-accent text-start text-wrap w-[100px] capitalize px-2 py-1'>
+                                                                    {body.replaceAll("_", " ")}
+                                                                </th>
+                                                                <td className='border border-accent text-wrap px-2'>
+                                                                    {layer.properties[body as keyof typeof layer.properties]}
+                                                                </td>
+                                                            </tr>
+                                                        )
+                                                    )}
                                                 </tbody>
                                             </table>
                                         </AccordionContent>
@@ -1342,7 +1364,7 @@ export default function MapLayout({
             )}
             {displayLayouts.addLayer && (
                 <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm' >
-                    <div className='relative h-full bg-white lg:max-h-screen lg:w-1/2 rounded-lg p-5 dark:bg-background'>
+                    <div className='relative h-full w-full xl:w-1/2 bg-white lg:max-h-screen  rounded-lg p-5 dark:bg-background'>
                         <div className='flex justify-between items-center'>
                             <div>
                                 <p className='font-semibold'>Add Layer</p>

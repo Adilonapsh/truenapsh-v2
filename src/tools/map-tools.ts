@@ -33,6 +33,7 @@ const searchPlaces = async (search: string, lang: string = "EN-en") => {
             } else {
                 console.error("Unknown error caught:", error);
             }
+            return [];
         }
     }
 }
