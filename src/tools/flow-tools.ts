@@ -1,25 +1,28 @@
-function convertToWorkflow(nodes: any[], edges: any[]) {
+import { downloadAsJsonFile, downloadAsTextFile } from "./file-download";
+
+const convertToWorkflow = (nodes: any[], edges: any[]) => {
     // Buat map node berdasarkan ID
     const nodeMap = Object.fromEntries(nodes.map((node) => [node.id, node]));
-    console.log("Node Map : ", nodeMap)
+    // console.log("Node Map : ", nodeMap);
 
-    // Temukan node awal
+    // Temukan node awal (node yang tidak memiliki `target` dalam `edges`)
     const startNode = nodes.find(
         (node) => !edges.some((edge) => edge.target === node.id)
     );
 
-    console.log("Start Node : ", startNode);
+    // console.log("Start Node : ", startNode);
+
     // Rekursi untuk membangun workflow
-    const traverseWorkflow = (nodeId, edges, nodes, prevOutput = null) => {
+    const traverseWorkflow = async (nodeId, edges, nodes, prevOutput = null) => {
         const node = nodes.find((node) => node.id === nodeId);
         if (!node) return null;
 
-        // Masukkan output dari node sebelumnya sebagai input
-        node.data.input = prevOutput;
+        // Jika node memiliki input, gunakan `prevOutput` sebagai nilai input
+        node.data.input = prevOutput || node.data.input;
 
         // Proses data berdasarkan action
-        const output = processActions(node.data.action);
-        console.log(output);
+        const output = await processActions(node.data.action, node.data.input, node.data.metadata);
+        console.log(`Processing Node (${node.id}):`, { input: node.data.input, output });
 
         // Simpan output ke node
         node.data.output = output;
@@ -27,13 +30,16 @@ function convertToWorkflow(nodes: any[], edges: any[]) {
         // Periksa apakah node ini bercabang
         const isBranched = isNodeBranched(nodeId, edges);
 
-        // Ambil semua cabang
+        // Ambil semua cabang (next nodes)
         const branches = getBranches(nodeId, edges);
 
         // Traversal untuk semua cabang (jika bercabang)
-        const next = branches.map((targetId) =>
-            traverseWorkflow(targetId, edges, nodes, output)
+        const next = await Promise.all(
+            branches.map((targetId) =>
+                traverseWorkflow(targetId, edges, nodes, output)
+            )
         );
+
 
         return {
             id: node.id,
@@ -48,64 +54,87 @@ function convertToWorkflow(nodes: any[], edges: any[]) {
     return traverseWorkflow(startNode.id, edges, nodes);
 }
 
-
-const processActions = (action: string) => {
+// Proses data berdasarkan action dan input dari node sebelumnya
+const processActions = async (action: string, input: any, metadata: any) => {
     let output = null;
     switch (action) {
         case "import":
             output = "Import data";
             break;
         case "export":
-            output = "Export data";
+            if (metadata?.type === 'JSON') {
+                downloadAsJsonFile(input, `${metadata?.name}.json` ?? "Export.json");
+            } else if (metadata.type === "Text") {
+                downloadAsTextFile(input, `${metadata?.name}.txt` ?? "Export.txt");
+            }
+            output = null;
             break;
         case "map":
-            output = "Map data";
+            output = input;
             break;
         case "database":
-            output = "Database action";
+            output = `Database action on: ${JSON.stringify(input)}`;
             break;
         case "analytics":
-            output = "Analytics action";
+            output = `Analytics result of: ${JSON.stringify(input)}`;
             break;
         case "http-request":
-            output = "Analytics action";
+            if (metadata?.url && metadata?.method) {
+                try {
+                    const response = await fetch(metadata.url, {
+                        method: metadata.method,
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: metadata.method !== 'GET' ? JSON.stringify(input) : undefined
+                    });
+                    output = await response.json();
+                } catch (error) {
+                    output = `Error: ${error.message}`;
+                }
+            } else {
+                output = 'Missing URL or method in metadata';
+            }
+            break;
+        case "forloop":
+            output = input;
             break;
         case "select":
-            output = "Select data";
+            output = `Selected: ${JSON.stringify(input)}`;
             break;
         case "order-by":
-            output = "Order data";
+            output = `Ordered: ${JSON.stringify(input)}`;
             break;
         case "limit":
-            output = "Limit data";
+            output = `Limited: ${JSON.stringify(input)}`;
             break;
         case "filter":
-            output = "Filter data";
+            output = `Filtered: ${JSON.stringify(input)}`;
             break;
         case "join":
-            output = "Join data";
+            output = `Joined: ${JSON.stringify(input)}`;
             break;
         case "group-by":
-            output = "Group data";
+            output = `Grouped: ${JSON.stringify(input)}`;
             break;
         case "count":
-            output = "Count data";
+            output = `Counted: ${JSON.stringify(input)}`;
             break;
         default:
-            output = "default";
+            console.log(`Unknown action: ${action}`)
+            output = "";
     }
     return output;
-}
-
-const isNodeBranched = (nodeId, edges) => {
-    // Hitung jumlah edges yang memiliki source sesuai nodeId
-    const outgoingEdges = edges.filter((edge) => edge.source === nodeId);
-    return outgoingEdges.length > 1; // True jika lebih dari 1 edge
 };
 
-// Fungsi untuk mengambil semua cabang dari sebuah node
+// Cek apakah node memiliki banyak cabang
+const isNodeBranched = (nodeId, edges) => {
+    const outgoingEdges = edges.filter((edge) => edge.source === nodeId);
+    return outgoingEdges.length > 1; // True jika lebih dari 1 edge (cabang)
+};
+
+// Ambil semua node yang bercabang dari sebuah node
 const getBranches = (nodeId, edges) => {
-    // Ambil semua target node yang terhubung dari source nodeId
     return edges
         .filter((edge) => edge.source === nodeId)
         .map((edge) => edge.target);
@@ -114,4 +143,5 @@ const getBranches = (nodeId, edges) => {
 
 export {
     convertToWorkflow
-}
+};
+

@@ -33,7 +33,7 @@ import {
 import { SaveIcon, StopCircle, Trash2Icon } from 'lucide-react'
 import { Button } from '../button'
 import { MdElectricBolt } from 'react-icons/md'
-import { convertToWorkflow } from '@/tools/flow-tools'
+import { convertToWorkflow, executeWorkflow } from '@/tools/flow-tools'
 import SettingActions from './settings-actions'
 import { v4 as uuidv4 } from 'uuid';
 
@@ -209,7 +209,6 @@ function FlowDiagram() {
     const onSave = useCallback(() => {
         if (rfInstance) {
             const flow = rfInstance.toObject();
-            console.log(flow)
             // localStorage.setItem(flowKey, JSON.stringify(flow));
         }
     }, [rfInstance]);
@@ -219,7 +218,8 @@ function FlowDiagram() {
         if (rfInstance) {
             const flow = rfInstance.toObject();
             if (isRunning) {
-                console.log(convertToWorkflow(flow.nodes, flow.edges));
+                const workflow = await convertToWorkflow(flow.nodes, flow.edges);
+                console.log(workflow);
                 setEdges((eds) => eds.map((edge) => ({ ...edge, animated: true })));
                 flow.edges.forEach((elem, index) => {
                     setTimeout(() => {

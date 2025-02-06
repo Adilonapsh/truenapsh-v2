@@ -21,7 +21,7 @@ const settingsInputs: { [key: string]: any[] } = {
     "http-request": [
         { id: "url", label: "Url", type: "url" },
         {
-            id: "type", label: "Type", type: "select", options: [
+            id: "method", label: "Method", type: "select", options: [
                 "GET",
                 "POST",
                 "PUT",
@@ -30,8 +30,10 @@ const settingsInputs: { [key: string]: any[] } = {
         },
     ],
     "export": [
+        { id: "name", label: "Name", type: "text" },
         {
             id: "type", label: "Type", type: "select", options: [
+                "Text",
                 "CSV",
                 "JSON",
                 "GEOJSON",
@@ -51,7 +53,6 @@ function SettingActions({
 }) {
 
     const handleInputChange = (value: string, id: string) => {
-        console.log(value, id);
         updateNodeProperties({ ...selectedNode.data, metadata: { ...selectedNode.data?.metadata, [id]: value } })
     }
     return (
@@ -80,33 +81,48 @@ function SettingActions({
                 <AccordionItem value="item-1">
                     <AccordionTrigger className='text-xs'>Actions</AccordionTrigger>
                     <AccordionContent className='px-1'>
-                        {selectedNode && settingsInputs[selectedNode?.type]?.map((input) => (
-                            <div key={input.id}>
-                                <label htmlFor={input.id} className="mr-2 text-xs">{input.label}:</label>
-                                {input.type == "text" || input.type == "url" ? (
-                                    <Input
-                                        id={input.id}
-                                        type={input.type}
-                                        value={selectedNode.data?.metadata[input.id] ?? ""}
-                                        onChange={(e) => handleInputChange(e.target.value, input.id)}
-                                        className="border rounded"
-                                    />
+                        {selectedNode && settingsInputs[selectedNode.type]?.map((input: {
+                            id: string;
+                            label: string;
+                            type: string;
+                            options?: string[];
+                        }) => {
+                            const metadata = selectedNode.data?.metadata as Record<string, string>;
+                            const value = metadata?.[input.id] ?? "";
 
-                                ) : (
-                                    // <Select onValueChange={(e) => console.log(e) }>
-                                    <Select value={selectedNode.data?.metadata[input.id] ?? ""} onValueChange={(e) => handleInputChange(e, input.id)}>
-                                        <SelectTrigger className="w-full">
-                                            <SelectValue placeholder={`Select ${input.label}`} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {input.options.map((value: string, index: number) => (
-                                                <SelectItem key={index} value={value}>{value}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            </div>
-                        ))}
+                            return (
+                                <div key={input.id}>
+                                    <label htmlFor={input.id} className="mr-2 text-xs">
+                                        {input.label}:
+                                    </label>
+                                    {input.type === "text" || input.type === "url" ? (
+                                        <Input
+                                            id={input.id}
+                                            type={input.type}
+                                            value={value}
+                                            onChange={(e) => handleInputChange(e.target.value, input.id)}
+                                            className="border rounded"
+                                        />
+                                    ) : (
+                                        <Select 
+                                            value={value}
+                                            onValueChange={(e) => handleInputChange(e, input.id)}
+                                        >
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder={`Select ${input.label}`} />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {input.options?.map((value) => (
+                                                    <SelectItem key={value} value={value}>
+                                                        {value}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
