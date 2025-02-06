@@ -13,10 +13,15 @@ function MapView({
     onZoom,
     onClick,
     onLoad,
-    onStyleData
+    onStyleData,
+    handleDragOver,
+    handleDrop
 }: MapComponentsProps) {
     return (
-        <div>
+        <div
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+        >
             <Map
                 mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
                 ref={mapRef}

@@ -114,7 +114,7 @@ export default function MapLayout({
         style: false,
         addLayer: false,
         aiChat: false,
-        node_workspace: false,
+        node_workspace: true,
     });
     const [isLoading, setIsLoading] = useState<MapIsLoading>({
         initLoading: true,
@@ -1098,12 +1098,8 @@ export default function MapLayout({
     }
 
     return (
-        <div
-            className='relative h-dvh'
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-        >
-            <MapView mapRef={mapRef} onMouseMove={(event) => onMouseMove(event as MapMouseEvent)} onClick={(event) => handleMapClick(event as MapMouseEvent)} onLoad={onMapLoad} onStyleData={onStyleData} />
+        <div className='relative h-dvh'>
+            <MapView mapRef={mapRef} onMouseMove={onMouseMove} onClick={(event) => handleMapClick(event as MapMouseEvent)} onLoad={onMapLoad} onStyleData={onStyleData} handleDragOver={handleDragOver} handleDrop={handleDrop} />
             {showLoading && (
                 <div className={`absolute top-0 h-screen w-screen flex justify-center items-center z-10 ${isLoading.initLoading ? "" : "opacity-0"} transition-all duration-500`}>
                     <AnimatedLoadingScreen />

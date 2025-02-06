@@ -13,6 +13,8 @@ type MapComponentsProps = {
     defaultMarkerPosition?: Location;
     onLoad?: () => void;
     onStyleData?: () => void;
+    handleDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
+    handleDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
 }
 
 type ViewState = {

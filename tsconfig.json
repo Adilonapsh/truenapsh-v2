@@ -22,6 +22,7 @@
       "@/*": ["./src/*"],
       "@/lib/*": ["./src/lib/*"],
       "@/utils/*": ["./src/utils/*"],
+      "@/hooks/*": ["./src/hooks/*"],
       "@/app/globals": ["./src/globals.css"]
     }
   },
