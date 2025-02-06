@@ -63,9 +63,9 @@ const processActions = async (action: string, input: any, metadata: any) => {
             break;
         case "export":
             if (metadata?.type === 'JSON') {
-                downloadAsJsonFile(input, `${metadata?.name}.json` ?? "Export.json");
+                downloadAsJsonFile(input, `${metadata?.name}.json`);
             } else if (metadata.type === "Text") {
-                downloadAsTextFile(input, `${metadata?.name}.txt` ?? "Export.txt");
+                downloadAsTextFile(input, `${metadata?.name}.txt`);
             }
             output = null;
             break;
