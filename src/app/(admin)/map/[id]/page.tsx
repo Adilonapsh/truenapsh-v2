@@ -11,13 +11,6 @@ import { Toaster } from 'react-hot-toast';
 export default async function MapPage(context: { params: { id: string } }) {
 
     const { id } = await context.params;
-    const user = await authUserSession();
-    const status = user ? 'authenticated' : 'unauthenticated';
-
-    if (status == "unauthenticated") {
-        redirect("/auth/login");
-    }
-
 
     try {
         const fetchedProject: Project = await project(id);

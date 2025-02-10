@@ -69,7 +69,7 @@ const NodeWrapper = ({
 export function GroupNode({ data, selected }) {
     const [groupName, setGroupName] = useState(data.label);
 
-    const onGroupNameChange = useCallback((evt) => {
+    const onGroupNameChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
         setGroupName(evt.target.value);
         data.onGroupNameChange(evt.target.value);
     }, [data]);

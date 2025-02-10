@@ -1,22 +1,22 @@
 'use client'
 
-import { useCallback, DragEvent, useRef, useState } from 'react'
 import {
-    ReactFlow,
-    Node,
     addEdge,
     Background,
+    BackgroundVariant,
+    ConnectionLineType,
     Controls,
     MiniMap,
-    ConnectionLineType,
-    useNodesState,
-    useEdgesState,
+    Node,
+    ReactFlow,
     ReactFlowProvider,
+    useEdgesState,
+    useNodesState,
     useReactFlow,
     XYPosition,
-    BackgroundVariant,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { DragEvent, useCallback, useRef, useState } from 'react'
 import { nodeTypes } from './custom-nodes'
 import { WidgetNode } from './widget-node'
 
@@ -30,12 +30,14 @@ import {
     TabsList,
     TabsTrigger,
 } from "@/components/ui/tabs"
+import { convertToWorkflow } from '@/tools/flow-tools'
 import { SaveIcon, StopCircle, Trash2Icon } from 'lucide-react'
-import { Button } from '../button'
 import { MdElectricBolt } from 'react-icons/md'
-import { convertToWorkflow, executeWorkflow } from '@/tools/flow-tools'
+import { v4 as uuidv4 } from 'uuid'
+import { Button } from '../button'
 import SettingActions from './settings-actions'
-import { v4 as uuidv4 } from 'uuid';
+import { useTheme } from 'next-themes'
+import { ColorMode } from '@xyflow/system'
 
 
 // const nodeTypes = {
@@ -77,6 +79,7 @@ function FlowDiagram() {
     const [rfInstance, setRfInstance] = useState(null);
     const [isRunning, setIsRunning] = useState(false);
     const reactFlowInstance = useReactFlow();
+    const { theme } = useTheme();
     // const { getIntersectingNodes } = useReactFlow();
 
     // ONE NODE
@@ -368,6 +371,7 @@ function FlowDiagram() {
                     onNodeClick={onNodeClick}
                     connectionLineType={ConnectionLineType.SmoothStep}
                     fitView
+                    colorMode={theme as ColorMode}
                 >
                     <Background variant={BackgroundVariant.Dots} />
                     <Controls />

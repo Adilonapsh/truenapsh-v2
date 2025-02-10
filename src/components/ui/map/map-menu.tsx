@@ -8,15 +8,14 @@ import {
     MenubarContent,
     MenubarItem,
     MenubarMenu,
-    MenubarRadioGroup,
-    MenubarRadioItem,
     MenubarSeparator,
     MenubarShortcut,
     MenubarSub,
     MenubarSubContent,
     MenubarSubTrigger,
-    MenubarTrigger,
+    MenubarTrigger
 } from "@/components/ui/menubar"
+import { useTheme } from 'next-themes'
 
 function MapMenu(
     {
@@ -43,6 +42,8 @@ function MapMenu(
     const handleOnNewWindow = () => {
         window.open(window.location.href, '_self');
     }
+
+    const { theme, setTheme } = useTheme();
 
 
     return (
@@ -123,6 +124,20 @@ function MapMenu(
                         <MenubarItem inset>Toggle Fullscreen</MenubarItem>
                         <MenubarSeparator />
                         <MenubarItem inset>Hide Sidebar</MenubarItem>
+                        <MenubarSub>
+                            <MenubarSubTrigger inset>Theme</MenubarSubTrigger>
+                            <MenubarSubContent>
+                                <MenubarCheckboxItem checked={theme === "light"} onClick={() => setTheme("light")}>
+                                    Light
+                                </MenubarCheckboxItem>
+                                <MenubarCheckboxItem checked={theme === "dark"} onClick={() => setTheme("dark")}>
+                                    Dark
+                                </MenubarCheckboxItem>
+                                <MenubarCheckboxItem checked={theme === "system"} onClick={() => setTheme("system")}>
+                                    System
+                                </MenubarCheckboxItem>
+                            </MenubarSubContent>
+                        </MenubarSub>
                     </MenubarContent>
                 </MenubarMenu>
             </Menubar>

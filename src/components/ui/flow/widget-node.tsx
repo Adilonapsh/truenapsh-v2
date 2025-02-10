@@ -73,27 +73,6 @@ export function WidgetNode({ onDragStart }: { onDragStart: (event: DragEvent<Ele
                     </div>
                 ))}
             </div>
-            {/* <div
-                className="bg-blue-200 p-2 mb-2 cursor-move"
-                onDragStart={(event) => onDragStart(event, 'input')}
-                draggable
-            >
-                Input Node
-            </div>
-            <div
-                className="bg-green-200 p-2 mb-2 cursor-move"
-                onDragStart={(event) => onDragStart(event, 'default')}
-                draggable
-            >
-                Default Node
-            </div>
-            <div
-                className="bg-red-200 p-2 cursor-move"
-                onDragStart={(event) => onDragStart(event, 'output')}
-                draggable
-            >
-                Output Node
-            </div> */}
         </div>
     );
 }

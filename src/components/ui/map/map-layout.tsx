@@ -74,6 +74,7 @@ import * as toGeoJSON from "@tmcw/togeojson";
 import * as turf from '@turf/turf';
 import JSZip from "jszip";
 import { signOut } from 'next-auth/react';
+import { useTheme } from "next-themes";
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { AiOutlineLoading3Quarters, AiOutlineSisternode } from 'react-icons/ai';
@@ -85,6 +86,7 @@ import { v4 } from 'uuid';
 import * as wkt from "wkt";
 import { ChatWithAI } from '../chat-with-ai';
 import FlowDiagramWithDraggableNodes from '../flow/flow-components';
+import M3U8VideoPlayer from "../hls";
 import { Input } from '../input';
 import AnimatedLoadingScreen from '../loading-animation-screen';
 import { ScrollArea } from "../scroll-area";
@@ -93,7 +95,6 @@ import IconLayerType from './icon-layer-type';
 import MapMenu from './map-menu';
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
-import M3U8VideoPlayer from "../hls";
 
 
 export default function MapLayout({
@@ -178,6 +179,8 @@ export default function MapLayout({
     const [toggleEdit, setToggleEdit] = useState<boolean>(false);
     const [datasets, setDatasets] = useState<Datasets[]>(datasetsFetch)
     const [activeDatasets, setActiveDatasets] = useState<Datasets>(null);
+
+    const { setTheme } = useTheme()
 
 
 
@@ -1348,7 +1351,7 @@ export default function MapLayout({
             </div>
             {displayLayouts.node_workspace && (
                 <div className='absolute top-0 h-screen w-screen left-0 rounded p-5 z-10'>
-                    <div className='bg-white w-full h-full p-5'>
+                    <div className='bg-white w-full h-full p-5 dark:bg-background'>
                         <div className='absolute flex top-0 right-0'>
                             <Button variant={"ghost"} className='rounded-full p-3' onClick={(e) => { setDisplayLayouts({ ...displayLayouts, node_workspace: false }) }}>
                                 <X size={20} />

@@ -1,6 +1,6 @@
 
 
-const downloadAsJsonFile = (input, file_name = 'Export.json') => {
+const downloadAsJsonFile = (input: Record<string, unknown>, file_name: string = 'Export.json') => {
     const dataStr = JSON.stringify(input, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -13,7 +13,7 @@ const downloadAsJsonFile = (input, file_name = 'Export.json') => {
     URL.revokeObjectURL(url);
 }
 
-const downloadAsTextFile = (input, file_name = 'Export.txt') => {
+const downloadAsTextFile = (input: Record<string, unknown>, file_name: string = 'Export.txt') => {
     const dataStr = typeof input === 'object' ? JSON.stringify(input) : String(input || '');
     const blob = new Blob([dataStr], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
