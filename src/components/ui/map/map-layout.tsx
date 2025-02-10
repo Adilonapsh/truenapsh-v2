@@ -95,6 +95,7 @@ import IconLayerType from './icon-layer-type';
 import MapMenu from './map-menu';
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
+import { calculateCoordinatesWithAspectRatio } from "@/tools/map-tools";
 
 
 export default function MapLayout({
@@ -108,7 +109,7 @@ export default function MapLayout({
     const mapRef = useRef<MapRef | null>(null);
     const drawRef = useRef<MapboxDraw | null>(null); // Ref untuk MapboxDraw
     const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
-    const [mousePosition, setMousePosition] = useState<{ lat: number; lng: number } | null>(null);
+    const [mousePosition, setMousePosition] = useState<mapboxgl.LngLat | null>(null);
     const [currentMapClick, setCurrentMapClick] = useState<Location | null>(null);
     const [displayLayouts, setDisplayLayouts] = useState<LayoutDisplay>({
         layerInfo: false,
@@ -706,7 +707,6 @@ export default function MapLayout({
 
     const handleDatasets = async () => {
         const datasets = await getWMSServices(datasetProperties.url, datasetProperties.map_service_vendor);
-        console.log("Ini Uplaod D: ", datasets);
         setDatasetResult(datasets ?? []);
     }
 
@@ -932,6 +932,13 @@ export default function MapLayout({
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
+                } else if (fl.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function () {
+                        const imgSrc = reader.result as string;
+                        addImageToMap(imgSrc, mousePosition);
+                    };
+                    reader.readAsDataURL(fl);
                 } else {
                     throw new Error("Selected file must be .geojson, .gpkg, .kml, .kmz or .zip");
                 }
@@ -1049,21 +1056,82 @@ export default function MapLayout({
         });
     };
 
+    const addImageToMap = (imageUrl: string, lngLat: mapboxgl.LngLat) => {
+        const map = mapRef.current?.getMap();
+        if (!map) return;
+
+        const img = new window.Image();
+        img.src = imageUrl;
+        img.onload = () => {
+            const aspectRatio = img.width / img.height;
+            const sourceId = v4();
+            const layerId = v4();
+
+            const coordinates = calculateCoordinatesWithAspectRatio(lngLat, aspectRatio);
+
+            if (coordinates.length === 4) {
+                map.addSource(sourceId, {
+                    type: 'image',
+                    url: imageUrl,
+                    coordinates: coordinates as [[number, number], [number, number], [number, number], [number, number]]
+                });
+
+                map.addLayer({
+                    id: layerId,
+                    type: 'raster',
+                    source: sourceId
+                });
+
+                const layerName = "Image " + (layers.length + 1);
+
+                const commonLayerProps = {
+                    map_service_url: imageUrl,
+                    map_service_layer_name: layerName,
+                    map_service_vendor: MapServiceVendor.Image,
+                    type: "2D",
+                    visible: true,
+                    min_zoom: 0,
+                    max_zoom: 24,
+                    status: "Local",
+                    rendered: 1
+                };
+
+                setLayers(prevLayers => [...prevLayers, {
+                    ...commonLayerProps,
+                    id: layerId,
+                    name: layerName
+                }]);
+            }
+        };
+
+    }
+
     const handleEditFeatures = () => {
         const map = mapRef?.current?.getMap();
         if (selectedLayer) {
             const layerId = selectedLayer.id;
-            const source_id = map?.getLayer(layerId)?.source
-            const data = map?.getSource(source_id ?? "")?.serialize()
-            const toggleEdits = !toggleEdit
-            setToggleEdit(toggleEdits);
-            if (!toggleEdit) {
-                drawRef.current?.add(data.data);
+            const sourceId = map?.getLayer(layerId)?.source;
+            const sourceType = map?.getSource(sourceId ?? "").type;
+            const toggleEdits = !toggleEdit;
+            if (sourceType == "image") {
+                // WIP
+                setToggleEdit(toggleEdits);
+                if (!toggleEdit) {
+
+                } else {
+                }
             } else {
-                const features = drawRef.current?.getAll();
-                const source = map?.getSource(source_id ?? "") as mapboxgl.GeoJSONSource
-                source.setData(features);
-                drawRef.current?.deleteAll();
+                console.log(sourceType);
+                const data = map?.getSource(sourceId ?? "")?.serialize()
+                setToggleEdit(toggleEdits);
+                if (!toggleEdit) {
+                    drawRef.current?.add(data.data);
+                } else {
+                    const features = drawRef.current?.getAll();
+                    const source = map?.getSource(sourceId ?? "") as mapboxgl.GeoJSONSource
+                    source.setData(features);
+                    drawRef.current?.deleteAll();
+                }
             }
         }
     }
@@ -1100,6 +1168,7 @@ export default function MapLayout({
         document.body.removeChild(link);
     }
 
+    
     return (
         <div className='relative h-dvh'>
             <MapView mapRef={mapRef} onMouseMove={onMouseMove} onClick={(event) => handleMapClick(event as MapMouseEvent)} onLoad={onMapLoad} onStyleData={onStyleData} handleDragOver={handleDragOver} handleDrop={handleDrop} />
