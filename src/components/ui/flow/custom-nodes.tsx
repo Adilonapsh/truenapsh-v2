@@ -115,8 +115,8 @@ export const nodeTypes = Object.values(widgets).flat().reduce((acc, widget) => {
                     <div className="flex items-center">
                         <widget.icon className={`mr-2 text-${widget.color}-500`} size={24} />
                         <div>
-                            <div className="font-bold text-sm text-black dark:text-white">{props.data.label}</div>
-                            <div className="font-normal text-sm text-black dark:text-white">{props.data.desc}</div>
+                            <div className="font-bold text-sm text-black ">{props.data.label}</div>
+                            <div className="font-normal text-sm text-black ">{props.data.desc}</div>
                             <div className="mt-1 space-y-0.5">
                                 {Object.entries(props.data?.metadata || {}).map(([key, value]) => (
                                     <p key={key} className="text-xs text-gray-500 flex items-center gap-1">

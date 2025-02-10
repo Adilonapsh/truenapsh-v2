@@ -42,7 +42,7 @@ type Layer = {
     description?: string;
     map_service_url: string;
     map_service_layer_name: string;
-    map_service_vendor: MapServiceVendor | "Geoserver" | "ArcGIS" | "GeoJSON";
+    map_service_vendor: MapServiceVendor | "Geoserver" | "ArcGIS" | "GeoJSON" | "Image" | "Text" | "Icon";
     type: string;
     visible: boolean;
     min_zoom?: number;
@@ -57,6 +57,9 @@ enum MapServiceVendor {
     Geoserver = "Geoserver",
     ArcGIS = "ArcGIS",
     GeoJSON = "GeoJSON",
+    Image = "Image",
+    Text = "Text",
+    Icon = "Icon",
 }
 
 type Location = {

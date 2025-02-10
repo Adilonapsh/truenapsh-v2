@@ -47,9 +47,25 @@ const isCoordinates = (str: string) => {
     return true;
 }
 
+const calculateCoordinatesWithAspectRatio = (
+    lngLat: mapboxgl.LngLat,
+    aspectRatio: number
+): [number, number][] => {
+    const baseWidth = 0.01; // Adjust base width as needed
+    const height = baseWidth / aspectRatio;
+
+    return [
+        [lngLat.lng, lngLat.lat],
+        [lngLat.lng + baseWidth, lngLat.lat],
+        [lngLat.lng + baseWidth, lngLat.lat - height],
+        [lngLat.lng, lngLat.lat - height]
+    ];
+};
+
 
 
 export {
     searchPlaces,
     isCoordinates,
+    calculateCoordinatesWithAspectRatio,
 }
