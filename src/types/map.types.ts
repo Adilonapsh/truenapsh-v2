@@ -127,6 +127,7 @@ type InfoFeature = {
 type LayoutDisplay = {
     layerInfo: boolean,
     style: boolean,
+    legend: boolean,
     addLayer: boolean,
     aiChat: boolean,
     node_workspace: boolean,

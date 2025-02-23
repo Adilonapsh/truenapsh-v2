@@ -96,6 +96,7 @@ import MapMenu from './map-menu';
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
 import { calculateCoordinatesWithAspectRatio } from "@/tools/map-tools";
+import LegendEsri from "./legend-esri";
 
 
 export default function MapLayout({
@@ -114,9 +115,10 @@ export default function MapLayout({
     const [displayLayouts, setDisplayLayouts] = useState<LayoutDisplay>({
         layerInfo: false,
         style: false,
+        legend: false,
         addLayer: false,
         aiChat: false,
-        node_workspace: true,
+        node_workspace: false,
     });
     const [isLoading, setIsLoading] = useState<MapIsLoading>({
         initLoading: true,
@@ -1168,7 +1170,7 @@ export default function MapLayout({
         document.body.removeChild(link);
     }
 
-    
+
     return (
         <div className='relative h-dvh'>
             <MapView mapRef={mapRef} onMouseMove={onMouseMove} onClick={(event) => handleMapClick(event as MapMouseEvent)} onLoad={onMapLoad} onStyleData={onStyleData} handleDragOver={handleDragOver} handleDrop={handleDrop} />
@@ -1418,6 +1420,29 @@ export default function MapLayout({
                     </Popover>
                 </div>
             </div>
+
+            {displayLayouts.legend && (
+                <div className='absolute bottom-14 right-32 mb-5 ml-60'>
+                    <div className='bg-white rounded-lg dark:bg-background p-2'>
+                        <div className="flex justify-between items-center gap-5">
+                            <h5 className='text-md font-bold'>Legend {selectedLayer?.name}</h5>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                setDisplayLayouts((prev) => ({ ...prev, legend: false }));
+                            }}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div>
+                            {selectedLayer?.map_service_vendor == "Geoserver" && (
+                                <img src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}`} alt="Legend" />
+                            )}
+                            {selectedLayer?.map_service_vendor == "ArcGIS" && (
+                                <LegendEsri url={`${selectedLayer?.map_service_url}/legend?f=json`} />
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
             {displayLayouts.node_workspace && (
                 <div className='absolute top-0 h-screen w-screen left-0 rounded p-5 z-10'>
                     <div className='bg-white w-full h-full p-5 dark:bg-background'>
