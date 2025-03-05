@@ -28,14 +28,14 @@ import {
 import { BoundingBox, InfoFeature, Layer, LayoutDisplay, Location, MapboxLayerStyle, MapIsLoading, MapServiceVendor, ParsedLayer, Place } from '@/types/map.types';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
-import { Eye, EyeClosed, LayersIcon, PlusCircleIcon, PlusIcon, X } from 'lucide-react';
+import { Eye, EyeClosed, Fullscreen, LayersIcon, MinusIcon, PlusCircleIcon, PlusIcon, SaveAll, X } from 'lucide-react';
 import mapboxgl, { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
 import React, { useEffect, useRef, useState } from 'react';
 import { BiCollapse, BiLogOutCircle, BiTrash } from 'react-icons/bi';
 import { FiFilter } from 'react-icons/fi';
 import { HiCubeTransparent } from 'react-icons/hi';
 import { IoClose } from 'react-icons/io5';
-import { MdOutlineStyle } from 'react-icons/md';
+import { MdNorth, MdOutlineStyle } from 'react-icons/md';
 import { TbZoomInAreaFilled } from 'react-icons/tb';
 import { MapRef } from 'react-map-gl';
 import { Button } from '../button';
@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, transfromEsriServicesToFolder, } from '@/services/map-services';
+import { calculateCoordinatesWithAspectRatio } from "@/tools/map-tools";
 import { Datasets } from "@/types/datasets.types";
 import {
     closestCorners,
@@ -74,7 +75,6 @@ import * as toGeoJSON from "@tmcw/togeojson";
 import * as turf from '@turf/turf';
 import JSZip from "jszip";
 import { signOut } from 'next-auth/react';
-import { useTheme } from "next-themes";
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { AiOutlineLoading3Quarters, AiOutlineSisternode } from 'react-icons/ai';
@@ -92,11 +92,10 @@ import AnimatedLoadingScreen from '../loading-animation-screen';
 import { ScrollArea } from "../scroll-area";
 import TreeDirectory from '../tree-view';
 import IconLayerType from './icon-layer-type';
+import LegendEsri from "./legend-esri";
 import MapMenu from './map-menu';
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
-import { calculateCoordinatesWithAspectRatio } from "@/tools/map-tools";
-import LegendEsri from "./legend-esri";
 
 
 export default function MapLayout({
@@ -128,7 +127,6 @@ export default function MapLayout({
 
     const [showLoading, setShowLoading] = useState<boolean>(true)
     const [openItems, setOpenItems] = useState<string[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [basemap, setBasemap] = useState([
         {
             id: "Mapbox",
@@ -152,6 +150,12 @@ export default function MapLayout({
             id: "Google Street",
             name: "Google Street",
             url: "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga",
+            thumbnail: "/assets/basemap/googleStreets.png"
+        },
+        {
+            id: "Mapbox Dark 2",
+            name: "Mapbox Dark 2",
+            url: "mapbox://styles/adilonapsh/cm7sqa9ua00b001qubb9q0myu",
             thumbnail: "/assets/basemap/googleStreets.png"
         },
     ]);
@@ -181,10 +185,13 @@ export default function MapLayout({
     })
     const [toggleEdit, setToggleEdit] = useState<boolean>(false);
     const [datasets, setDatasets] = useState<Datasets[]>(datasetsFetch)
-    const [activeDatasets, setActiveDatasets] = useState<Datasets>(null);
+    const [activeDatasets, setActiveDatasets] = useState<Datasets | null>(null);
 
-    const { setTheme } = useTheme()
+    const [zoom, setZoom] = useState<number>(0);
+    const [compass, setCompass] = useState({ rotate: 0, pitch: 0, });
 
+    const [drawMode, setDrawMode] = useState<string | null>(null);
+    const [isDrawDone, setIsDrawDone] = useState<boolean>(true);
 
 
     // MAP FUNCTIONS
@@ -199,12 +206,14 @@ export default function MapLayout({
 
     const onMouseMove = (e: MapMouseEvent) => {
         const { lngLat } = e;
-        setMousePosition({ lat: lngLat.lat, lng: lngLat.lng });
+        setMousePosition(lngLat);
     };
 
     const onMapLoad = () => {
         const map = mapRef.current?.getMap();
         if (map) {
+            setZoom(parseFloat(map.getZoom().toFixed(1)));
+            // Load Layers
             layers.forEach(layer => {
                 let url = "";
                 if (layer.map_service_vendor == "Geoserver") {
@@ -231,6 +240,8 @@ export default function MapLayout({
                 });
             });
 
+
+            // Load Draw Styles
             const customStyles = [
                 {
                     id: 'gl-draw-polygon-fill',
@@ -290,15 +301,22 @@ export default function MapLayout({
 
             map.on('draw.create', (e: { features: GeoJSON.Feature[] }) => {
                 console.log('Feature created:', e.features[0]);
+                setIsDrawDone(false);
             });
 
             map.on('draw.update', (e: { features: GeoJSON.Feature[] }) => {
                 console.log('Feature updated:', e.features[0]);
+                setIsDrawDone(false);
             });
 
             map.on('draw.delete', (e: { features: GeoJSON.Feature[] }) => {
                 console.log('Feature deleted:', e.features[0]);
             });
+
+            map.on('draw.modechange', (e: { mode: string }) => {
+                setDrawMode(e.mode);
+            })
+
         }
         setIsLoading({ ...isLoading, initLoading: false });
         setTimeout(() => {
@@ -308,13 +326,26 @@ export default function MapLayout({
 
     const onStyleData = () => { }
 
+    const onZoomEnd = () => {
+        setZoom(parseFloat(mapRef.current?.getMap()?.getZoom().toFixed(1) ?? "0"));
+    }
+
+    const onRotate = () => {
+        const bearing = mapRef.current?.getMap()?.getBearing();
+        const pitch = mapRef.current?.getMap()?.getPitch();
+        setCompass({ rotate: typeof bearing === 'number' ? bearing.toFixed(0) : 0, pitch: typeof pitch === 'number' ? pitch.toFixed(0) : 0 });
+    }
+
     const addOrUpdateMarker = (longitude: number, latitude: number) => {
         if (marker) {
             marker.setLngLat([longitude, latitude]);
         } else {
             if (mapRef.current) {
                 const map = mapRef.current.getMap();
-                const newMarker = new mapboxgl.Marker()
+                const newMarker = new mapboxgl.Marker({
+                    color: "#000",
+                    clickTolerance: 20
+                })
                     .setLngLat([longitude, latitude])
                     .addTo(map);
                 setMarker(newMarker);
@@ -324,13 +355,13 @@ export default function MapLayout({
 
     const handleMapClick = async (event: MapMouseEvent) => {
         const mode = drawRef.current?.getMode();
-        setIsLoading({ ...isLoading, featureInfo: true })
         const map = mapRef.current?.getMap();
         const latLng: Location = event.lngLat;
-        addOrUpdateMarker(latLng.lng, latLng.lat)
-        setCurrentMapClick({ lng: latLng.lng, lat: latLng.lat });
         setInfoFeatures([]);
+        setIsLoading({ ...isLoading, featureInfo: true })
         if (map && mode == 'simple_select') {
+            addOrUpdateMarker(latLng.lng, latLng.lat)
+            setCurrentMapClick({ lng: latLng.lng, lat: latLng.lat });
             setDisplayLayouts({ ...displayLayouts, layerInfo: true });
             const info = await getFeatureInfo(event, selectedLayer ? selectedLayer : layers, map) as InfoFeature[];
             setInfoFeatures(info);
@@ -586,6 +617,114 @@ export default function MapLayout({
         }
     }
 
+    const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+    };
+
+    const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        const file = event.dataTransfer.files;
+        try {
+            Array.from(file).forEach(async (fl) => {
+                if (fl.name.includes(".geojson")) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const geojsonData = JSON.parse(reader.result as string);
+                        handleAddUploadToMap({
+                            layerName: fl.name.split(".")[0].replaceAll("_", " "),
+                            data: geojsonData
+                        })
+                    };
+                    reader.readAsText(fl);
+                } else if (fl.name.includes(".zip")) {
+                    const buffer = await fl.arrayBuffer();
+                    const shapeData = await shp(buffer);
+                    handleAddUploadToMap({
+                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
+                        data: shapeData as GeoJSON.GeoJSON
+                    });
+                } else if (fl.name.includes(".gpkg")) {
+                    toast.error("Geopackage in progress");
+                } else if (fl.name.includes(".kml")) {
+                    const text = await fl.text();
+
+                    // Parse KML into DOM
+                    const parser = new DOMParser();
+                    const kml = parser.parseFromString(text, "application/xml");
+
+                    // Convert KML to GeoJSON
+                    const geojson = toGeoJSON.kml(kml);
+                    handleAddUploadToMap({
+                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
+                        data: geojson as GeoJSON.GeoJSON
+                    });
+                } else if (fl.name.includes(".kmz")) {
+                    const zip = new JSZip();
+                    const content = await zip.loadAsync(fl);
+
+                    const kmlFile = Object.keys(content.files).find((filename) =>
+                        filename.endsWith(".kml")
+                    );
+                    if (!kmlFile) {
+                        throw new Error("No KML file found in KMZ archive.");
+                    }
+
+                    const kmlText = await content.files[kmlFile].async("text");
+                    const parser = new DOMParser();
+                    const kml = parser.parseFromString(kmlText, "application/xml");
+                    const geojson = toGeoJSON.kml(kml);
+                    handleAddUploadToMap({
+                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
+                        data: geojson as GeoJSON.GeoJSON
+                    });
+                } else if (fl.name.includes(".topojson")) {
+                    const text = await fl.text();
+                    const topojsonData = JSON.parse(text);
+                    const geojson = topojson.feature(topojsonData, topojsonData.objects[Object.keys(topojsonData.objects)[0]]);
+                    handleAddUploadToMap({
+                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
+                        data: geojson as GeoJSON.GeoJSON
+                    });
+                } else if (fl.name.includes(".wkt")) {
+                    const text = await fl.text();
+                    const geojson = {
+                        type: "FeatureCollection",
+                        features: [{
+                            type: "Feature",
+                            geometry: wkt.parse(text),
+                            properties: {}
+                        }]
+                    };
+                    handleAddUploadToMap({
+                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
+                        data: geojson as GeoJSON.GeoJSON
+                    });
+                } else if (fl.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const imgSrc = reader.result as string;
+                        if (mousePosition) {
+                            addImageToMap(imgSrc, mousePosition);
+                        } else {
+                            console.error("Mouse position is null. Cannot add image to map.");
+                        }
+                    };
+                    reader.readAsDataURL(fl);
+                } else {
+                    throw new Error("Selected file must be .geojson, .gpkg, .kml, .kmz, .topojson, .wkt, .zip or an image.");
+                }
+            });
+        } catch (err) {
+            console.log(err);
+            toast.error("Harap Masukkan File Geojson");
+        }
+    };
+
+    const handleNorth = () => {
+        mapRef.current?.getMap()?.easeTo({ bearing: 0, duration: 1000 });
+    }
+
     // END MAP FUNCTIONS
 
 
@@ -626,7 +765,7 @@ export default function MapLayout({
         }
     };
 
-    const setPaint = (paint_type: string, value: string | number) => {
+    const setPaint = (paint_type: string, value: string | number | undefined) => {
         const map = mapRef?.current?.getMap();
         if (selectedLayer) {
             const layerId = selectedLayer.id;
@@ -705,6 +844,52 @@ export default function MapLayout({
                 setPaint("-stroke-opacity", val)
             }
         }
+    }
+
+    const resetFill = () => {
+        const defaultColor = "#000000";
+        setMapboxLayerStyle({ ...mapboxLayerStyle, fill: defaultColor })
+        setPaint("-color", defaultColor)
+    }
+
+    const resetStroke = () => {
+        const map = mapRef?.current?.getMap();
+        const defaultColor = "#000000";
+        if (selectedLayer && map) {
+            const layerId = selectedLayer.id;
+            const type = map.getLayer(layerId)?.type
+            setMapboxLayerStyle({ ...mapboxLayerStyle, stroke: defaultColor })
+            if (type == "fill") {
+                setPaint("-outline-color", defaultColor)
+            } else {
+                setPaint("-stroke-color", defaultColor)
+            }
+        }
+    }
+
+    const resetStrokeWidth = () => {
+        const strokeWidth = 0;
+        setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width: strokeWidth })
+        setPaint("-stroke-width", strokeWidth)
+    }
+
+    const resetContrast = () => {
+        const contrast = 0;
+        setMapboxLayerStyle({ ...mapboxLayerStyle, contrast: contrast })
+        setPaint("-contrast", contrast)
+    }
+
+    const resetSaturation = () => {
+        const saturation = 0;
+        setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: saturation })
+        setPaint("-saturation", saturation)
+    }
+
+    const resetBrightness = () => {
+        const brightness = 0;
+        setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: brightness })
+        setPaint("-brightness-min", brightness)
+        setPaint("-brightness-max", brightness)
     }
 
     const handleDatasets = async () => {
@@ -786,7 +971,6 @@ export default function MapLayout({
     // END TOOL FUNCTIONS
 
     const handleOnSave = () => {
-        saveFeaturesToLayer()
         handlePrint()
         toast.promise(new Promise((resolve, reject) => {
             setTimeout(() => {
@@ -813,8 +997,6 @@ export default function MapLayout({
         if (map) {
             layers.forEach(layer => {
                 if (layer.map_service_vendor == "Geoserver" || layer.map_service_vendor == "ArcGIS") {
-                    console.log(layer)
-
                     let url = "";
                     if (layer.map_service_vendor == "Geoserver") {
                         const GEOSERVER_WMS_PARAMETER = "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
@@ -849,107 +1031,6 @@ export default function MapLayout({
             });
         }
     }, [layers]);
-
-    const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'copy';
-    };
-
-    const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-        event.preventDefault();
-        console.log(event);
-        const file = event.dataTransfer.files;
-        try {
-            Array.from(file).forEach(async (fl) => {
-                if (fl.name.includes(".geojson")) {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        const geojsonData = JSON.parse(reader.result as string);
-                        handleAddUploadToMap({
-                            layerName: fl.name.split(".")[0].replaceAll("_", " "),
-                            data: geojsonData
-                        })
-                    };
-                    reader.readAsText(fl);
-                } else if (fl.name.includes(".zip")) {
-                    const buffer = await fl.arrayBuffer();
-                    const shapeData = await shp(buffer);
-                    handleAddUploadToMap({
-                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
-                        data: shapeData as GeoJSON.GeoJSON
-                    });
-                } else if (fl.name.includes(".gpkg")) {
-                    toast.error("Geopackage in progress");
-                } else if (fl.name.includes(".kml")) {
-                    const text = await fl.text();
-
-                    // Parse KML into DOM
-                    const parser = new DOMParser();
-                    const kml = parser.parseFromString(text, "application/xml");
-
-                    // Convert KML to GeoJSON
-                    const geojson = toGeoJSON.kml(kml);
-                    handleAddUploadToMap({
-                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
-                        data: geojson as GeoJSON.GeoJSON
-                    });
-                } else if (fl.name.includes(".kmz")) {
-                    const zip = new JSZip();
-                    const content = await zip.loadAsync(fl);
-
-                    const kmlFile = Object.keys(content.files).find((filename) =>
-                        filename.endsWith(".kml")
-                    );
-                    if (!kmlFile) {
-                        throw new Error("No KML file found in KMZ archive.");
-                    }
-
-                    const kmlText = await content.files[kmlFile].async("text");
-                    const parser = new DOMParser();
-                    const kml = parser.parseFromString(kmlText, "application/xml");
-                    const geojson = toGeoJSON.kml(kml);
-                    handleAddUploadToMap({
-                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
-                        data: geojson as GeoJSON.GeoJSON
-                    });
-                } else if (fl.name.includes(".topojson")) {
-                    const text = await fl.text();
-                    const topojsonData = JSON.parse(text);
-                    const geojson = topojson.feature(topojsonData, topojsonData.objects[Object.keys(topojsonData.objects)[0]]);
-                    handleAddUploadToMap({
-                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
-                        data: geojson as GeoJSON.GeoJSON
-                    });
-                } else if (fl.name.includes(".wkt")) {
-                    const text = await fl.text();
-                    const geojson = {
-                        type: "FeatureCollection",
-                        features: [{
-                            type: "Feature",
-                            geometry: wkt.parse(text),
-                            properties: {}
-                        }]
-                    };
-                    handleAddUploadToMap({
-                        layerName: fl.name.split(".")[0].replace(/_/g, " "),
-                        data: geojson as GeoJSON.GeoJSON
-                    });
-                } else if (fl.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = function () {
-                        const imgSrc = reader.result as string;
-                        addImageToMap(imgSrc, mousePosition);
-                    };
-                    reader.readAsDataURL(fl);
-                } else {
-                    throw new Error("Selected file must be .geojson, .gpkg, .kml, .kmz or .zip");
-                }
-            });
-        } catch (err) {
-            console.log(err);
-            toast.error("Harap Masukkan File Geojson");
-        }
-    };
 
     const handleAddUploadToMap = async ({
         layerName,
@@ -1044,7 +1125,6 @@ export default function MapLayout({
                     name: `${layerName} ${config.nameSuffix}`
                 }]);
 
-                // Add map layer
                 map.addLayer({
                     id: fullLayerId,
                     type: config.layerType,
@@ -1113,17 +1193,14 @@ export default function MapLayout({
         if (selectedLayer) {
             const layerId = selectedLayer.id;
             const sourceId = map?.getLayer(layerId)?.source;
-            const sourceType = map?.getSource(sourceId ?? "").type;
+            const sourceType = map?.getSource(sourceId ?? "")?.type;
             const toggleEdits = !toggleEdit;
-            if (sourceType == "image") {
-                // WIP
+            if (sourceType === "image") {
                 setToggleEdit(toggleEdits);
                 if (!toggleEdit) {
-
                 } else {
                 }
             } else {
-                console.log(sourceType);
                 const data = map?.getSource(sourceId ?? "")?.serialize()
                 setToggleEdit(toggleEdits);
                 if (!toggleEdit) {
@@ -1148,10 +1225,11 @@ export default function MapLayout({
                 layerName: "Untitled Layer " + layers.length + 1,
                 data: features
             })
+            setIsDrawDone(true)
         }
     };
 
-    const handleFolderClick = async (e, data: Datasets) => {
+    const handleFolderClick = async (e: React.MouseEventHandler, data: Datasets) => {
         setActiveDatasets(data);
         const transformedFolder = await transfromEsriServicesToFolder(data.url);
         setDatasetResult(transformedFolder ?? []);
@@ -1170,10 +1248,48 @@ export default function MapLayout({
         document.body.removeChild(link);
     }
 
+    const handleZoomIn = () => {
+        mapRef.current?.getMap()?.zoomIn();
+    }
+
+    const handleZoomOut = () => {
+        mapRef.current?.getMap()?.zoomOut();
+    }
+
+    // WIP
+    const handleMaxLayersBbox = async () => {
+        let maxBbox: number[] = [];
+        const map = mapRef.current;
+        if (map) {
+            await map.getStyle()?.layers?.forEach(layer => {
+                const features = map.queryRenderedFeatures({ layers: [layer.id] });
+                if (features.length > 0) {
+                    const bbox = turf.bbox({ type: "FeatureCollection", features });
+                    maxBbox = bbox
+                    if (maxBbox.length === 0) {
+                        maxBbox = bbox;
+                    } else {
+                        const currentArea = (maxBbox[2] - maxBbox[0]) * (maxBbox[3] - maxBbox[1]);
+                        const newArea = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1]);
+                        if (newArea > currentArea) {
+                            maxBbox = bbox;
+                        }
+                    }
+                }
+            });
+            if (maxBbox.length > 0) {
+                map.fitBounds(maxBbox as any, {
+                    padding: 25,
+                    duration: 1000,
+                });
+            }
+        }
+    }
+
 
     return (
         <div className='relative h-dvh'>
-            <MapView mapRef={mapRef} onMouseMove={onMouseMove} onClick={(event) => handleMapClick(event as MapMouseEvent)} onLoad={onMapLoad} onStyleData={onStyleData} handleDragOver={handleDragOver} handleDrop={handleDrop} />
+            <MapView onRotate={onRotate} mapRef={mapRef} onMouseMove={onMouseMove} onClick={(event) => handleMapClick(event as MapMouseEvent)} onLoad={onMapLoad} onStyleData={onStyleData} onZoomEnd={onZoomEnd} handleDragOver={handleDragOver} handleDrop={handleDrop} />
             {showLoading && (
                 <div className={`absolute top-0 h-screen w-screen flex justify-center items-center z-10 ${isLoading.initLoading ? "" : "opacity-0"} transition-all duration-500`}>
                     <AnimatedLoadingScreen />
@@ -1292,6 +1408,7 @@ export default function MapLayout({
             <div className='absolute top-0 mt-5 ml-[22rem] font-bold'>
                 <MapMenu onSave={handleOnSave} onExit={handleOnExit}></MapMenu>
             </div>
+
             <div className='absolute top-0 right-0 p-5 text-xs min-w-96' id='layerInfo'>
                 {displayLayouts.layerInfo ?
                     <div className='bg-white rounded-lg max-h-[calc(100vh-15rem)] max-w-xl overflow-auto dark:bg-background'>
@@ -1356,9 +1473,10 @@ export default function MapLayout({
                     ""
                 }
             </div>
-            <div className='absolute top-0 right-0 text-xs mt-5 mr-5'>
+            <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
                 {displayLayouts.style && (
                     <StylePanel
+                        mapRef={mapRef}
                         selectedLayer={selectedLayer}
                         values={mapboxLayerStyle}
                         setValues={setMapboxLayerStyle}
@@ -1373,10 +1491,12 @@ export default function MapLayout({
                         setDisplayLayouts={setDisplayLayouts}
                         setSelectedLayer={setSelectedLayer}
                         handleEditFeatures={handleEditFeatures}
+                        resetFill={resetFill}
+                        resetStroke={resetStroke}
                     />
                 )}
             </div>
-            <div className='absolute top-0 right-0 p-5 text-xs min-w-96'>
+            <div className='absolute top-0 right-0 p-5 text-xs min-w-96 z-10'>
                 {displayLayouts.aiChat && (
                     <div className='bg-white rounded-lg max-h-[calc(100vh-9rem)] overflow-y-auto dark:bg-background'>
                         <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white dark:bg-background'>
@@ -1395,12 +1515,13 @@ export default function MapLayout({
                     </div>
                 )}
             </div>
-            <div className='absolute bottom-2 right-14 mb-5 ml-28'>
+
+            <div className='absolute bottom-2 right-14 mb-5 ml-28 z-[1]'>
                 <div className='bg-white p-2 text-xs rounded-lg min-w-52 text-center dark:bg-background'>
                     {mousePosition?.lng.toFixed(9)}, {mousePosition?.lat.toFixed(9)}
                 </div>
             </div>
-            <div className='absolute bottom-14 right-14 mb-5 ml-28'>
+            <div className='absolute bottom-14 right-14 mb-5 ml-28 z-[1]'>
                 <div className='bg-white w-14 h-14 rounded-lg dark:bg-background'>
                     <Popover>
                         <PopoverTrigger>
@@ -1418,6 +1539,20 @@ export default function MapLayout({
                             </div>
                         </PopoverContent>
                     </Popover>
+                </div>
+            </div>
+
+            {/* Zooming */}
+            <div className='absolute bottom-5 left-1/2 -translate-x-1/2 z-[1]'>
+                <div className="flex justify-center items-center gap-1 bg-white dark:bg-background p-1 rounded-lg">
+                    <Button variant={"ghost"} size="sm" onClick={(e) => handleNorth()}><MdNorth style={{ transform: `rotate(${-compass.rotate}deg)` }} /></Button>
+                    <Button variant={"ghost"} size="sm" onClick={(e) => handleZoomOut()}><MinusIcon /></Button>
+                    <label htmlFor="" className="text-xs w-5 text-center">{zoom}</label>
+                    <Button variant={"ghost"} size="sm" onClick={(e) => handleZoomIn()}><PlusIcon /></Button>
+                    <Button variant={"ghost"} size="sm" onClick={(e) => handleMaxLayersBbox()}><Fullscreen /></Button>
+                    {!isDrawDone && (
+                        <Button variant={"ghost"} size="sm" onClick={(e) => saveFeaturesToLayer()}><SaveAll /></Button>
+                    )}
                 </div>
             </div>
 
@@ -1549,8 +1684,8 @@ export default function MapLayout({
                                                                 <Button
                                                                     key={index}
                                                                     variant="ghost"
-                                                                    className={cn("w-full justify-start font-normal", (activeDatasets?.id == dataset.id) ? "bg-accent" : "")}
-                                                                    onClick={(e) => { handleFolderClick(e, dataset) }}
+                                                                    className={cn("w-full justify-start font-normal", activeDatasets?.id === dataset.id ? "bg-accent" : "")}
+                                                                    onClick={(e) => handleFolderClick(e, dataset)}
                                                                 >
                                                                     {dataset.name}
                                                                 </Button>

@@ -3,5 +3,14 @@
 3. Ambil Layer Info dari Esri (done)
 4. Add Accordion in style panel (Done)
 5. Add Register Flow 
-6. Add Function to the flow workspaces
+6. Add Function to the flow workspaces (WIP)
 7. Add Bookmark Camera
+8. Add Reset on Styles (WIP, Stroke and Fill Done)
+9. Add Darkmode to auth
+10. atur z index styles (Done)
+11. fix image on drop on map
+12. make legend mapbox (Done)
+13. add save feature to bottom (Done)
+
+
+

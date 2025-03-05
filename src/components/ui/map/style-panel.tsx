@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Toggle } from "@/components/ui/toggle"
 import { Layer, LayoutDisplay, MapboxLayerStyle } from "@/types/map.types"
-import { ImagesIcon, PenIcon, Table2Icon, TableIcon, X } from 'lucide-react'
+import { ImagesIcon, PenIcon, Table2Icon, TableIcon, X, XIcon } from 'lucide-react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../accordion"
 import IconLayerType from "./icon-layer-type"
 import LegendEsri from "./legend-esri"
+import LegendMapbox from "./legend-mapbox"
 
 interface StyleValue {
     opacity: number
@@ -25,6 +26,7 @@ interface StyleValue {
 
 export function StylePanel(
     {
+        mapRef,
         selectedLayer,
         values,
         setValues,
@@ -39,8 +41,11 @@ export function StylePanel(
         setDisplayLayouts,
         setSelectedLayer,
         handleEditFeatures,
+        resetFill,
+        resetStroke,
     }: {
-        selectedLayer: Layer | null
+        mapRef: React.RefObject<mapboxgl.Map>,
+        selectedLayer: Layer | null,
         values: MapboxLayerStyle,
         setValues: React.Dispatch<React.SetStateAction<MapboxLayerStyle>>,
         onFillChange: (fill: string) => void,
@@ -54,10 +59,12 @@ export function StylePanel(
         setDisplayLayouts: React.Dispatch<React.SetStateAction<LayoutDisplay>>
         setSelectedLayer: React.Dispatch<React.SetStateAction<Layer | null>>
         handleEditFeatures: () => void,
+        resetFill: () => void,
+        resetStroke: () => void,
     }) {
     return (
         <Card className="w-[320px] shadow-lg text-sm overflow-hidden">
-               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="relative font-medium">
                     <div className="absolute -top-10 -left-12 opacity-15">
                         <IconLayerType size={"50pt"} layer={selectedLayer} />
@@ -194,14 +201,19 @@ export function StylePanel(
                                                     }}
                                                 />
                                             </div>
-                                            <Input
-                                                value={values.fill}
-                                                className="font-mono"
-                                                onChange={(e) => {
-                                                    setValues({ ...values, fill: e.target.value })
-                                                    onFillChange(e.target.value)
-                                                }}
-                                            />
+                                            <div className="relative">
+                                                <Input
+                                                    value={values.fill}
+                                                    className="font-mono"
+                                                    onChange={(e) => {
+                                                        setValues({ ...values, fill: e.target.value })
+                                                        onFillChange(e.target.value)
+                                                    }}
+                                                />
+                                                {values.fill != "#000000" && (
+                                                    <Button className="absolute right-0 top-0" variant={"ghost"} onClick={(e) => resetFill()}><XIcon /></Button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="grid gap-2">
@@ -218,14 +230,19 @@ export function StylePanel(
                                                     }}
                                                 />
                                             </div>
-                                            <Input
-                                                value={values.stroke}
-                                                className="font-mono"
-                                                onChange={(e) => {
-                                                    setValues({ ...values, stroke: e.target.value })
-                                                    onStrokeChange(e.target.value)
-                                                }}
-                                            />
+                                            <div className="relative">
+                                                <Input
+                                                    value={values.stroke}
+                                                    className="font-mono"
+                                                    onChange={(e) => {
+                                                        setValues({ ...values, stroke: e.target.value })
+                                                        onStrokeChange(e.target.value)
+                                                    }}
+                                                />
+                                                {values.stroke != "#000000" && (
+                                                    <Button className="absolute right-0 top-0" variant={"ghost"} onClick={(e) => resetStroke()}><XIcon /></Button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="grid gap-2">
@@ -321,6 +338,9 @@ export function StylePanel(
                                 )}
                                 {selectedLayer?.map_service_vendor == "ArcGIS" && (
                                     <LegendEsri url={`${selectedLayer?.map_service_url}/legend?f=json`} />
+                                )}
+                                {selectedLayer?.map_service_vendor == "GeoJSON" && (
+                                    <LegendMapbox selectedLayer={selectedLayer} mapRef={mapRef} />
                                 )}
                             </AccordionContent>
                         </AccordionItem>

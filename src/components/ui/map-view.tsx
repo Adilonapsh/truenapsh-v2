@@ -11,11 +11,13 @@ function MapView({
     onMouseMove,
     mapRef,
     onZoom,
+    onZoomEnd,
     onClick,
     onLoad,
     onStyleData,
     handleDragOver,
-    handleDrop
+    handleDrop,
+    onRotate
 }: MapComponentsProps) {
     return (
         <div
@@ -41,9 +43,12 @@ function MapView({
                 onLoad={onLoad}
                 onStyleData={onStyleData}
                 preserveDrawingBuffer={true}
+                onZoomEnd={onZoomEnd}
+                onRotate={onRotate}
+                fadeDuration={500}
             >
                 <ScaleControl />
-                <NavigationControl position="bottom-right" />
+                {/* <NavigationControl position="bottom-right" /> */}
                 <FullscreenControl position="bottom-right" />
                 <GeolocateControl position="bottom-right" />
             </Map>

@@ -9,6 +9,8 @@ type MapComponentsProps = {
     onMouseMove?: (event: mapboxgl.MapMouseEvent) => void;
     mapRef?: React.RefObject<MapRef | null>;
     onZoom?: (event: mapboxgl.MapEvent) => void;
+    onZoomEnd?: (event: mapboxgl.MapEvent) => void;
+    onRotate?: (event: mapboxgl.MapEvent) => void;
     onClick?: (event: mapboxgl.MapEvent) => Promise<void> | void;
     defaultMarkerPosition?: Location;
     onLoad?: () => void;
