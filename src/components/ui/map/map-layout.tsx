@@ -28,15 +28,17 @@ import {
 import { BoundingBox, InfoFeature, Layer, LayoutDisplay, Location, MapboxLayerStyle, MapIsLoading, MapServiceVendor, ParsedLayer, Place } from '@/types/map.types';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
-import { Eye, EyeClosed, Fullscreen, LayersIcon, MinusIcon, PlusCircleIcon, PlusIcon, SaveAll, X } from 'lucide-react';
+import { ArrowUp, Eye, EyeClosed, Fullscreen, LayersIcon, MinusIcon, PlusCircleIcon, PlusIcon, SaveAll, X } from 'lucide-react';
 import mapboxgl, { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
 import React, { useEffect, useRef, useState } from 'react';
-import { BiCollapse, BiLogOutCircle, BiTrash } from 'react-icons/bi';
+import { BiArrowToTop, BiCollapse, BiLogOutCircle, BiTrash } from 'react-icons/bi';
+import { CiCompass1 } from "react-icons/ci";
+import { RiCompassDiscoverFill } from "react-icons/ri";
 import { FiFilter } from 'react-icons/fi';
 import { HiCubeTransparent } from 'react-icons/hi';
 import { IoClose } from 'react-icons/io5';
-import { MdNorth, MdOutlineStyle } from 'react-icons/md';
-import { TbZoomInAreaFilled } from 'react-icons/tb';
+import { MdOutlineStyle } from 'react-icons/md';
+import { TbRouteSquare, TbZoomInAreaFilled } from 'react-icons/tb';
 import { MapRef } from 'react-map-gl';
 import { Button } from '../button';
 
@@ -55,7 +57,7 @@ import {
 } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, transfromEsriServicesToFolder, } from '@/services/map-services';
-import { calculateCoordinatesWithAspectRatio } from "@/tools/map-tools";
+import { calculateCoordinatesWithAspectRatio, searchAlternatives } from "@/tools/map-tools";
 import { Datasets } from "@/types/datasets.types";
 import {
     closestCorners,
@@ -1286,6 +1288,136 @@ export default function MapLayout({
         }
     }
 
+    const handleRoutes = async () => {
+        const jawaBaratBounds = [106.75, -6.65, 106.9, -6.5]; // Approximate bounds of Kota Bogor
+        const randomLng = Math.random() * (jawaBaratBounds[2] - jawaBaratBounds[0]) + jawaBaratBounds[0];
+        const randomLat = Math.random() * (jawaBaratBounds[3] - jawaBaratBounds[1]) + jawaBaratBounds[1];
+        const from = [randomLng, randomLat];
+        const to = [106.8071939, -6.6015137]
+        const alternatives = await searchAlternatives(from, to);
+        const map = mapRef.current?.getMap();
+        const colors = { active: "#3887ff", secondary: "#8F8F8F" }
+        map?.getStyle()?.layers?.forEach(layer => {
+            const layerId = layer.id;
+            if (layerId.includes('route-group-')) {
+                map.removeLayer(layerId);
+                if (map.getSource(layerId)) {
+                    map.removeSource(layerId);
+                }
+            }
+        });
+        alternatives.forEach((alternative, index: number) => {
+            const routes = turf.lineString(alternative.coords);
+
+            const bounds = turf.bbox(routes);
+
+            map?.addLayer({
+                id: `route-group-${index}`,
+                type: 'line',
+                source: {
+                    type: 'geojson',
+                    data: routes
+                },
+                slot: alternative.response.isFastest ? 'top' : 'bottom',
+                layout: {
+                    'line-cap': 'round',
+                    'line-join': 'round'
+                },
+                paint: {
+                    'line-color': alternative.response.isFastest ? colors.active : colors.secondary,
+                    'line-width': 5,
+                    'line-opacity': alternative.response.isFastest ? 1 : .8,
+                }
+            });
+
+            map?.addLayer({
+                id: `route-group-from-${index}`,
+                type: 'circle',
+                source: {
+                    type: 'geojson',
+                    data: turf.points([from])
+                },
+                paint: {
+                    'circle-radius': 4,
+                    'circle-color': '#3887be',
+                    'circle-stroke-color': '#fff',
+                    'circle-stroke-width': 2,
+                }
+            });
+
+            map?.addLayer({
+                id: `route-group-to-${index}`,
+                type: 'circle',
+                source: {
+                    type: 'geojson',
+                    data: turf.points([to])
+                },
+                paint: {
+                    'circle-radius': 4,
+                    'circle-color': '#3887be',
+                    'circle-stroke-color': '#fff',
+                    'circle-stroke-width': 2,
+                }
+            });
+
+            map?.on('mouseenter', `route-group-${index}`, () => {
+                if (map) {
+                    map.getCanvas().style.cursor = 'pointer';
+                }
+            });
+            
+            map?.on('mouseleave', `route-group-${index}`, () => {
+                if (map) {
+                    map.getCanvas().style.cursor = '';
+                }
+            });
+            
+            map?.on('click', `route-group-${index}`, () => {
+                if (map) {
+                    // Change the clicked route to active color
+                    map.setPaintProperty(
+                        `route-group-${index}`,
+                        'line-color',
+                        colors.active
+                    );
+                    
+                    // Bring the selected route to the top
+                    map.moveLayer(`route-group-${index}`);
+                    
+                    // Change all other routes to secondary color
+                    alternatives.forEach((_, i) => {
+                        if (i !== index) {
+                            map.setPaintProperty(
+                                `route-group-${i}`,
+                                'line-color',
+                                colors.secondary
+                            );
+                            
+                            // Also update opacity for consistency
+                            map.setPaintProperty(
+                                `route-group-${i}`,
+                                'line-opacity',
+                                0.8
+                            );
+                        } else {
+                            // Set full opacity for the selected route
+                            map.setPaintProperty(
+                                `route-group-${i}`,
+                                'line-opacity',
+                                1
+                            );
+                        }
+                    });
+                }
+            });
+
+            map?.fitBounds([bounds[0], bounds[1], bounds[2], bounds[3]], {
+                padding: { top: 50, bottom: 50, left: 50, right: 50 },
+                duration: 1000
+            });
+        });
+    }
+
 
     return (
         <div className='relative h-dvh'>
@@ -1545,7 +1677,7 @@ export default function MapLayout({
             {/* Zooming */}
             <div className='absolute bottom-5 left-1/2 -translate-x-1/2 z-[1]'>
                 <div className="flex justify-center items-center gap-1 bg-white dark:bg-background p-1 rounded-lg">
-                    <Button variant={"ghost"} size="sm" onClick={(e) => handleNorth()}><MdNorth style={{ transform: `rotate(${-compass.rotate}deg)` }} /></Button>
+                    <Button variant={"ghost"} size="sm" onClick={(e) => handleNorth()}><ArrowUp style={{ transform: `rotate(${-compass.rotate}deg)` }} /></Button>
                     <Button variant={"ghost"} size="sm" onClick={(e) => handleZoomOut()}><MinusIcon /></Button>
                     <label htmlFor="" className="text-xs w-5 text-center">{zoom}</label>
                     <Button variant={"ghost"} size="sm" onClick={(e) => handleZoomIn()}><PlusIcon /></Button>
@@ -1553,6 +1685,7 @@ export default function MapLayout({
                     {!isDrawDone && (
                         <Button variant={"ghost"} size="sm" onClick={(e) => saveFeaturesToLayer()}><SaveAll /></Button>
                     )}
+                    <Button variant={"ghost"} size="sm" onClick={(e) => handleRoutes()}><TbRouteSquare /></Button>
                 </div>
             </div>
 

@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
                 source: "/api/maps/location",
                 destination: "https://trueapi.truenapsh.my.id/api/maps/location",
             },
+            {
+                source: "/api/maps/alternatives",
+                destination: "https://trueapi.truenapsh.my.id/api/maps/alternatives",
+            },
         ];
     },
     // experimental: {

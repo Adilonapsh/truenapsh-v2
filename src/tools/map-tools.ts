@@ -38,6 +38,43 @@ const searchPlaces = async (search: string, lang: string = "EN-en") => {
     }
 }
 
+const searchAlternatives = async (from: number[], to: number[]) => {
+    try {
+        const body = {
+            from: {
+                x: from[0],
+                y: from[1]
+            },
+            to: {
+                x: to[0],
+                y: to[1]
+            }
+        };
+        const response = await fetch("/api/maps/alternatives", {
+            method: "POST",
+            body: JSON.stringify(body),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        const data = await response.json();
+        let alternatives: any = [];
+        data.data.alternatives.forEach((alternative: { coords: { x: number; y: number }[]; response: any }) => {
+            const { coords, response } = alternative;
+            const transformed = coords.map(({ x, y }) => [x, y]);
+            alternatives.push({ coords: transformed, response })
+        });
+        return alternatives;
+    } catch (error: unknown) {
+        if (error instanceof Error) {
+            console.error("Error caught:", error.message);
+        } else {
+            console.error("Unknown error caught:", error);
+        }
+        return [];
+    }
+}
+
 
 const isCoordinates = (str: string) => {
     const coordRegex = /^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/;
@@ -66,6 +103,7 @@ const calculateCoordinatesWithAspectRatio = (
 
 export {
     searchPlaces,
+    searchAlternatives,
     isCoordinates,
     calculateCoordinatesWithAspectRatio,
 }
