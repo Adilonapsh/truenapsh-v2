@@ -1855,15 +1855,15 @@ export default function MapLayout({
                                 <div className='flex justify-between items-center mb-2'>
                                     <p className='font-semibold'>Origin</p>
                                     <div>
-                                        <p className="text-end">{activeRoutes?.origin[0].toFixed(7)}</p>
-                                        <p className="text-end">{activeRoutes?.origin[1].toFixed(7)}</p>
+                                        <p className="text-end">{activeRoutes?.origin?.[0]?.toFixed(7)}</p>
+                                        <p className="text-end">{activeRoutes?.origin?.[1]?.toFixed(7)}</p>
                                     </div>
                                 </div>
                                 <div className='flex justify-between items-center mb-2'>
                                     <p className='font-semibold'>Destination</p>
                                     <div>
-                                        <p className="text-end">{activeRoutes?.destination[0].toFixed(7)}</p>
-                                        <p className="text-end">{activeRoutes?.destination[1].toFixed(7)}</p>
+                                        <p className="text-end">{activeRoutes?.destination?.[0]?.toFixed(7)}</p>
+                                        <p className="text-end">{activeRoutes?.destination?.[1]?.toFixed(7)}</p>
                                     </div>
                                 </div>
                                 <div className='flex justify-between items-center mb-2'>
