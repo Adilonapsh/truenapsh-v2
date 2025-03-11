@@ -98,6 +98,13 @@ import LegendEsri from "./legend-esri";
 import MapMenu from './map-menu';
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger,
+} from "@/components/ui/context-menu"
+import { MapLayerMouseEvent } from "mapbox-gl";
 
 
 export default function MapLayout({
@@ -120,6 +127,7 @@ export default function MapLayout({
         addLayer: false,
         aiChat: false,
         node_workspace: false,
+        routes: false,
     });
     const [isLoading, setIsLoading] = useState<MapIsLoading>({
         initLoading: true,
@@ -194,6 +202,15 @@ export default function MapLayout({
 
     const [drawMode, setDrawMode] = useState<string | null>(null);
     const [isDrawDone, setIsDrawDone] = useState<boolean>(true);
+
+    const [menuPosition, setMenuPosition] = useState<{ x: number; y: number; lng: number; lat: number } | null>(null)
+
+    const [routeCoordinates, setRouteCoordinates] = useState<{ origin?: number[] | undefined, destination?: number[] | undefined } | null>(null);
+    const [activeRoutes, setActiveRoutes] = useState<{
+        origin?: number[] | undefined,
+        destination?: number[] | undefined,
+        properties?: any,
+    } | null>(null);
 
 
     // MAP FUNCTIONS
@@ -335,7 +352,10 @@ export default function MapLayout({
     const onRotate = () => {
         const bearing = mapRef.current?.getMap()?.getBearing();
         const pitch = mapRef.current?.getMap()?.getPitch();
-        setCompass({ rotate: typeof bearing === 'number' ? bearing.toFixed(0) : 0, pitch: typeof pitch === 'number' ? pitch.toFixed(0) : 0 });
+        setCompass({
+            rotate: typeof bearing === 'number' ? Number(bearing.toFixed(0)) : 0,
+            pitch: typeof pitch === 'number' ? Number(pitch.toFixed(0)) : 0
+        });
     }
 
     const addOrUpdateMarker = (longitude: number, latitude: number) => {
@@ -889,7 +909,7 @@ export default function MapLayout({
 
     const resetBrightness = () => {
         const brightness = 0;
-        setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: brightness })
+        setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: [brightness, brightness] })
         setPaint("-brightness-min", brightness)
         setPaint("-brightness-max", brightness)
     }
@@ -1206,11 +1226,16 @@ export default function MapLayout({
                 const data = map?.getSource(sourceId ?? "")?.serialize()
                 setToggleEdit(toggleEdits);
                 if (!toggleEdit) {
-                    drawRef.current?.add(data.data);
+                    const geoJsonData = data.data as GeoJSON.GeoJSON;
+                    if (geoJsonData) {
+                        drawRef.current?.add(geoJsonData);
+                    }
                 } else {
                     const features = drawRef.current?.getAll();
-                    const source = map?.getSource(sourceId ?? "") as mapboxgl.GeoJSONSource
-                    source.setData(features);
+                    const source = map?.getSource(sourceId ?? "") as mapboxgl.GeoJSONSource;
+                    if (features) {
+                        source.setData(features);
+                    }
                     drawRef.current?.deleteAll();
                 }
             }
@@ -1288,15 +1313,235 @@ export default function MapLayout({
         }
     }
 
+    // Routes
     const handleRoutes = async () => {
-        const jawaBaratBounds = [106.75, -6.65, 106.9, -6.5]; // Approximate bounds of Kota Bogor
-        const randomLng = Math.random() * (jawaBaratBounds[2] - jawaBaratBounds[0]) + jawaBaratBounds[0];
-        const randomLat = Math.random() * (jawaBaratBounds[3] - jawaBaratBounds[1]) + jawaBaratBounds[1];
-        const from = [randomLng, randomLat];
-        const to = [106.8071939, -6.6015137]
-        const alternatives = await searchAlternatives(from, to);
+        const from = routeCoordinates?.origin;
+        const to = routeCoordinates?.destination
+
+        if (!from) {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    const coords = [position.coords.longitude, position.coords.latitude];
+                    setRouteCoordinates({
+                        ...routeCoordinates,
+                        origin: coords
+                    });
+                }, (error) => {
+                    console.error("Error getting location:", error);
+                    toast.error("Could not get current location");
+                });
+            } else {
+                toast.error("Geolocation is not supported by your browser");
+            }
+        }
+
+        if (from && to) {
+            const alternatives = await searchAlternatives(from, to);
+            console.log(alternatives);
+            setActiveRoutes({ origin: from, destination: to })
+            const map = mapRef.current?.getMap();
+            const colors = { active: "#3887ff", secondary: "#8F8F8F" }
+            map?.getStyle()?.layers?.forEach(layer => {
+                const layerId = layer.id;
+                if (layerId.includes('route-group-')) {
+                    map.removeLayer(layerId);
+                    if (map.getSource(layerId)) {
+                        map.removeSource(layerId);
+                    }
+                }
+            });
+            alternatives.forEach((alternative: any, index: number) => {
+                const routes = turf.lineString(alternative.coords, alternatives.response);
+                const bounds = turf.bbox(routes);
+
+                map?.addLayer({
+                    id: `route-group-${index}`,
+                    type: 'line',
+                    source: {
+                        type: 'geojson',
+                        data: routes
+                    },
+                    slot: alternative.response.isFastest ? 'top' : 'bottom',
+                    layout: {
+                        'line-cap': 'round',
+                        'line-join': 'round'
+                    },
+                    paint: {
+                        'line-color': alternative.response.isFastest ? colors.active : colors.secondary,
+                        'line-width': 5,
+                        'line-opacity': alternative.response.isFastest ? 1 : .8,
+                    }
+                });
+
+                // map?.addLayer({
+                //     id: `route-group-from-${index}`,
+                //     type: 'circle',
+                //     source: {
+                //         type: 'geojson',
+                //         data: turf.points([from])
+                //     },
+                //     paint: {
+                //         'circle-radius': 4,
+                //         'circle-color': '#3887be',
+                //         'circle-stroke-color': '#fff',
+                //         'circle-stroke-width': 2,
+                //     }
+                // });
+
+                // map?.addLayer({
+                //     id: `route-group-to-${index}`,
+                //     type: 'circle',
+                //     source: {
+                //         type: 'geojson',
+                //         data: turf.points([to])
+                //     },
+                //     paint: {
+                //         'circle-radius': 4,
+                //         'circle-color': '#3887be',
+                //         'circle-stroke-color': '#fff',
+                //         'circle-stroke-width': 2,
+                //     }
+                // });
+
+                map?.on('mouseenter', `route-group-${index}`, () => {
+                    if (map) {
+                        map.getCanvas().style.cursor = 'pointer';
+                    }
+                });
+
+                map?.on('mouseleave', `route-group-${index}`, () => {
+                    if (map) {
+                        map.getCanvas().style.cursor = '';
+                    }
+                });
+
+                map?.on('click', `route-group-${index}`, () => {
+                    if (map) {
+                        // Change the clicked route to active color
+                        map.setPaintProperty(
+                            `route-group-${index}`,
+                            'line-color',
+                            colors.active
+                        );
+
+                        // Bring the selected route to the top
+                        map.moveLayer(`route-group-${index}`);
+
+                        // Change all other routes to secondary color
+                        alternatives.forEach((_: any, i: number) => {
+                            if (i !== index) {
+                                map.setPaintProperty(
+                                    `route-group-${i}`,
+                                    'line-color',
+                                    colors.secondary
+                                );
+
+                                // Also update opacity for consistency
+                                map.setPaintProperty(
+                                    `route-group-${i}`,
+                                    'line-opacity',
+                                    0.8
+                                );
+                            } else {
+                                // Set full opacity for the selected route
+                                map.setPaintProperty(
+                                    `route-group-${i}`,
+                                    'line-opacity',
+                                    1
+                                );
+                            }
+                        });
+
+                        const properties = alternatives[index].response;
+                        setActiveRoutes((prev) => ({ ...prev, properties: properties }))
+                        setDisplayLayouts((prev) => ({ ...prev, routes: true }));
+                    }
+                });
+
+                map?.fitBounds([bounds[0], bounds[1], bounds[2], bounds[3]], {
+                    padding: { top: 50, bottom: 50, left: 50, right: 50 },
+                    duration: 1000
+                });
+            });
+            // setRouteCoordinates(null)
+        }
+    }
+
+    const handleRouteOrigin = () => {
+
         const map = mapRef.current?.getMap();
-        const colors = { active: "#3887ff", secondary: "#8F8F8F" }
+
+        if (map?.getLayer('route-origin')) {
+            map.removeLayer('route-origin');
+            map.removeSource('route-origin');
+        }
+
+        if (menuPosition) {
+            map?.addLayer({
+                id: 'route-origin',
+                type: 'circle',
+                source: {
+                    type: 'geojson',
+                    data: turf.points([[menuPosition.lng, menuPosition.lat]])
+                },
+                paint: {
+                    'circle-radius': 4,
+                    'circle-color': '#3887be',
+                    'circle-stroke-color': '#fff',
+                    'circle-stroke-width': 2,
+                }
+            });
+        }
+
+        setRouteCoordinates({
+            ...routeCoordinates,
+            origin: menuPosition ? [menuPosition.lng, menuPosition.lat] : undefined
+        });
+    }
+
+    const handleRouteDestination = () => {
+        const map = mapRef.current?.getMap();
+
+        if (map?.getLayer('route-destination')) {
+            map.removeLayer('route-destination');
+            map.removeSource('route-destination');
+        }
+
+        if (menuPosition) {
+            map?.addLayer({
+                id: 'route-destination',
+                type: 'circle',
+                source: {
+                    type: 'geojson',
+                    data: turf.points([[menuPosition.lng, menuPosition.lat]])
+                },
+                paint: {
+                    'circle-radius': 4,
+                    'circle-color': '#3887be',
+                    'circle-stroke-color': '#fff',
+                    'circle-stroke-width': 2,
+                }
+            });
+        }
+
+        setRouteCoordinates({
+            ...routeCoordinates,
+            destination: menuPosition ? [menuPosition?.lng, menuPosition.lat] : undefined
+        });
+    }
+
+    const removeRoutes = () => {
+        const map = mapRef.current?.getMap();
+
+        if (map?.getLayer('route-origin')) {
+            map.removeLayer('route-origin');
+            map.removeSource('route-origin');
+        }
+
+        if (map?.getLayer('route-destination')) {
+            map.removeLayer('route-destination');
+            map.removeSource('route-destination');
+        }
         map?.getStyle()?.layers?.forEach(layer => {
             const layerId = layer.id;
             if (layerId.includes('route-group-')) {
@@ -1306,122 +1551,55 @@ export default function MapLayout({
                 }
             }
         });
-        alternatives.forEach((alternative, index: number) => {
-            const routes = turf.lineString(alternative.coords);
+    }
 
-            const bounds = turf.bbox(routes);
-
-            map?.addLayer({
-                id: `route-group-${index}`,
-                type: 'line',
-                source: {
-                    type: 'geojson',
-                    data: routes
-                },
-                slot: alternative.response.isFastest ? 'top' : 'bottom',
-                layout: {
-                    'line-cap': 'round',
-                    'line-join': 'round'
-                },
-                paint: {
-                    'line-color': alternative.response.isFastest ? colors.active : colors.secondary,
-                    'line-width': 5,
-                    'line-opacity': alternative.response.isFastest ? 1 : .8,
-                }
-            });
-
-            map?.addLayer({
-                id: `route-group-from-${index}`,
-                type: 'circle',
-                source: {
-                    type: 'geojson',
-                    data: turf.points([from])
-                },
-                paint: {
-                    'circle-radius': 4,
-                    'circle-color': '#3887be',
-                    'circle-stroke-color': '#fff',
-                    'circle-stroke-width': 2,
-                }
-            });
-
-            map?.addLayer({
-                id: `route-group-to-${index}`,
-                type: 'circle',
-                source: {
-                    type: 'geojson',
-                    data: turf.points([to])
-                },
-                paint: {
-                    'circle-radius': 4,
-                    'circle-color': '#3887be',
-                    'circle-stroke-color': '#fff',
-                    'circle-stroke-width': 2,
-                }
-            });
-
-            map?.on('mouseenter', `route-group-${index}`, () => {
-                if (map) {
-                    map.getCanvas().style.cursor = 'pointer';
-                }
-            });
-            
-            map?.on('mouseleave', `route-group-${index}`, () => {
-                if (map) {
-                    map.getCanvas().style.cursor = '';
-                }
-            });
-            
-            map?.on('click', `route-group-${index}`, () => {
-                if (map) {
-                    // Change the clicked route to active color
-                    map.setPaintProperty(
-                        `route-group-${index}`,
-                        'line-color',
-                        colors.active
-                    );
-                    
-                    // Bring the selected route to the top
-                    map.moveLayer(`route-group-${index}`);
-                    
-                    // Change all other routes to secondary color
-                    alternatives.forEach((_, i) => {
-                        if (i !== index) {
-                            map.setPaintProperty(
-                                `route-group-${i}`,
-                                'line-color',
-                                colors.secondary
-                            );
-                            
-                            // Also update opacity for consistency
-                            map.setPaintProperty(
-                                `route-group-${i}`,
-                                'line-opacity',
-                                0.8
-                            );
-                        } else {
-                            // Set full opacity for the selected route
-                            map.setPaintProperty(
-                                `route-group-${i}`,
-                                'line-opacity',
-                                1
-                            );
-                        }
-                    });
-                }
-            });
-
-            map?.fitBounds([bounds[0], bounds[1], bounds[2], bounds[3]], {
-                padding: { top: 50, bottom: 50, left: 50, right: 50 },
-                duration: 1000
-            });
+    const handleContextMenu = (event: MapLayerMouseEvent) => {
+        event.originalEvent.preventDefault();
+        setMenuPosition({
+            x: event.originalEvent.clientX,
+            y: event.originalEvent.clientY,
+            lng: event.lngLat.lng,
+            lat: event.lngLat.lat,
         });
+    }
+
+    const handleCopyCoordinates = () => {
+        if (menuPosition) {
+            navigator.clipboard.writeText(`${menuPosition.lng}, ${menuPosition.lat}`);
+            toast.success('Coordinates copied to clipboard');
+            setMenuPosition(null);
+        }
     }
 
 
     return (
         <div className='relative h-dvh'>
-            <MapView onRotate={onRotate} mapRef={mapRef} onMouseMove={onMouseMove} onClick={(event) => handleMapClick(event as MapMouseEvent)} onLoad={onMapLoad} onStyleData={onStyleData} onZoomEnd={onZoomEnd} handleDragOver={handleDragOver} handleDrop={handleDrop} />
+            <ContextMenu>
+                <ContextMenuTrigger asChild>
+                    <MapView
+                        mapRef={mapRef}
+                        onRotate={onRotate}
+                        onMouseMove={onMouseMove}
+                        onClick={(event) => handleMapClick(event as MapMouseEvent)}
+                        onLoad={onMapLoad}
+                        onStyleData={onStyleData}
+                        onZoomEnd={onZoomEnd}
+                        handleDragOver={handleDragOver}
+                        handleDrop={handleDrop}
+                        onContextMenu={handleContextMenu}
+                    />
+                </ContextMenuTrigger>
+                {menuPosition && (
+                    <ContextMenuContent
+                        className="absolute text-xs"
+                        style={{ top: menuPosition.y, left: menuPosition.x }}
+                    >
+                        <ContextMenuItem className="text-xs" onClick={() => { handleCopyCoordinates() }}>Copy Coordinates</ContextMenuItem>
+                        <ContextMenuItem className="text-xs" onClick={() => { handleRouteOrigin() }}>Route From Here</ContextMenuItem>
+                        <ContextMenuItem className="text-xs" onClick={() => { handleRouteDestination() }}>Route To Here</ContextMenuItem>
+                    </ContextMenuContent>
+                )}
+            </ContextMenu>
             {showLoading && (
                 <div className={`absolute top-0 h-screen w-screen flex justify-center items-center z-10 ${isLoading.initLoading ? "" : "opacity-0"} transition-all duration-500`}>
                     <AnimatedLoadingScreen />
@@ -1570,7 +1748,7 @@ export default function MapLayout({
                                                                     {body.replaceAll("_", " ")}
                                                                 </th>
                                                                 <td className='border border-accent text-wrap px-2'>
-                                                                    {typeof layer.properties[body as keyof typeof layer.properties] === 'string' && layer.properties[body as keyof typeof layer.properties].startsWith("http") ? (
+                                                                    {typeof layer.properties[body as keyof typeof layer.properties] === 'string' && (layer.properties[body as keyof typeof layer.properties] as string).startsWith("http") ? (
                                                                         <M3U8VideoPlayer src={layer.properties[body as keyof typeof layer.properties]} placeholderImage="/assets/placeholder.svg" />
                                                                     ) : (
                                                                         <span>{layer.properties[body as keyof typeof layer.properties]}</span>
@@ -1647,7 +1825,70 @@ export default function MapLayout({
                     </div>
                 )}
             </div>
+            <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
+                {displayLayouts.routes && (
+                    <Card className="w-[320px] shadow-lg text-sm overflow-hidden">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="relative font-medium">
+                                <div>
+                                    <p className="text-lg font-medium">Routes</p>
+                                </div>
+                            </CardTitle>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                setRouteCoordinates(null);
+                                setDisplayLayouts((prev) => ({ ...prev, routes: false }));
+                                removeRoutes()
+                            }}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="max-h-[70vh] overflow-y-scroll">
+                            <div>
+                                <div className='flex justify-between items-center gap-5 mb-2'>
+                                    <p className='font-semibold'>Route Name</p>
+                                    <p className="text-end">{activeRoutes?.properties?.routeName}</p>
+                                </div>
+                                <div className='flex justify-between items-center mb-2'>
+                                    <p className='font-semibold'>Toll</p>
+                                    <p>{activeRoutes?.properties?.isToll ? "True" : "False"}</p>
+                                </div>
+                                <div className='flex justify-between items-center mb-2'>
+                                    <p className='font-semibold'>Origin</p>
+                                    <div>
+                                        <p className="text-end">{activeRoutes?.origin[0].toFixed(7)}</p>
+                                        <p className="text-end">{activeRoutes?.origin[1].toFixed(7)}</p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-between items-center mb-2'>
+                                    <p className='font-semibold'>Destination</p>
+                                    <div>
+                                        <p className="text-end">{activeRoutes?.destination[0].toFixed(7)}</p>
+                                        <p className="text-end">{activeRoutes?.destination[1].toFixed(7)}</p>
+                                    </div>
+                                </div>
+                                <div className='flex justify-between items-center mb-2'>
+                                    <p className='font-semibold'>Distance</p>
+                                    <p>{activeRoutes?.properties?.totalLength ? 
+                                        (activeRoutes.properties.totalLength >= 1000 ? 
+                                            `${(activeRoutes.properties.totalLength / 1000).toFixed(2)} km` : 
+                                            `${activeRoutes.properties.totalLength.toFixed(0)} m`) 
+                                        : '-'}</p>
+                                </div>
+                                <div className='flex justify-between items-center mb-2'>
+                                    <p className='font-semibold'>Duration</p>
+                                    <p>{activeRoutes?.properties?.totalSeconds ? 
+                                        (activeRoutes.properties.totalSeconds >= 3600 ?
+                                            `${Math.floor(activeRoutes.properties.totalSeconds / 3600)}h ${Math.floor((activeRoutes.properties.totalSeconds % 3600) / 60)}m` :
+                                            `${Math.floor(activeRoutes.properties.totalSeconds / 60)} minutes `)
+                                        : "-"}</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
 
+            {/* BOTTOM EL */}
             <div className='absolute bottom-2 right-14 mb-5 ml-28 z-[1]'>
                 <div className='bg-white p-2 text-xs rounded-lg min-w-52 text-center dark:bg-background'>
                     {mousePosition?.lng.toFixed(9)}, {mousePosition?.lat.toFixed(9)}
@@ -1674,7 +1915,7 @@ export default function MapLayout({
                 </div>
             </div>
 
-            {/* Zooming */}
+            {/* ZOOM EL */}
             <div className='absolute bottom-5 left-1/2 -translate-x-1/2 z-[1]'>
                 <div className="flex justify-center items-center gap-1 bg-white dark:bg-background p-1 rounded-lg">
                     <Button variant={"ghost"} size="sm" onClick={(e) => handleNorth()}><ArrowUp style={{ transform: `rotate(${-compass.rotate}deg)` }} /></Button>
@@ -1685,10 +1926,14 @@ export default function MapLayout({
                     {!isDrawDone && (
                         <Button variant={"ghost"} size="sm" onClick={(e) => saveFeaturesToLayer()}><SaveAll /></Button>
                     )}
-                    <Button variant={"ghost"} size="sm" onClick={(e) => handleRoutes()}><TbRouteSquare /></Button>
+                    {routeCoordinates?.destination && (
+                        <Button variant={"ghost"} size="sm" onClick={(e) => handleRoutes()}><TbRouteSquare /></Button>
+                    )}
                 </div>
             </div>
 
+
+            {/* MODAL EL */}
             {displayLayouts.legend && (
                 <div className='absolute bottom-14 right-32 mb-5 ml-60'>
                     <div className='bg-white rounded-lg dark:bg-background p-2'>

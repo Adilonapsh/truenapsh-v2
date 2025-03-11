@@ -17,7 +17,8 @@ function MapView({
     onStyleData,
     handleDragOver,
     handleDrop,
-    onRotate
+    onRotate,
+    onContextMenu
 }: MapComponentsProps) {
     return (
         <div
@@ -46,6 +47,7 @@ function MapView({
                 onZoomEnd={onZoomEnd}
                 onRotate={onRotate}
                 fadeDuration={500}
+                onContextMenu={onContextMenu}
             >
                 <ScaleControl />
                 {/* <NavigationControl position="bottom-right" /> */}

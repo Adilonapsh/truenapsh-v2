@@ -1,3 +1,4 @@
+import { MapLayerMouseEvent } from "mapbox-gl";
 import { ColorSpecification, ExpressionSpecification } from "mapbox-gl";
 import React from "react";
 import { MapRef } from "react-map-gl";
@@ -17,6 +18,7 @@ type MapComponentsProps = {
     onStyleData?: () => void;
     handleDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
     handleDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
+    onContextMenu?: (e: MapLayerMouseEvent) => void;
 }
 
 type ViewState = {
@@ -133,6 +135,7 @@ type LayoutDisplay = {
     addLayer: boolean,
     aiChat: boolean,
     node_workspace: boolean,
+    routes: boolean,
 }
 
 export type {
