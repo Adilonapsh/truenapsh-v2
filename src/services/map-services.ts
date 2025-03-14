@@ -38,6 +38,7 @@ const getFeatureInfo = async (e: mapboxgl.MapMouseEvent, layers: Layer | Layer[]
     const lng = e.lngLat.lng;
     const properties: Array<object> = [];
     const layerList = Array.isArray(layers) ? layers : [layers];
+    if (!mapRef) return;
     for (const layer of layerList) {
         if (layer.visible) {
             if (layer.map_service_vendor === "Geoserver" || layer.map_service_vendor === "ArcGIS") {
@@ -63,7 +64,7 @@ const getFeatureInfo = async (e: mapboxgl.MapMouseEvent, layers: Layer | Layer[]
                     }
                 }
             } else {
-                const selectedFeatures = mapRef.queryRenderedFeatures({
+                const selectedFeatures = mapRef.queryRenderedFeatures(e.point,{
                     layers: [layer.id],
                 });
                 if (selectedFeatures && selectedFeatures.length > 0) {
@@ -238,39 +239,12 @@ const convertWMSToVectorData = async (selectedLayer: Layer, mapRef: mapboxgl.Map
     }
 }
 
-// const getEsriLayers = async (url: string) => {
-//     try {
-//         const urls = url + "?f=json";
-//         const response = await fetch(urls);
-//         const body = await response.json();
-//         return body;
-//         // datasets.forEach(async (datasets) => {
-//         //     const urls = datasets.url + "?f=json";
-//         //     const response = await fetch(urls);
-//         //     const body = await response.json();
-//         //     console.log(body);
-//         // });
-//     } catch (error: unknown) {
-//         if (error instanceof Error) {
-//             console.error("Error caught:", error.message);
-//         } else {
-//             console.error("Unknown error caught:", error);
-//         }
-//     }
-// };
-
 const getEsriServices = async (url: string) => {
     try {
         const urls = url + "?f=json";
         const response = await fetch(urls);
         const body = await response.json();
         return body;
-        // datasets.forEach(async (datasets) => {
-        //     const urls = datasets.url + "?f=json";
-        //     const response = await fetch(urls);
-        //     const body = await response.json();
-        //     console.log(body);
-        // });
     } catch (err: unknown) {
         if (err instanceof Error) {
             console.error("Error caught:", err.message);

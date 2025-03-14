@@ -118,6 +118,7 @@ type ParsedLayer = {
     url?: string | undefined | null;
     index?: number | undefined | null;
     id?: string | undefined | null;
+    map_service_vendor: MapServiceVendor;
 }
 type LayerNode = Element;
 

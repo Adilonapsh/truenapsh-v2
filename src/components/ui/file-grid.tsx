@@ -14,7 +14,7 @@ export default function FileGrid({ node, path }: { node: TreeNode, path: string 
             <div className="space-y-4">
                 <div className="flex items-center space-x-2">
                     <File className="w-8 h-8 text-gray-500" />
-                    <span className="text-lg font-semibold">{node.name}</span>
+                    <span className="text-lg font-semibold capitalize">{node.name}</span>
                 </div>
                 <div>
                     <p><strong>Type:</strong> File</p>
@@ -28,7 +28,7 @@ export default function FileGrid({ node, path }: { node: TreeNode, path: string 
             <div className="space-y-4">
                 <div className="flex items-center space-x-2">
                     <File className="w-8 h-8 text-gray-500" />
-                    <span className="text-lg font-semibold">{node.name}</span>
+                    <span className="text-lg font-semibold capitalize">{node.name}</span>
                 </div>
                 <div>
                     <p><strong>Type:</strong> File</p>
@@ -41,7 +41,7 @@ export default function FileGrid({ node, path }: { node: TreeNode, path: string 
             <div className="space-y-4">
                 <div className="flex items-center space-x-2">
                     <Folder className="w-8 h-8 text-blue-500" />
-                    <span className="text-lg font-semibold">{node.name}</span>
+                    <span className="text-lg font-semibold capitalize">{node.name}</span>
                 </div>
                 <div>
                     <p><strong>Type:</strong> Folder</p>

@@ -70,7 +70,7 @@ function TreeNode({ node, level, path, onSelect, selectedPath }: TreeNodeProps) 
                         )}
                     </div>
                 )}
-                <span>{node.name}</span>
+                <span className='capitalize'>{node.name}</span>
             </div>
             {isOpen && node.children && (
                 <div>
@@ -101,6 +101,7 @@ export default function TreeDirectory({ data, setSelectedDatasets, selectedDatas
             title: node.name,
             legend: "",
             thumbnail: "",
+            map_service_vendor: "ArcGIS",
             url: node?.metadata?.url?.replaceAll("?f=json", ""),
         };
         if (node.type != "folder") {
@@ -110,8 +111,8 @@ export default function TreeDirectory({ data, setSelectedDatasets, selectedDatas
         setSelectedPath(path)
     }
     return (
-        <div className="flex border-r-1 p-4 max-w-4xl w-full">
-            <div className="w-1/2 pr-4 border-r">
+        <div className="flex border-r-1 p-4 max-w-4xl w-full h-full">
+            <div className="h-full w-1/2 pr-4 border-r overflow-auto">
                 <h2 className="text-lg font-semibold mb-4">{activeDatasets.name} Directory Structure</h2>
                 {data.map((node, index) => (
                     <TreeNode

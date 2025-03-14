@@ -31,9 +31,7 @@ import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { ArrowUp, Eye, EyeClosed, Fullscreen, LayersIcon, MinusIcon, PlusCircleIcon, PlusIcon, SaveAll, X } from 'lucide-react';
 import mapboxgl, { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
 import React, { useEffect, useRef, useState } from 'react';
-import { BiArrowToTop, BiCollapse, BiLogOutCircle, BiTrash } from 'react-icons/bi';
-import { CiCompass1 } from "react-icons/ci";
-import { RiCompassDiscoverFill } from "react-icons/ri";
+import { BiCollapse, BiLogOutCircle, BiTrash } from 'react-icons/bi';
 import { FiFilter } from 'react-icons/fi';
 import { HiCubeTransparent } from 'react-icons/hi';
 import { IoClose } from 'react-icons/io5';
@@ -50,12 +48,19 @@ import {
     CardTitle
 } from "@/components/ui/card";
 import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
     Tabs,
     TabsContent,
     TabsList,
     TabsTrigger,
 } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { overpassBuildingIntegration } from "@/services/map-integrations";
 import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, transfromEsriServicesToFolder, } from '@/services/map-services';
 import { calculateCoordinatesWithAspectRatio, searchAlternatives } from "@/tools/map-tools";
 import { Datasets } from "@/types/datasets.types";
@@ -76,6 +81,7 @@ import {
 import * as toGeoJSON from "@tmcw/togeojson";
 import * as turf from '@turf/turf';
 import JSZip from "jszip";
+import { MapLayerMouseEvent } from "mapbox-gl";
 import { signOut } from 'next-auth/react';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
@@ -98,13 +104,6 @@ import LegendEsri from "./legend-esri";
 import MapMenu from './map-menu';
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
-import {
-    ContextMenu,
-    ContextMenuContent,
-    ContextMenuItem,
-    ContextMenuTrigger,
-} from "@/components/ui/context-menu"
-import { MapLayerMouseEvent } from "mapbox-gl";
 
 
 export default function MapLayout({
@@ -653,7 +652,7 @@ export default function MapLayout({
                     const reader = new FileReader();
                     reader.onload = () => {
                         const geojsonData = JSON.parse(reader.result as string);
-                        handleAddUploadToMap({
+                        handleAddGeojsonToMap({
                             layerName: fl.name.split(".")[0].replaceAll("_", " "),
                             data: geojsonData
                         })
@@ -662,7 +661,7 @@ export default function MapLayout({
                 } else if (fl.name.includes(".zip")) {
                     const buffer = await fl.arrayBuffer();
                     const shapeData = await shp(buffer);
-                    handleAddUploadToMap({
+                    handleAddGeojsonToMap({
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: shapeData as GeoJSON.GeoJSON
                     });
@@ -677,7 +676,7 @@ export default function MapLayout({
 
                     // Convert KML to GeoJSON
                     const geojson = toGeoJSON.kml(kml);
-                    handleAddUploadToMap({
+                    handleAddGeojsonToMap({
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
@@ -696,7 +695,7 @@ export default function MapLayout({
                     const parser = new DOMParser();
                     const kml = parser.parseFromString(kmlText, "application/xml");
                     const geojson = toGeoJSON.kml(kml);
-                    handleAddUploadToMap({
+                    handleAddGeojsonToMap({
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
@@ -704,7 +703,7 @@ export default function MapLayout({
                     const text = await fl.text();
                     const topojsonData = JSON.parse(text);
                     const geojson = topojson.feature(topojsonData, topojsonData.objects[Object.keys(topojsonData.objects)[0]]);
-                    handleAddUploadToMap({
+                    handleAddGeojsonToMap({
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
@@ -718,7 +717,7 @@ export default function MapLayout({
                             properties: {}
                         }]
                     };
-                    handleAddUploadToMap({
+                    handleAddGeojsonToMap({
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
@@ -871,7 +870,7 @@ export default function MapLayout({
     const resetFill = () => {
         const defaultColor = "#000000";
         setMapboxLayerStyle({ ...mapboxLayerStyle, fill: defaultColor })
-        setPaint("-color", defaultColor)
+        setPaint("-color", undefined)
     }
 
     const resetStroke = () => {
@@ -929,39 +928,39 @@ export default function MapLayout({
         } else {
             setSelectedDatasets([...selectedDatasets, { ...layer, index }]);
         }
-        console.log(selectedDatasets);
     }
 
     const handleAddLayerToMap = async () => {
-        selectedDatasets.forEach(dataset => {
-            console.log("datasert", dataset);
-            const layerId = v4();
-            const layerName = dataset.title;
-            const mapServiceUrl = dataset.url ? dataset.url : datasetProperties.url;
-            const mapServiceLayerName = dataset.name;
-            const mapServiceVendor = datasetProperties.map_service_vendor;
-            const type = "2D";
-            const visible = true;
-            const minZoom = 0;
-            const maxZoom = 24;
-            const status = "Local";
+        if (selectedDatasets) {
+            selectedDatasets.forEach(dataset => {
+                const layerId = v4();
+                const layerName = dataset.title;
+                const mapServiceUrl = dataset.url ? dataset.url : datasetProperties.url;
+                const mapServiceLayerName = dataset.name;
+                const mapServiceVendor = dataset.map_service_vendor;
+                const type = "2D";
+                const visible = true;
+                const minZoom = 0;
+                const maxZoom = 24;
+                const status = "Local";
 
-            setLayers(prevLayers => [...prevLayers, {
-                id: layerId,
-                name: layerName,
-                description: "",
-                map_service_url: mapServiceUrl,
-                map_service_layer_name: mapServiceLayerName,
-                map_service_vendor: mapServiceVendor as MapServiceVendor,
-                type: type,
-                visible: visible,
-                min_zoom: minZoom,
-                max_zoom: maxZoom,
-                status: status,
-                rendered: 1
-            }]);
-        });
-        setSelectedDatasets([]);
+                setLayers(prevLayers => [...prevLayers, {
+                    id: layerId,
+                    name: layerName,
+                    description: "",
+                    map_service_url: mapServiceUrl,
+                    map_service_layer_name: mapServiceLayerName,
+                    map_service_vendor: mapServiceVendor as MapServiceVendor,
+                    type: type,
+                    visible: visible,
+                    min_zoom: minZoom,
+                    max_zoom: maxZoom,
+                    status: status,
+                    rendered: 1
+                }]);
+            });
+            setSelectedDatasets([]);
+        }
     }
 
     const handleConvertToVector = async (layer: Layer) => {
@@ -1054,7 +1053,7 @@ export default function MapLayout({
         }
     }, [layers]);
 
-    const handleAddUploadToMap = async ({
+    const handleAddGeojsonToMap = async ({
         layerName,
         mapServiceUrl = "",
         layerCode = "",
@@ -1248,7 +1247,7 @@ export default function MapLayout({
             if (drawRef.current) {
                 drawRef.current.deleteAll();
             }
-            handleAddUploadToMap({
+            handleAddGeojsonToMap({
                 layerName: "Untitled Layer " + layers.length + 1,
                 data: features
             })
@@ -1256,7 +1255,7 @@ export default function MapLayout({
         }
     };
 
-    const handleFolderClick = async (e: React.MouseEventHandler, data: Datasets) => {
+    const handleFolderClick = async (data: Datasets) => {
         setActiveDatasets(data);
         const transformedFolder = await transfromEsriServicesToFolder(data.url);
         setDatasetResult(transformedFolder ?? []);
@@ -1337,7 +1336,6 @@ export default function MapLayout({
 
         if (from && to) {
             const alternatives = await searchAlternatives(from, to);
-            console.log(alternatives);
             setActiveRoutes({ origin: from, destination: to })
             const map = mapRef.current?.getMap();
             const colors = { active: "#3887ff", secondary: "#8F8F8F" }
@@ -1571,9 +1569,55 @@ export default function MapLayout({
         }
     }
 
+    const handleMapIntegration = async () => {
+        const map = mapRef.current?.getMap();
+        if (map) {
+            try {
+                toast.promise(
+                    new Promise((resolve, reject) => {
+                        try {
+                            const buildings = overpassBuildingIntegration();
+                            resolve(buildings);
+                        } catch (error) {
+                            reject(error);
+                        }
+                    }),
+                    {
+                        loading: 'Fetching building data...',
+                        success: 'Building data loaded successfully',
+                        error: 'Failed to fetch building data'
+                    }
+                ).then((buildings) => {
+                    if (buildings) {
+                        const featureCollection = turf.featureCollection(buildings.filter(building => building !== null));
+                        console.log(featureCollection);
+                        handleAddGeojsonToMap({
+                            layerName: `Buildings ${layers.length + 1}`,
+                            data: featureCollection
+                        });
+                    }
+                }).catch((error) => {
+                    console.error("Error fetching building data:", error);
+                });
+                const buildings = await overpassBuildingIntegration();
+                if (buildings) {
+                    const featureCollection = turf.featureCollection(buildings.filter(building => building !== null));
+                    console.log(featureCollection);
+                    handleAddGeojsonToMap({
+                        layerName: `Buildings ${layers.length + 1}`,
+                        data: featureCollection
+                    });
+                }
+            } catch (error) {
+                console.error("Error fetching building data:", error);
+                toast.error("Failed to fetch building data");
+            }
+        }
+    }
+
 
     return (
-        <div className='relative h-dvh'>
+        <div className='relative w-screen h-screen bg-gray-200'>
             <ContextMenu>
                 <ContextMenuTrigger asChild>
                     <MapView
@@ -1597,6 +1641,7 @@ export default function MapLayout({
                         <ContextMenuItem className="text-xs" onClick={() => { handleCopyCoordinates() }}>Copy Coordinates</ContextMenuItem>
                         <ContextMenuItem className="text-xs" onClick={() => { handleRouteOrigin() }}>Route From Here</ContextMenuItem>
                         <ContextMenuItem className="text-xs" onClick={() => { handleRouteDestination() }}>Route To Here</ContextMenuItem>
+                        <ContextMenuItem className="text-xs" onClick={() => { handleMapIntegration() }}>Building</ContextMenuItem>
                     </ContextMenuContent>
                 )}
             </ContextMenu>
@@ -1719,7 +1764,8 @@ export default function MapLayout({
                 <MapMenu onSave={handleOnSave} onExit={handleOnExit}></MapMenu>
             </div>
 
-            <div className='absolute top-0 right-0 p-5 text-xs min-w-96' id='layerInfo'>
+            {/* RIGHT SIDE */}
+            <div className='absolute top-0 right-0 p-5 text-xs min-w-96'>
                 {displayLayouts.layerInfo ?
                     <div className='bg-white rounded-lg max-h-[calc(100vh-15rem)] max-w-xl overflow-auto dark:bg-background'>
                         <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white dark:bg-background'>
@@ -1868,15 +1914,15 @@ export default function MapLayout({
                                 </div>
                                 <div className='flex justify-between items-center mb-2'>
                                     <p className='font-semibold'>Distance</p>
-                                    <p>{activeRoutes?.properties?.totalLength ? 
-                                        (activeRoutes.properties.totalLength >= 1000 ? 
-                                            `${(activeRoutes.properties.totalLength / 1000).toFixed(2)} km` : 
-                                            `${activeRoutes.properties.totalLength.toFixed(0)} m`) 
+                                    <p>{activeRoutes?.properties?.totalLength ?
+                                        (activeRoutes.properties.totalLength >= 1000 ?
+                                            `${(activeRoutes.properties.totalLength / 1000).toFixed(2)} km` :
+                                            `${activeRoutes.properties.totalLength.toFixed(0)} m`)
                                         : '-'}</p>
                                 </div>
                                 <div className='flex justify-between items-center mb-2'>
                                     <p className='font-semibold'>Duration</p>
-                                    <p>{activeRoutes?.properties?.totalSeconds ? 
+                                    <p>{activeRoutes?.properties?.totalSeconds ?
                                         (activeRoutes.properties.totalSeconds >= 3600 ?
                                             `${Math.floor(activeRoutes.properties.totalSeconds / 3600)}h ${Math.floor((activeRoutes.properties.totalSeconds % 3600) / 60)}m` :
                                             `${Math.floor(activeRoutes.properties.totalSeconds / 60)} minutes `)
@@ -1923,12 +1969,8 @@ export default function MapLayout({
                     <label htmlFor="" className="text-xs w-5 text-center">{zoom}</label>
                     <Button variant={"ghost"} size="sm" onClick={(e) => handleZoomIn()}><PlusIcon /></Button>
                     <Button variant={"ghost"} size="sm" onClick={(e) => handleMaxLayersBbox()}><Fullscreen /></Button>
-                    {!isDrawDone && (
-                        <Button variant={"ghost"} size="sm" onClick={(e) => saveFeaturesToLayer()}><SaveAll /></Button>
-                    )}
-                    {routeCoordinates?.destination && (
-                        <Button variant={"ghost"} size="sm" onClick={(e) => handleRoutes()}><TbRouteSquare /></Button>
-                    )}
+                    {!isDrawDone && (<Button variant={"ghost"} size="sm" onClick={(e) => saveFeaturesToLayer()}><SaveAll /></Button>)}
+                    {routeCoordinates?.destination && (<Button variant={"ghost"} size="sm" onClick={(e) => handleRoutes()}><TbRouteSquare /></Button>)}
                 </div>
             </div>
 
@@ -1969,8 +2011,8 @@ export default function MapLayout({
                 </div>
             )}
             {displayLayouts.addLayer && (
-                <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm' >
-                    <div className='relative h-full w-full xl:w-1/2 bg-white lg:max-h-screen  rounded-lg p-5 dark:bg-background'>
+                <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm z-10' >
+                    <div className='relative w-full xl:w-1/2 bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll'>
                         <div className='flex justify-between items-center'>
                             <div>
                                 <p className='font-semibold'>Add Layer</p>
@@ -1980,97 +2022,97 @@ export default function MapLayout({
                                 <IoClose size={"13pt"} />
                             </Button>
                         </div>
-                        <div className='h-full px-2 py-5'>
-                            <Tabs defaultValue="datasets" className="w-full h-full">
-                                <TabsList className="grid w-full grid-cols-2">
+                        <div className='h-full px-2 py-5 overflow-auto'>
+                            <Tabs defaultValue="datasets">
+                                <TabsList className="grid w-full grid-cols-3">
                                     <TabsTrigger value="datasets">Datasets</TabsTrigger>
                                     <TabsTrigger value="wms">WMS</TabsTrigger>
+                                    <TabsTrigger value="integration">Integrations</TabsTrigger>
                                 </TabsList>
-                                <TabsContent value="wms">
-                                    <Card>
-                                        <CardHeader>
-                                            <div className="flex items-center justify-between">
-                                                <div>
-                                                    <CardTitle>WMS</CardTitle>
-                                                    <CardDescription>
-                                                        Use your WMS to this map
-                                                    </CardDescription>
-                                                </div>
-                                                {selectedDatasets.length > 0 && (<p className="text-xs">{selectedDatasets.length} Layer Selected</p>)}
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent className="space-y-2">
-                                            <div className="flex flex-col gap-2 lg:flex-row items-center mb-2">
-                                                <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
-                                                    <SelectTrigger className="w-full lg:w-[180px]">
-                                                        <SelectValue defaultValue={"Geoserver"} placeholder="Select Map Vendor" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value={MapServiceVendor.Geoserver}>Geoserver</SelectItem>
-                                                        <SelectItem value={MapServiceVendor.ArcGIS}>ArcGIS</SelectItem>
-                                                        {/* <SelectItem value={MapServiceVendor.GeoJSON}>Geojson</SelectItem> */}
-                                                    </SelectContent>
-                                                </Select>
-                                                <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
-                                                <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
-                                            </div>
-                                            <div className='h-[50vh] w-full'>
-                                                <div className='h-full w-full overflow-auto bg-white border p-5 mb-2 rounded-lg dark:bg-background'>
-                                                    {datasetResult?.length === 0 && (
-                                                        <div className="h-full flex flex-col justify-center items-center">
-                                                            <LuDatabase size={"30pt"} />
-                                                            <p className='font-bold'>Theres no data to show yet.</p>
-                                                            <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
-                                                        </div>
-                                                    )}
-                                                    {datasetProperties?.map_service_vendor == "Geoserver" && (
-                                                        <div className='grid grid-cols-4 gap-2'>
-                                                            {datasetResult?.map((item, index) => (
-                                                                <div key={index} onClick={() => handleSelectedDatasets(index)} className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''}`}>
-                                                                    <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video hover:scale-105 transition-all" width={200} height={100} />
-                                                                    <PlusCircleIcon size={'24'} className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'}`} />
-                                                                    <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                <div className='h-full px-2 py-5'>
+                                    <TabsContent value="datasets">
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle>Datasets</CardTitle>
+                                                <CardDescription>Select Your Layer</CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="space-y-2">
+                                                <div className='h-[55vh] w-full'>
+                                                    <div className="h-full flex gap-4 overflow-auto border rounded-lg">
+                                                        <ScrollArea className="h-full w-1/2 border-r">
+                                                            <div className="p-2 space-y-1 ">
+                                                                {datasets.map((dataset, index) => (
+                                                                    <Button
+                                                                        key={index}
+                                                                        variant="ghost"
+                                                                        className={cn("w-full justify-start font-normal", activeDatasets?.id === dataset.id ? "bg-accent" : "")}
+                                                                        onClick={() => handleFolderClick(dataset)}
+                                                                    >
+                                                                        {dataset.name}
+                                                                    </Button>
+                                                                ))}
+                                                            </div>
+                                                        </ScrollArea>
+                                                        <div className='h-full w-full rounded-lg dark:bg-background'>
+                                                            {datasetResult?.length === 0 && (
+                                                                <div className="h-full flex flex-col justify-center items-center">
+                                                                    <LuDatabase size={"30pt"} />
+                                                                    <p className='font-bold'>Theres no data to show yet.</p>
+                                                                    <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
                                                                 </div>
-                                                            ))}
+                                                            )}
+                                                            {activeDatasets?.map_service_vendor == "Geoserver" && (
+                                                                <div className='grid grid-cols-4 gap-2'>
+                                                                    {datasetResult?.map((item, index) => (
+                                                                        <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
+                                                                            <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
+                                                                            <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
+                                                                            <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            {activeDatasets?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
+                                                                <div className="relative h-full">
+                                                                    <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} activeDatasets={activeDatasets} />
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                    )}
-                                                    {datasetProperties?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
-                                                        <div>
-                                                            <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
-                                                        </div>
-                                                    )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="flex justify-end">
-                                                <Button className='' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </TabsContent>
-                                <TabsContent value="datasets">
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle>Datasets</CardTitle>
-                                            <CardDescription>Select Your Layer</CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="space-y-2">
-                                            <div className='h-[55vh] w-full'>
-                                                <div className="h-full flex gap-4 overflow-auto border rounded-lg">
-                                                    <ScrollArea className="h-full w-1/2 border-r">
-                                                        <div className="p-2 space-y-1 ">
-                                                            {datasets.map((dataset, index) => (
-                                                                <Button
-                                                                    key={index}
-                                                                    variant="ghost"
-                                                                    className={cn("w-full justify-start font-normal", activeDatasets?.id === dataset.id ? "bg-accent" : "")}
-                                                                    onClick={(e) => handleFolderClick(e, dataset)}
-                                                                >
-                                                                    {dataset.name}
-                                                                </Button>
-                                                            ))}
-                                                        </div>
-                                                    </ScrollArea>
-                                                    <div className='h-full w-full rounded-lg dark:bg-background'>
+                                            </CardContent>
+                                        </Card>
+                                    </TabsContent>
+                                    <TabsContent value="wms">
+                                        <Card>
+                                            <CardHeader>
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <CardTitle>WMS</CardTitle>
+                                                        <CardDescription>
+                                                            Use your WMS to this map
+                                                        </CardDescription>
+                                                    </div>
+                                                    {selectedDatasets.length > 0 && (<p className="text-xs">{selectedDatasets.length} Layer Selected</p>)}
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="space-y-2">
+                                                <div className="flex flex-col gap-2 lg:flex-row items-center mb-2">
+                                                    <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
+                                                        <SelectTrigger className="w-full lg:w-[180px]">
+                                                            <SelectValue defaultValue={"Geoserver"} placeholder="Select Map Vendor" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value={MapServiceVendor.Geoserver}>Geoserver</SelectItem>
+                                                            <SelectItem value={MapServiceVendor.ArcGIS}>ArcGIS</SelectItem>
+                                                            {/* <SelectItem value={MapServiceVendor.GeoJSON}>Geojson</SelectItem> */}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
+                                                    <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
+                                                </div>
+                                                <div className='h-[50vh] w-full'>
+                                                    <div className='h-full w-full overflow-auto bg-white border p-5 mb-2 rounded-lg dark:bg-background'>
                                                         {datasetResult?.length === 0 && (
                                                             <div className="h-full flex flex-col justify-center items-center">
                                                                 <LuDatabase size={"30pt"} />
@@ -2078,32 +2120,33 @@ export default function MapLayout({
                                                                 <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
                                                             </div>
                                                         )}
-                                                        {activeDatasets?.map_service_vendor == "Geoserver" && (
+                                                        {datasetProperties?.map_service_vendor == "Geoserver" && (
                                                             <div className='grid grid-cols-4 gap-2'>
                                                                 {datasetResult?.map((item, index) => (
-                                                                    <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
-                                                                        <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
-                                                                        <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
-                                                                        <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                                                    <div key={index} onClick={() => handleSelectedDatasets(index)} className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''}`}>
+                                                                        <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video hover:scale-105 transition-all" width={200} height={100} />
+                                                                        <PlusCircleIcon size={'24'} className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'}`} />
+                                                                        <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
                                                                     </div>
                                                                 ))}
                                                             </div>
                                                         )}
-                                                        {activeDatasets?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
-                                                            <div className="relative">
-                                                                <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} activeDatasets={activeDatasets} />
+                                                        {datasetProperties?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
+                                                            <div>
+                                                                <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
                                                             </div>
                                                         )}
-
                                                     </div>
                                                 </div>
-                                            </div>
-                                            <div className='flex justify-end'>
-                                                <Button className='' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                </TabsContent>
+                                            </CardContent>
+                                        </Card>
+                                    </TabsContent>
+                                    <TabsContent value="integration">
+                                    </TabsContent>
+                                    <div className='flex justify-end mt-2'>
+                                        <Button className='' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
+                                    </div>
+                                </div>
                             </Tabs>
                         </div>
                     </div>

@@ -12,7 +12,11 @@
 12. make legend mapbox (Done)
 13. add save feature to bottom (Done)
 14. ADD ROUTES TO MAP (done)
-15. FIX ADD LAYER RESPONSIVE
+15. FIX ADD LAYER RESPONSIVE (Done)
+16. FIX ESRI GET LAYERS (Done)
+17. Get Extent Arcgis (Done)
+18. Add Integrations Overpass (WIP)
+19. Fix Geojson on map click (Done)
 
 
 

@@ -75,7 +75,7 @@ function LegendMapbox({ mapRef, selectedLayer }: Props) {
     );
 }
 
-const formatFilter = (filter: any) => {
+const formatFilter = (filter: any): string => {
     if (!filter) return "";
 
     if (Array.isArray(filter)) {
