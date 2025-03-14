@@ -1572,46 +1572,42 @@ export default function MapLayout({
     const handleMapIntegration = async () => {
         const map = mapRef.current?.getMap();
         if (map) {
-            try {
-                toast.promise(
-                    new Promise((resolve, reject) => {
-                        try {
-                            const buildings = overpassBuildingIntegration();
-                            resolve(buildings);
-                        } catch (error) {
-                            reject(error);
-                        }
-                    }),
-                    {
-                        loading: 'Fetching building data...',
-                        success: 'Building data loaded successfully',
-                        error: 'Failed to fetch building data'
+            toast.promise(
+                new Promise((resolve, reject) => {
+                    try {
+                        const buildings = overpassBuildingIntegration();
+                        resolve(buildings);
+                    } catch (error) {
+                        reject(error);
                     }
-                ).then((buildings) => {
-                    if (buildings) {
-                        const featureCollection = turf.featureCollection(buildings.filter(building => building !== null));
-                        console.log(featureCollection);
-                        handleAddGeojsonToMap({
-                            layerName: `Buildings ${layers.length + 1}`,
-                            data: featureCollection
-                        });
-                    }
-                }).catch((error) => {
-                    console.error("Error fetching building data:", error);
-                });
-                const buildings = await overpassBuildingIntegration();
+                }),
+                {
+                    loading: 'Fetching building data...',
+                    success: 'Building data loaded successfully',
+                    error: 'Failed to fetch building data'
+                }
+            ).then((buildings) => {
                 if (buildings) {
-                    const featureCollection = turf.featureCollection(buildings.filter(building => building !== null));
+                    const featureCollection = turf.featureCollection(buildings.filter((building): building is GeoJSON.Feature => building !== null));
                     console.log(featureCollection);
                     handleAddGeojsonToMap({
                         layerName: `Buildings ${layers.length + 1}`,
                         data: featureCollection
                     });
                 }
-            } catch (error) {
+            }).catch((error) => {
                 console.error("Error fetching building data:", error);
-                toast.error("Failed to fetch building data");
+            });
+            const buildings = await overpassBuildingIntegration();
+            if (buildings) {
+                const featureCollection = turf.featureCollection(buildings.filter((building: GeoJSON.Feature | null) => building !== null));
+                console.log(featureCollection);
+                handleAddGeojsonToMap({
+                    layerName: `Buildings ${layers.length + 1}`,
+                    data: featureCollection
+                });
             }
+
         }
     }
 
