@@ -469,49 +469,62 @@ export default function MapLayout({
         setIsLoading({ ...isLoading, zoomToMap: true });
         const map = mapRef?.current?.getMap();
         const layer = layers[index];
-        if (layer.map_service_vendor == "Geoserver") {
-            const fetch = await fetchLayerBbox(layer.map_service_url, layer.map_service_layer_name);
-            if (map && fetch) {
-                const { minLng, minLat, maxLng, maxLat } = fetch;
-                const bbox: BoundingBox = [
-                    [parseFloat(minLng ?? "0"), parseFloat(minLat ?? "0")],
-                    [parseFloat(maxLng ?? "0"), parseFloat(maxLat ?? "0")],
-                ];
-                map.fitBounds(bbox, {
-                    padding: 25,
-                    duration: 1000,
-                });
-            } else {
-                console.log("Map reference is not defined.");
-            }
-        } else if (layer.map_service_vendor == "ArcGIS") {
-            const esriURL = `${layer.map_service_url.replace("/export", "")}?f=json`;
-            fetch(esriURL).then((response) => {
-                if (!response.ok) {
-                    throw new Error("Network response was not ok");
+        if (map) {
+            if (layer.map_service_vendor == "Geoserver") {
+                const fetch = await fetchLayerBbox(layer.map_service_url, layer.map_service_layer_name);
+                if (map && fetch) {
+                    const { minLng, minLat, maxLng, maxLat } = fetch;
+                    const bbox: BoundingBox = [
+                        [parseFloat(minLng ?? "0"), parseFloat(minLat ?? "0")],
+                        [parseFloat(maxLng ?? "0"), parseFloat(maxLat ?? "0")],
+                    ];
+                    map.fitBounds(bbox, {
+                        padding: 25,
+                        duration: 1000,
+                    });
+                } else {
+                    console.log("Map reference is not defined.");
                 }
-                return response.json();
-            })
-                .then((json) => {
-                    if (json.fullExtent) {
-                        const extent = {
-                            minx: json.fullExtent.xmin,
-                            miny: json.fullExtent.ymin,
-                            maxx: json.fullExtent.xmax,
-                            maxy: json.fullExtent.ymax
-                        };
-                        if (map) {
-                            map.fitBounds([[extent.minx, extent.miny], [extent.maxx, extent.maxy]], {
-                                padding: 20,
-                                duration: 2000
-                            });
-                        }
-                    } else {
-                        console.error("Full extent is not available in the response.");
+            } else if (layer.map_service_vendor == "ArcGIS") {
+                const esriURL = `${layer.map_service_url.replace("/export", "")}?f=json`;
+                fetch(esriURL).then((response) => {
+                    if (!response.ok) {
+                        throw new Error("Network response was not ok");
                     }
-                }).catch((err) => {
-                    console.log("Map reference is not defined.", err);
-                });
+                    return response.json();
+                })
+                    .then((json) => {
+                        if (json.fullExtent) {
+                            const extent = {
+                                minx: json.fullExtent.xmin,
+                                miny: json.fullExtent.ymin,
+                                maxx: json.fullExtent.xmax,
+                                maxy: json.fullExtent.ymax
+                            };
+                            if (map) {
+                                map.fitBounds([[extent.minx, extent.miny], [extent.maxx, extent.maxy]], {
+                                    padding: 20,
+                                    duration: 2000
+                                });
+                            }
+                        } else {
+                            console.error("Full extent is not available in the response.");
+                        }
+                    }).catch((err) => {
+                        console.log("Map reference is not defined.", err);
+                    });
+            } else if (layer.map_service_vendor == "GeoJSON") {
+                const layerSource = map.getLayer(layer.id)?.source;
+                const source = map.getSource(layerSource) as mapboxgl.GeoJSONSource;
+                if (source) {
+                    const data = source.serialize().data as GeoJSON.GeoJSON;
+                    const bbox = turf.bbox(data);
+                    map.fitBounds(bbox as [number, number, number, number], {
+                        padding: 25,
+                        duration: 1000
+                    });
+                }
+            }
         }
         setIsLoading({ ...isLoading, zoomToMap: false });
 
@@ -1316,11 +1329,31 @@ export default function MapLayout({
     const handleRoutes = async () => {
         const from = routeCoordinates?.origin;
         const to = routeCoordinates?.destination
+        const map = mapRef.current?.getMap();
+
 
         if (!from) {
             if ("geolocation" in navigator) {
                 navigator.geolocation.getCurrentPosition((position) => {
                     const coords = [position.coords.longitude, position.coords.latitude];
+                    if (map?.getLayer('route-origin')) {
+                        map.removeLayer('route-origin');
+                        map.removeSource('route-origin');
+                    }
+                    map?.addLayer({
+                        id: 'route-origin',
+                        type: 'circle',
+                        source: {
+                            type: 'geojson',
+                            data: turf.points([coords])
+                        },
+                        paint: {
+                            'circle-radius': 4,
+                            'circle-color': '#3887be',
+                            'circle-stroke-color': '#fff',
+                            'circle-stroke-width': 2,
+                        }
+                    });
                     setRouteCoordinates({
                         ...routeCoordinates,
                         origin: coords
@@ -1335,9 +1368,15 @@ export default function MapLayout({
         }
 
         if (from && to) {
-            const alternatives = await searchAlternatives(from, to);
+            const alternatives = await toast.promise(
+                searchAlternatives(from, to),
+                {
+                    loading: 'Searching for routes...',
+                    success: 'Routes found!',
+                    error: 'Failed to find routes'
+                }
+            );
             setActiveRoutes({ origin: from, destination: to })
-            const map = mapRef.current?.getMap();
             const colors = { active: "#3887ff", secondary: "#8F8F8F" }
             map?.getStyle()?.layers?.forEach(layer => {
                 const layerId = layer.id;
@@ -1371,35 +1410,6 @@ export default function MapLayout({
                     }
                 });
 
-                // map?.addLayer({
-                //     id: `route-group-from-${index}`,
-                //     type: 'circle',
-                //     source: {
-                //         type: 'geojson',
-                //         data: turf.points([from])
-                //     },
-                //     paint: {
-                //         'circle-radius': 4,
-                //         'circle-color': '#3887be',
-                //         'circle-stroke-color': '#fff',
-                //         'circle-stroke-width': 2,
-                //     }
-                // });
-
-                // map?.addLayer({
-                //     id: `route-group-to-${index}`,
-                //     type: 'circle',
-                //     source: {
-                //         type: 'geojson',
-                //         data: turf.points([to])
-                //     },
-                //     paint: {
-                //         'circle-radius': 4,
-                //         'circle-color': '#3887be',
-                //         'circle-stroke-color': '#fff',
-                //         'circle-stroke-width': 2,
-                //     }
-                // });
 
                 map?.on('mouseenter', `route-group-${index}`, () => {
                     if (map) {
@@ -1885,46 +1895,56 @@ export default function MapLayout({
                             </Button>
                         </CardHeader>
                         <CardContent className="max-h-[70vh] overflow-y-scroll">
-                            <div>
-                                <div className='flex justify-between items-center gap-5 mb-2'>
-                                    <p className='font-semibold'>Route Name</p>
-                                    <p className="text-end">{activeRoutes?.properties?.routeName}</p>
-                                </div>
-                                <div className='flex justify-between items-center mb-2'>
-                                    <p className='font-semibold'>Toll</p>
-                                    <p>{activeRoutes?.properties?.isToll ? "True" : "False"}</p>
-                                </div>
-                                <div className='flex justify-between items-center mb-2'>
-                                    <p className='font-semibold'>Origin</p>
-                                    <div>
-                                        <p className="text-end">{activeRoutes?.origin?.[0]?.toFixed(7)}</p>
-                                        <p className="text-end">{activeRoutes?.origin?.[1]?.toFixed(7)}</p>
-                                    </div>
-                                </div>
-                                <div className='flex justify-between items-center mb-2'>
-                                    <p className='font-semibold'>Destination</p>
-                                    <div>
-                                        <p className="text-end">{activeRoutes?.destination?.[0]?.toFixed(7)}</p>
-                                        <p className="text-end">{activeRoutes?.destination?.[1]?.toFixed(7)}</p>
-                                    </div>
-                                </div>
-                                <div className='flex justify-between items-center mb-2'>
-                                    <p className='font-semibold'>Distance</p>
-                                    <p>{activeRoutes?.properties?.totalLength ?
-                                        (activeRoutes.properties.totalLength >= 1000 ?
-                                            `${(activeRoutes.properties.totalLength / 1000).toFixed(2)} km` :
-                                            `${activeRoutes.properties.totalLength.toFixed(0)} m`)
-                                        : '-'}</p>
-                                </div>
-                                <div className='flex justify-between items-center mb-2'>
-                                    <p className='font-semibold'>Duration</p>
-                                    <p>{activeRoutes?.properties?.totalSeconds ?
-                                        (activeRoutes.properties.totalSeconds >= 3600 ?
-                                            `${Math.floor(activeRoutes.properties.totalSeconds / 3600)}h ${Math.floor((activeRoutes.properties.totalSeconds % 3600) / 60)}m` :
-                                            `${Math.floor(activeRoutes.properties.totalSeconds / 60)} minutes `)
-                                        : "-"}</p>
-                                </div>
-                            </div>
+                            <table className="w-full">
+                                <tbody>
+                                    <tr className="border-b">
+                                        <td className="py-2 font-semibold">Route Name</td>
+                                        <td className="text-end">{activeRoutes?.properties?.routeName}</td>
+                                    </tr>
+                                    <tr className="border-b">
+                                        <td className="py-2 font-semibold">Toll</td>
+                                        <td className="text-end">{activeRoutes?.properties?.isToll ? "True" : "False"}</td>
+                                    </tr>
+                                    <tr className="border-b">
+                                        <td className="py-2 font-semibold">Origin</td>
+                                        <td className="text-end">
+                                            <div>
+                                                <p>{activeRoutes?.origin?.[0]?.toFixed(7)}</p>
+                                                <p>{activeRoutes?.origin?.[1]?.toFixed(7)}</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr className="border-b">
+                                        <td className="py-2 font-semibold">Destination</td>
+                                        <td className="text-end">
+                                            <div>
+                                                <p>{activeRoutes?.destination?.[0]?.toFixed(7)}</p>
+                                                <p>{activeRoutes?.destination?.[1]?.toFixed(7)}</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr className="border-b">
+                                        <td className="py-2 font-semibold">Distance</td>
+                                        <td className="text-end">
+                                            {activeRoutes?.properties?.totalLength ?
+                                                (activeRoutes.properties.totalLength >= 1000 ?
+                                                    `${(activeRoutes.properties.totalLength / 1000).toFixed(2)} km` :
+                                                    `${activeRoutes.properties.totalLength.toFixed(0)} m`)
+                                                : '-'}
+                                        </td>
+                                    </tr>
+                                    <tr className="border-b">
+                                        <td className="py-2 font-semibold">Duration</td>
+                                        <td className="text-end">
+                                            {activeRoutes?.properties?.totalSeconds ?
+                                                (activeRoutes.properties.totalSeconds >= 3600 ?
+                                                    `${Math.floor(activeRoutes.properties.totalSeconds / 3600)}h ${Math.floor((activeRoutes.properties.totalSeconds % 3600) / 60)}m` :
+                                                    `${Math.floor(activeRoutes.properties.totalSeconds / 60)} minutes `)
+                                                : "-"}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </CardContent>
                     </Card>
                 )}
