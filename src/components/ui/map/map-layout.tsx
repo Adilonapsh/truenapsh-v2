@@ -62,7 +62,7 @@ import {
 import { cn } from "@/lib/utils";
 import { overpassBuildingIntegration } from "@/services/map-integrations";
 import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, transfromEsriServicesToFolder, } from '@/services/map-services';
-import { calculateCoordinatesWithAspectRatio, searchAlternatives } from "@/tools/map-tools";
+import { addGeojsonToMap, calculateCoordinatesWithAspectRatio, searchAlternatives } from "@/tools/map-tools";
 import { Datasets } from "@/types/datasets.types";
 import {
     closestCorners,
@@ -102,6 +102,7 @@ import TreeDirectory from '../tree-view';
 import IconLayerType from './icon-layer-type';
 import LegendEsri from "./legend-esri";
 import MapMenu from './map-menu';
+import OperationComponents from "./operation-page";
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
 
@@ -113,8 +114,7 @@ export default function MapLayout({
     layersFetch: Layer[],
     datasetsFetch: Datasets[]
 }) {
-
-    const mapRef = useRef<MapRef | null>(null);
+    const mapRef = useRef<MapRef>(null);
     const drawRef = useRef<MapboxDraw | null>(null); // Ref untuk MapboxDraw
     const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
     const [mousePosition, setMousePosition] = useState<mapboxgl.LngLat | null>(null);
@@ -127,6 +127,7 @@ export default function MapLayout({
         aiChat: false,
         node_workspace: false,
         routes: false,
+        tools: true,
     });
     const [isLoading, setIsLoading] = useState<MapIsLoading>({
         initLoading: true,
@@ -515,14 +516,16 @@ export default function MapLayout({
                     });
             } else if (layer.map_service_vendor == "GeoJSON") {
                 const layerSource = map.getLayer(layer.id)?.source;
-                const source = map.getSource(layerSource) as mapboxgl.GeoJSONSource;
-                if (source) {
-                    const data = source.serialize().data as GeoJSON.GeoJSON;
-                    const bbox = turf.bbox(data);
-                    map.fitBounds(bbox as [number, number, number, number], {
-                        padding: 25,
-                        duration: 1000
-                    });
+                if (layerSource) {
+                    const source = map.getSource(layerSource) as mapboxgl.GeoJSONSource;
+                    if (source) {
+                        const data = source.serialize().data as GeoJSON.GeoJSON;
+                        const bbox = turf.bbox(data);
+                        map.fitBounds(bbox as [number, number, number, number], {
+                            padding: 25,
+                            duration: 1000
+                        });
+                    }
                 }
             }
         }
@@ -665,7 +668,9 @@ export default function MapLayout({
                     const reader = new FileReader();
                     reader.onload = () => {
                         const geojsonData = JSON.parse(reader.result as string);
-                        handleAddGeojsonToMap({
+                        addGeojsonToMap({
+                            mapRef: mapRef,
+                            setLayers: setLayers,
                             layerName: fl.name.split(".")[0].replaceAll("_", " "),
                             data: geojsonData
                         })
@@ -674,7 +679,9 @@ export default function MapLayout({
                 } else if (fl.name.includes(".zip")) {
                     const buffer = await fl.arrayBuffer();
                     const shapeData = await shp(buffer);
-                    handleAddGeojsonToMap({
+                    addGeojsonToMap({
+                        mapRef: mapRef,
+                        setLayers: setLayers,
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: shapeData as GeoJSON.GeoJSON
                     });
@@ -689,7 +696,9 @@ export default function MapLayout({
 
                     // Convert KML to GeoJSON
                     const geojson = toGeoJSON.kml(kml);
-                    handleAddGeojsonToMap({
+                    addGeojsonToMap({
+                        mapRef: mapRef,
+                        setLayers: setLayers,
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
@@ -708,7 +717,9 @@ export default function MapLayout({
                     const parser = new DOMParser();
                     const kml = parser.parseFromString(kmlText, "application/xml");
                     const geojson = toGeoJSON.kml(kml);
-                    handleAddGeojsonToMap({
+                    addGeojsonToMap({
+                        mapRef: mapRef,
+                        setLayers: setLayers,
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
@@ -716,7 +727,9 @@ export default function MapLayout({
                     const text = await fl.text();
                     const topojsonData = JSON.parse(text);
                     const geojson = topojson.feature(topojsonData, topojsonData.objects[Object.keys(topojsonData.objects)[0]]);
-                    handleAddGeojsonToMap({
+                    addGeojsonToMap({
+                        mapRef: mapRef,
+                        setLayers: setLayers,
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
@@ -730,7 +743,9 @@ export default function MapLayout({
                             properties: {}
                         }]
                     };
-                    handleAddGeojsonToMap({
+                    addGeojsonToMap({
+                        mapRef: mapRef,
+                        setLayers: setLayers,
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
@@ -1066,112 +1081,6 @@ export default function MapLayout({
         }
     }, [layers]);
 
-    const handleAddGeojsonToMap = async ({
-        layerName,
-        mapServiceUrl = "",
-        layerCode = "",
-        data
-    }: {
-        layerName: string,
-        mapServiceUrl?: string,
-        layerCode?: string,
-        data: GeoJSON.GeoJSON
-    }) => {
-        const map = mapRef.current?.getMap();
-        if (!map) return;
-
-        const layerId = v4();
-        const commonLayerProps = {
-            map_service_url: mapServiceUrl,
-            map_service_layer_name: layerCode,
-            map_service_vendor: MapServiceVendor.GeoJSON,
-            type: "2D",
-            visible: true,
-            min_zoom: 0,
-            max_zoom: 24,
-            status: "Local",
-            rendered: 1
-        };
-
-        const geometryTypes = [...new Set((data as GeoJSON.FeatureCollection).features.map(feature => feature.geometry.type))];
-
-        // Add source
-        map.addSource(layerId, {
-            type: 'geojson',
-            data: data,
-        });
-
-        // Fit bounds
-        const bounds: [number, number, number, number] = turf.bbox(data).slice(0, 4) as [number, number, number, number];
-        map.fitBounds(bounds, {
-            padding: { top: 50, bottom: 50, left: 50, right: 50 },
-            duration: 1000
-        });
-
-        // Layer rendering configurations
-        const layerConfigs = [
-            {
-                types: ["Polygon", "MultiPolygon"],
-                layerType: "fill" as const,
-                nameSuffix: "Polygon",
-                layerProps: {
-                    paint: {
-                        "fill-opacity": 0.5,
-                        "fill-color": "#627BC1"
-                    }
-                }
-            },
-            {
-                types: ["LineString", "MultiLineString"],
-                layerType: "line" as const,
-                nameSuffix: "Linestring",
-                layerProps: {
-                    paint: {
-                        "line-color": "#627BC1",
-                        "line-width": 2,
-                        "line-opacity": 1
-                    }
-                }
-            },
-            {
-                types: ["Point", "MultiPoint"],
-                layerType: "circle" as const,
-                nameSuffix: "Point",
-                layerProps: {
-                    paint: {
-                        "circle-radius": 5,
-                        "circle-color": "#627BC1",
-                        "circle-opacity": 1
-                    }
-                }
-            }
-        ];
-
-        layerConfigs.forEach(config => {
-            if (config.types.some(type => geometryTypes.includes(type as "Point" | "MultiPoint" | "LineString" | "MultiLineString" | "Polygon" | "MultiPolygon" | "GeometryCollection"))) {
-                const layerSubId = config.layerType === "circle" ? "point" : config.layerType;
-                const fullLayerId = `${layerId}-${layerSubId}`;
-
-                // Add layer to state
-                setLayers(prevLayers => [...prevLayers, {
-                    ...commonLayerProps,
-                    id: fullLayerId,
-                    name: `${layerName} ${config.nameSuffix}`
-                }]);
-
-                map.addLayer({
-                    id: fullLayerId,
-                    type: config.layerType,
-                    source: layerId,
-                    minzoom: 0,
-                    maxzoom: 24,
-                    filter: ["in", "$type", config.types[0]],
-                    paint: config.layerProps.paint
-                });
-            }
-        });
-    };
-
     const addImageToMap = (imageUrl: string, lngLat: mapboxgl.LngLat) => {
         const map = mapRef.current?.getMap();
         if (!map) return;
@@ -1260,7 +1169,9 @@ export default function MapLayout({
             if (drawRef.current) {
                 drawRef.current.deleteAll();
             }
-            handleAddGeojsonToMap({
+            addGeojsonToMap({
+                mapRef: mapRef,
+                setLayers: setLayers,
                 layerName: "Untitled Layer " + layers.length + 1,
                 data: features
             })
@@ -1598,9 +1509,10 @@ export default function MapLayout({
                 }
             ).then((buildings) => {
                 if (buildings) {
-                    const featureCollection = turf.featureCollection(buildings.filter((building): building is GeoJSON.Feature => building !== null));
-                    console.log(featureCollection);
-                    handleAddGeojsonToMap({
+                    const featureCollection = turf.featureCollection(buildings.filter((building: any): building is GeoJSON.Feature => building !== null));
+                    addGeojsonToMap({
+                        mapRef: mapRef,
+                        setLayers: setLayers,
                         layerName: `Buildings ${layers.length + 1}`,
                         data: featureCollection
                     });
@@ -1608,16 +1520,6 @@ export default function MapLayout({
             }).catch((error) => {
                 console.error("Error fetching building data:", error);
             });
-            const buildings = await overpassBuildingIntegration();
-            if (buildings) {
-                const featureCollection = turf.featureCollection(buildings.filter((building: GeoJSON.Feature | null) => building !== null));
-                console.log(featureCollection);
-                handleAddGeojsonToMap({
-                    layerName: `Buildings ${layers.length + 1}`,
-                    data: featureCollection
-                });
-            }
-
         }
     }
 
@@ -1656,6 +1558,8 @@ export default function MapLayout({
                     <AnimatedLoadingScreen />
                 </div>
             )}
+
+            {/* TOP ELEMENT */}
             <div className='absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto'>
                 <div className='bg-white px-5 py-2 rounded w-80 text-sm dark:bg-background'>
                     <div className='flex justify-between items-center sticky top-0 py-2 bg-white dark:bg-background'>
@@ -1767,8 +1671,9 @@ export default function MapLayout({
                 <Search onSearch={handleSearch} />
             </div>
             <div className='absolute top-0 mt-5 ml-[22rem] font-bold'>
-                <MapMenu onSave={handleOnSave} onExit={handleOnExit}></MapMenu>
+                <MapMenu onSave={handleOnSave} onExit={handleOnExit} setDisplayLayouts={setDisplayLayouts} displayLayouts={displayLayouts}></MapMenu>
             </div>
+
 
             {/* RIGHT SIDE */}
             <div className='absolute top-0 right-0 p-5 text-xs min-w-96'>
@@ -1950,6 +1855,30 @@ export default function MapLayout({
                 )}
             </div>
 
+            <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
+                {displayLayouts.tools && (
+                    <Card className="w-[320px] shadow-lg text-sm overflow-hidden">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="relative font-medium">
+                                <div>
+                                    <p className="text-lg font-medium">Tools</p>
+                                </div>
+                            </CardTitle>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                setRouteCoordinates(null);
+                                setDisplayLayouts((prev) => ({ ...prev, tools: false }));
+                                removeRoutes()
+                            }}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="max-h-[70vh] overflow-y-scroll p-0">
+                            <OperationComponents layers={layers} mapRef={mapRef} setLayers={setLayers} />
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+
             {/* BOTTOM EL */}
             <div className='absolute bottom-2 right-14 mb-5 ml-28 z-[1]'>
                 <div className='bg-white p-2 text-xs rounded-lg min-w-52 text-center dark:bg-background'>
@@ -1976,8 +1905,6 @@ export default function MapLayout({
                     </Popover>
                 </div>
             </div>
-
-            {/* ZOOM EL */}
             <div className='absolute bottom-5 left-1/2 -translate-x-1/2 z-[1]'>
                 <div className="flex justify-center items-center gap-1 bg-white dark:bg-background p-1 rounded-lg">
                     <Button variant={"ghost"} size="sm" onClick={(e) => handleNorth()}><ArrowUp style={{ transform: `rotate(${-compass.rotate}deg)` }} /></Button>
@@ -1989,6 +1916,7 @@ export default function MapLayout({
                     {routeCoordinates?.destination && (<Button variant={"ghost"} size="sm" onClick={(e) => handleRoutes()}><TbRouteSquare /></Button>)}
                 </div>
             </div>
+
 
 
             {/* MODAL EL */}

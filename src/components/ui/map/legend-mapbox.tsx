@@ -1,5 +1,6 @@
 import { Layer } from '@/types/map.types'
 import React, { useEffect, useState } from 'react'
+import { MapRef } from 'react-map-gl';
 
 type LegendItem = {
     type: string;
@@ -9,13 +10,13 @@ type LegendItem = {
 }
 
 type Props = {
-    mapRef: React.RefObject<mapboxgl.Map>,
+    mapRef: React.RefObject<MapRef | null>,
     selectedLayer: Layer | null
 }
 
 function LegendMapbox({ mapRef, selectedLayer }: Props) {
     const [legends, setLegends] = useState<LegendItem[]>([]);
-    const map = mapRef.current;
+    const map = mapRef.current?.getMap();
     const selectedLayerId = selectedLayer?.id;
 
     useEffect(() => {
@@ -32,7 +33,7 @@ function LegendMapbox({ mapRef, selectedLayer }: Props) {
             // Jika tidak ada filter, ambil style default
             const color = getColor(type, selectedLayerId, map);
             const size = getSize(type, selectedLayerId, map);
-            legendItems.push({ type, color, size });
+            legendItems.push({ type, color: color?.toString(), size: typeof size === 'number' ? size : undefined });
         } else {
             // Jika ada filter, buat legend untuk setiap filter
             const uniqueFilters = extractUniqueFilters(filters);
@@ -40,7 +41,7 @@ function LegendMapbox({ mapRef, selectedLayer }: Props) {
             uniqueFilters.forEach((filter) => {
                 const color = getColor(type, selectedLayerId, map, filter);
                 const size = getSize(type, selectedLayerId, map, filter);
-                legendItems.push({ type, color, size, filter });
+                legendItems.push({ type, color: color?.toString(), size: typeof size === 'number' ? size : undefined, filter });
             });
         }
 

@@ -137,6 +137,7 @@ type LayoutDisplay = {
     aiChat: boolean,
     node_workspace: boolean,
     routes: boolean,
+    tools: boolean,
 }
 
 export type {

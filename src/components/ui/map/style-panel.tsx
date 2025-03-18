@@ -12,6 +12,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "..
 import IconLayerType from "./icon-layer-type"
 import LegendEsri from "./legend-esri"
 import LegendMapbox from "./legend-mapbox"
+import { MapRef } from "react-map-gl"
 
 interface StyleValue {
     opacity: number
@@ -44,7 +45,7 @@ export function StylePanel(
         resetFill,
         resetStroke,
     }: {
-        mapRef: React.RefObject<mapboxgl.Map>,
+        mapRef: React.RefObject<MapRef | null>,
         selectedLayer: Layer | null,
         values: MapboxLayerStyle,
         setValues: React.Dispatch<React.SetStateAction<MapboxLayerStyle>>,

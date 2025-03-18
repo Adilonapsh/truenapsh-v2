@@ -16,6 +16,7 @@ import {
     MenubarTrigger
 } from "@/components/ui/menubar"
 import { useTheme } from 'next-themes'
+import { LayoutDisplay } from '@/types/map.types'
 
 function MapMenu(
     {
@@ -25,6 +26,8 @@ function MapMenu(
         onSave,
         onShare,
         onExit,
+        displayLayouts,
+        setDisplayLayouts,
     }:
         {
             children?: React.ReactNode
@@ -32,7 +35,9 @@ function MapMenu(
             onNewWindow?: () => void
             onSave?: () => void
             onShare?: () => void
-            onExit?: () => void
+            onExit?: () => void,
+            displayLayouts?: LayoutDisplay,
+            setDisplayLayouts: React.Dispatch<React.SetStateAction<LayoutDisplay>>,
         }
 ) {
     const handleOnNewTab = () => {
@@ -124,6 +129,19 @@ function MapMenu(
                         <MenubarItem inset>Toggle Fullscreen</MenubarItem>
                         <MenubarSeparator />
                         <MenubarItem inset>Hide Sidebar</MenubarItem>
+                        <MenubarCheckboxItem 
+                            checked={displayLayouts?.tools ?? false} 
+                            onClick={() => { 
+                                if (displayLayouts) {
+                                    setDisplayLayouts({
+                                        ...displayLayouts,
+                                        tools: !displayLayouts.tools
+                                    });
+                                }
+                            }}
+                        >
+                            Show Tools
+                        </MenubarCheckboxItem>
                         <MenubarSub>
                             <MenubarSubTrigger inset>Theme</MenubarSubTrigger>
                             <MenubarSubContent>

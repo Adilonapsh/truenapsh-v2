@@ -1,6 +1,7 @@
 // import { Layer, Location, MapServiceVendor, WMSParams } from "@/types/map.types";
 
 import { GetAllLayers, Layer, MapServiceVendor, ParsedLayer, WMSParams } from "@/types/map.types";
+import { getBBOX } from "@/tools/map-tools";
 import { v4 } from "uuid";
 
 const fetchGeoserverLayerBbox = async (url: string, layerId: string) => {
@@ -120,24 +121,6 @@ const generateFeatureInfoURL = (
     }
 };
 
-const getBBOX = (lat: number, lng: number, z: number) => {
-    const r = 6378137 * Math.PI * 2;
-    const x = (lng / 360) * r;
-    const sin = Math.sin((lat * Math.PI) / 180);
-    const y = ((0.25 * Math.log((1 + sin) / (1 - sin))) / Math.PI) * r;
-    return `${x - z},${y - z},${x + z},${y + z}`;
-};
-
-
-// const flyToCenter = (mapRef: React.RefObject<mapboxgl.Map>, location: Location) => {
-//     mapRef.flyTo({
-//         center: [location.lng, location.lat],
-//         essential: true,
-//         duration: 2000,
-//         zoom: 18
-//     });
-// };
-
 const convertWMSToVectorData = async (selectedLayer: Layer, mapRef: mapboxgl.Map, layers: Layer[]) => {
     // eslint-disable-next-line prefer-const
     let infoLayers = [];
@@ -254,8 +237,6 @@ const getEsriServices = async (url: string) => {
     }
 }
 
-
-
 const getGeoserverServices = async (url: string) => {
     try {
         const urls = `${url.replace("/wms", "")}/ows?service=WMS&version=1.3.0&request=GetCapabilities`;
@@ -294,7 +275,6 @@ const getGeoserverServices = async (url: string) => {
         }
     }
 }
-
 
 const getWMSServices = async (url: string, map_service_vendor: string) => {
     if (map_service_vendor == "Geoserver") {

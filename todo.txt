@@ -15,8 +15,10 @@
 15. FIX ADD LAYER RESPONSIVE (Done)
 16. FIX ESRI GET LAYERS (Done)
 17. Get Extent Arcgis (Done)
-18. Add Integrations Overpass (WIP)
+18. Add Integrations Overpass (WIP Bounding Box)
 19. Fix Geojson on map click (Done)
+20. Add Mapbox Geojson Extent (Done)
+21. Add Tools Turf
 
 
 

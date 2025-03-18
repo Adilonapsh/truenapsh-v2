@@ -1,4 +1,8 @@
-import { Place } from "@/types/map.types";
+import { Layer, MapServiceVendor, Place } from "@/types/map.types";
+import * as turf from "@turf/turf";
+import { Feature, FeatureCollection, Geometry, LineString, MultiLineString, MultiPolygon, Point, Polygon } from "geojson";
+import { MapRef } from "react-map-gl";
+import { v4 } from "uuid";
 
 const searchPlaces = async (search: string, lang: string = "EN-en") => {
     if (isCoordinates(search)) {
@@ -99,11 +103,352 @@ const calculateCoordinatesWithAspectRatio = (
     ];
 };
 
+const getBBOX = (lat: number, lng: number, z: number) => {
+    const r = 6378137 * Math.PI * 2;
+    const x = (lng / 360) * r;
+    const sin = Math.sin((lat * Math.PI) / 180);
+    const y = ((0.25 * Math.log((1 + sin) / (1 - sin))) / Math.PI) * r;
+    return `${x - z},${y - z},${x + z},${y + z}`;
+};
 
+const addGeojsonToMap = async ({
+    mapRef,
+    layerName,
+    mapServiceUrl = "",
+    layerCode = "",
+    data,
+    setLayers,
+}: {
+    mapRef: React.RefObject<MapRef | null>,
+    layerName: string,
+    mapServiceUrl?: string,
+    layerCode?: string,
+    data: GeoJSON.GeoJSON
+    setLayers: React.Dispatch<React.SetStateAction<Layer[]>>,
+}) => {
+    const map = mapRef?.current?.getMap();
+    if (!map) return;
+
+    const layerId = v4();
+    const commonLayerProps = {
+        map_service_url: mapServiceUrl,
+        map_service_layer_name: layerCode,
+        map_service_vendor: MapServiceVendor.GeoJSON,
+        type: "2D",
+        visible: true,
+        min_zoom: 0,
+        max_zoom: 24,
+        status: "Local",
+        rendered: 1
+    };
+
+    const geometryTypes = [...new Set((data as GeoJSON.FeatureCollection).features.map(feature => feature.geometry.type))];
+
+    // Add source
+    map.addSource(layerId, {
+        type: 'geojson',
+        data: data,
+    });
+
+    // Fit bounds
+    const bounds: [number, number, number, number] = turf.bbox(data).slice(0, 4) as [number, number, number, number];
+    map.fitBounds(bounds, {
+        padding: { top: 50, bottom: 50, left: 50, right: 50 },
+        duration: 1000
+    });
+
+    // Layer rendering configurations
+    const layerConfigs = [
+        {
+            types: ["Polygon", "MultiPolygon"],
+            layerType: "fill" as const,
+            nameSuffix: "Polygon",
+            layerProps: {
+                paint: {
+                    "fill-opacity": 0.5,
+                    "fill-color": "#627BC1"
+                }
+            }
+        },
+        {
+            types: ["LineString", "MultiLineString"],
+            layerType: "line" as const,
+            nameSuffix: "Linestring",
+            layerProps: {
+                paint: {
+                    "line-color": "#627BC1",
+                    "line-width": 2,
+                    "line-opacity": 1
+                }
+            }
+        },
+        {
+            types: ["Point", "MultiPoint"],
+            layerType: "circle" as const,
+            nameSuffix: "Point",
+            layerProps: {
+                paint: {
+                    "circle-radius": 5,
+                    "circle-color": "#627BC1",
+                    "circle-opacity": 1
+                }
+            }
+        }
+    ];
+
+    layerConfigs.forEach(config => {
+        if (config.types.some(type => geometryTypes.includes(type as "Point" | "MultiPoint" | "LineString" | "MultiLineString" | "Polygon" | "MultiPolygon" | "GeometryCollection"))) {
+            const layerSubId = config.layerType === "circle" ? "point" : config.layerType;
+            const fullLayerId = `${layerId}-${layerSubId}`;
+
+            // Add layer to state
+            setLayers(prevLayers => [...prevLayers, {
+                ...commonLayerProps,
+                id: fullLayerId,
+                name: `${layerName} ${config.nameSuffix}`
+            }]);
+
+            map.addLayer({
+                id: fullLayerId,
+                type: config.layerType,
+                source: layerId,
+                minzoom: 0,
+                maxzoom: 24,
+                filter: ["in", "$type", config.types[0]],
+                paint: config.layerProps.paint
+            });
+        }
+    });
+};
+
+const clipLayers = (
+    featureClip: FeatureCollection<Polygon | MultiPolygon>,
+    featureOverlay: FeatureCollection<Polygon | MultiPolygon>
+) => {
+    try {
+        return turf.featureCollection(featureOverlay.features.flatMap(feature1 => {
+            if (featureClip.features) {
+                return featureClip.features.map(feature2 => {
+                    const intersection = turf.intersect(turf.featureCollection([feature1, feature2]));
+                    return intersection ? { ...intersection, properties: { ...feature1.properties } } : null;
+                }).filter(Boolean);
+            } else {
+                const intersection = turf.intersect(turf.featureCollection([feature1, clipFeature]));
+                return intersection ? { ...intersection, properties: { ...feature1.properties } } : null;
+            }
+        }).filter(Boolean));
+    } catch (error) {
+        console.error('Error clipping layers:', error);
+        return null;
+    }
+}
+
+const bufferLayers = (
+    featureCollection: FeatureCollection<Geometry>,
+    radius: number,
+    units: turf.Units = 'kilometers'
+) => {
+    try {
+        return turf.featureCollection(
+            featureCollection.features.map(feature => {
+                const buffered = turf.buffer(feature, radius, { units });
+                return { ...buffered, properties: { ...feature.properties } };
+            })
+        );
+    } catch (error) {
+        console.error('Error buffering layers:', error);
+        return null;
+    }
+}
+
+const differenceLayers = (
+    featureClip: FeatureCollection<Polygon | MultiPolygon>,
+    featureOverlay: FeatureCollection<Polygon | MultiPolygon>
+) => {
+    try {
+        return turf.featureCollection(featureOverlay.features
+            .filter((feature): feature is Feature<Polygon | MultiPolygon> =>
+                feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon'
+            ).flatMap(feature1 => {
+                if (featureClip.features) {
+                    return featureClip.features.map(feature2 => {
+                        const difference = turf.difference(turf.featureCollection([feature1, feature2]));
+                        return difference ? { ...difference, properties: { ...feature1.properties } } : null;
+                    }).filter(Boolean);
+                } else {
+                    const difference = turf.difference(turf.featureCollection([feature1, clipFeature]));
+                    return difference ? { ...difference, properties: { ...feature1.properties } } : null;
+                }
+            }).filter(Boolean));
+    } catch (error) {
+        console.error('Error clipping layers:', error);
+        return null;
+    }
+}
+
+const centroidLayers = (
+    featureClip: FeatureCollection<Polygon | MultiPolygon>,
+) => {
+    try {
+        return turf.featureCollection(featureClip.features.map(feature => {
+            const centroidFeature = turf.centroid(feature);
+            return centroidFeature;
+        }));
+    } catch (error) {
+        console.error('Error clipping layers:', error);
+        return null;
+    }
+}
+
+const polygonToLinesLayers = (
+    polygonFeature: FeatureCollection<Polygon | MultiPolygon>,
+) => {
+    try {
+        return turf.featureCollection(polygonFeature.features
+            .filter((feature): feature is Feature<Polygon | MultiPolygon> =>
+                feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon'
+            )
+            .map(feature => {
+                if (feature.geometry.type === 'Polygon') {
+                    return turf.polygonToLine(feature);
+                } else {
+                    const multiLines = feature.geometry.coordinates.map(coords =>
+                        turf.polygonToLine(turf.polygon(coords))
+                    );
+                    return turf.multiLineString(
+                        multiLines.flatMap(line =>
+                            line.geometry.type === 'LineString'
+                                ? [line.geometry.coordinates]
+                                : line.geometry.coordinates
+                        )
+                    );
+                }
+            }));
+    } catch (error) {
+        console.error('Error clipping layers:', error);
+        return null;
+    }
+}
+
+const linesToPolygonLayers = (
+    lineFeature: FeatureCollection<LineString | MultiLineString>,
+) => {
+    try {
+        return turf.featureCollection(lineFeature.features
+            .filter((feature): feature is Feature<LineString> =>
+                feature.geometry.type === 'LineString'
+            )
+            .map(feature => {
+                const polygonFeature = turf.lineToPolygon(feature);
+                return polygonFeature;
+            }));
+    } catch (error) {
+        console.error('Error clipping layers:', error);
+        return null;
+    }
+}
+
+const removeDuplicatesLayers = (
+    featureClip: FeatureCollection<Geometry>,
+) => {
+    try {
+        return turf.featureCollection(featureClip.features
+            .filter((feature): feature is Feature<Geometry> =>
+                feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon'
+            )
+            .map(feature => {
+                const polygonFeature = turf.cleanCoords(feature);
+                return polygonFeature;
+            }));
+    } catch (error) {
+        console.error('Error clipping layers:', error);
+        return null;
+    }
+}
+
+const hexagonLayer = (
+    featureClip: FeatureCollection<Polygon | MultiPolygon>,
+    cellSide: number,
+    units: turf.Units = 'kilometers'
+) => {
+    try {
+        if (!featureClip || !featureClip.features || !Array.isArray(featureClip.features) || featureClip.features.length === 0) {
+            throw new Error("Invalid FeatureCollection: featureClip.features is not an array or is empty");
+        }
+
+        const bbox = turf.bbox(featureClip);
+
+        const hexGrid = turf.hexGrid(bbox, cellSide, { units, mask: featureClip?.features[0] });
+        const hexagons = hexGrid.features
+            .filter(hex => featureClip.features.some(feature => turf.booleanPointInPolygon(turf.center(hex), feature)))
+            .map(hex => {
+                const area = turf.area(hex) / 1e6;
+                return {
+                    ...hex,
+                    properties: {
+                        size: cellSide,
+                        units: units,
+                        area: parseFloat(area.toFixed(4)), // Bulatkan ke 4 desimal
+                    },
+                };
+            });
+        return turf.featureCollection(hexagons);
+    } catch (error) {
+        console.error('Error clipping layers:', error);
+        return null;
+    }
+}
+
+const simplifyLayers = (
+    featureCollection: FeatureCollection<Polygon | MultiPolygon>,
+    tolerance: number = 0.001,
+    highQuality: boolean = true
+): FeatureCollection<Polygon | MultiPolygon> => {
+    try {
+        return turf.featureCollection(
+            featureCollection.features.map(feature =>
+                turf.simplify(feature, { tolerance, highQuality })
+            )
+        );
+    } catch (error) {
+        console.error("Error simplifying polygons:", error);
+        return featureCollection;
+    }
+};
+
+const pointAlongLinesLayers = (
+    lineFeatureCollection: FeatureCollection<LineString | MultiLineString>,
+    interval: number,
+    units: turf.Units = 'kilometers'
+): FeatureCollection<Point> => {
+    try {
+        const points: Feature<Point>[] = [];
+        lineFeatureCollection.features.forEach(feature => {
+            if (feature.geometry.type === 'LineString') {
+                const length = turf.length(feature, { units });
+                for (let i = 0; i <= length; i += interval) {
+                    const point = turf.along(feature, i, { units });
+                    points.push(point);
+                }
+            } else if (feature.geometry.type === 'MultiLineString') {
+                feature.geometry.coordinates.forEach(lineCoords => {
+                    const line = turf.lineString(lineCoords);
+                    const length = turf.length(line, { units });
+                    for (let i = 0; i <= length; i += interval) {
+                        const point = turf.along(line, i, { units });
+                        points.push(point);
+                    }
+                });
+            }
+        });
+
+        return turf.featureCollection(points);
+    } catch (error) {
+        console.error("Error generating points along line:", error);
+        return turf.featureCollection([]);
+    }
+};
 
 export {
-    searchPlaces,
-    searchAlternatives,
-    isCoordinates,
-    calculateCoordinatesWithAspectRatio,
-}
+    addGeojsonToMap, bufferLayers, calculateCoordinatesWithAspectRatio, centroidLayers, clipLayers, differenceLayers, getBBOX, hexagonLayer, isCoordinates, linesToPolygonLayers, pointAlongLinesLayers, polygonToLinesLayers, removeDuplicatesLayers, searchAlternatives, searchPlaces, simplifyLayers
+};
