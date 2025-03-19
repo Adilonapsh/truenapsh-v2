@@ -5,11 +5,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { motion } from "framer-motion"
 import Image from "next/image"
 import { useState } from "react"
+import { Badge } from "../badge"
 
 interface ProjectCardProps {
     title: string
-    description: string
+    description?: string
     imageUrl: string
+    tags?: string[]
     onClick?: () => void
 }
 
@@ -17,6 +19,7 @@ export default function ProjectCard({
     title = "Amazing Project",
     description = "This is a long description of the project that demonstrates how we handle overflow text in our card component. It might contain lots of details about the project.",
     imageUrl = "/assets/placeholder.svg",
+    tags = [],
     onClick = () => console.log("Card clicked"),
 }: ProjectCardProps) {
     const [isHovered, setIsHovered] = useState(false)
@@ -50,6 +53,13 @@ export default function ProjectCard({
                             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         />
                     </motion.div>
+                    <div className="absolute top-0 left-0 flex flex-wrap gap-1 p-2">
+                        {tags?.map((tag, index) => (
+                            <Badge key={index} className="bg-primary text-primary-foreground">
+                                {tag}
+                            </Badge>
+                        ))}
+                    </div>
                 </CardHeader>
                 <CardContent className="p-4 space-y-2">
                     <h3 className="font-semibold text-lg tracking-tight">{title}</h3>

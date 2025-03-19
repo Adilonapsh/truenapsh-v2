@@ -1,5 +1,6 @@
 'use client'
 
+import ProjectForm from '@/components/form/project-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import ProjectCard from '@/components/ui/project/project-card';
@@ -26,6 +27,8 @@ export default function DashboardPage() {
         fetchProjects();
     }, []);
 
+    const [open, setOpen] = useState(false)
+
     return (
         <div>
             <div className='grid grid-cols-1 lg:grid-cols-4 gap-2'>
@@ -37,7 +40,7 @@ export default function DashboardPage() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-3">
-                                <div className="flex items-center space-x-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-500">
+                                <div className="flex items-center space-x-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-500" >
                                     <div className="p-2 rounded-full bg-primary-600">
                                         <Plus className="h-5 w-5 text-primary-600" />
                                     </div>
@@ -49,7 +52,7 @@ export default function DashboardPage() {
                             </div>
                         </CardContent>
                         <CardFooter>
-                            <Button className="w-full font-medium" size="lg">
+                            <Button className="w-full font-medium" size="lg" onClick={() => { setOpen(true) }}>
                                 New project
                             </Button>
                         </CardFooter>
@@ -70,11 +73,12 @@ export default function DashboardPage() {
                 ) : (
                     projects?.map((project: Project, i: number) => (
                         <a href={`/map/${project.id}`} key={i}>
-                            <ProjectCard title={project.name} description={project.description} imageUrl={project.thumbnail ?? ""} />
+                            <ProjectCard title={project.name} description={project?.description} imageUrl={project.thumbnail ?? ""} tags={project?.tags as string[]} />
                         </a>
                     ))
                 )}
             </div>
-        </div>
+            <ProjectForm setOpen={setOpen} open={open} />
+        </div >
     )
 }

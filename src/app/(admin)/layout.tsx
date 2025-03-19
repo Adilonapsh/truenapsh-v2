@@ -1,11 +1,10 @@
 'use client'
 
-import type { Metadata } from "next";
-import { Work_Sans, Manrope } from "next/font/google";
-import "../globals.css";
-import "../css/custom.css"
 import { SessionProvider } from "next-auth/react";
-import { ThemeProvider } from 'next-themes'
+import { ThemeProvider } from 'next-themes';
+import { Manrope, Work_Sans } from "next/font/google";
+import "../css/custom.css";
+import "../globals.css";
 
 
 const workSans = Work_Sans({

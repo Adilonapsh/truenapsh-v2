@@ -18,7 +18,8 @@
 18. Add Integrations Overpass (WIP Bounding Box)
 19. Fix Geojson on map click (Done)
 20. Add Mapbox Geojson Extent (Done)
-21. Add Tools Turf
+21. Add Tools Turf (Add Buffer, Clip, Difference, LineTo Polygon, Centorid, Polygon to Lines, Hexagon Grid, Remove Duplicates,WIP)
+22. Add Create Projects
 
 
 

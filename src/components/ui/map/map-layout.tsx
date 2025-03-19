@@ -2086,6 +2086,19 @@ export default function MapLayout({
                                         </Card>
                                     </TabsContent>
                                     <TabsContent value="integration">
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle>Integrations</CardTitle>
+                                                <CardDescription>
+                                                    Integrate your map with other services
+                                                </CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="space-y-2">
+                                                <div className='h-[50vh] w-full'>
+                                                    Testing
+                                                </div>
+                                            </CardContent>
+                                        </Card>
                                     </TabsContent>
                                     <div className='flex justify-end mt-2'>
                                         <Button className='' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
