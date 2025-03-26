@@ -1,13 +1,13 @@
 import * as turf from '@turf/turf';
 
-const overpassBuildingIntegration = async () => {
-    const bbox = {
-        south: -6.6229,
-        west: 106.7892,
-        north: -6.5729,
-        east: 106.8392
+const overpassBuildingIntegration = async (bbox) => {
+    const bboxNamed = {
+        south: bbox[1],
+        west: bbox[0], 
+        north: bbox[3],
+        east: bbox[2]
     };
-    const query = `[out:json][timeout:25];(way["building"](${bbox.south},${bbox.west},${bbox.north},${bbox.east});relation["building"](${bbox.south},${bbox.west},${bbox.north},${bbox.east}););out body geom;`;
+    const query = `[out:json][timeout:25];(way["building"](${bboxNamed.south},${bboxNamed.west},${bboxNamed.north},${bboxNamed.east});relation["building"](${bboxNamed.south},${bboxNamed.west},${bboxNamed.north},${bboxNamed.east}););out body geom;`;
 
     try {
         const response = await fetch("https://overpass-api.de/api/interpreter", {

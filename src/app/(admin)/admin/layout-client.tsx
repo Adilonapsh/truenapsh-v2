@@ -108,7 +108,7 @@ export function LayoutClient({ children, data }: LayoutClientProps) {
                                             </BreadcrumbItem>
                                             <BreadcrumbSeparator className="hidden md:block" />
                                             <BreadcrumbItem>
-                                                <BreadcrumbPage>Projects</BreadcrumbPage>
+                                                <BreadcrumbPage className="capitalize">Testing</BreadcrumbPage>
                                             </BreadcrumbItem>
                                         </BreadcrumbList>
                                     </Breadcrumb>

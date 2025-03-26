@@ -166,7 +166,7 @@ export default function LoginComponent() {
                             <CardContent>
                                 <p className="mb-4 text-gray-600 dark:text-gray-400">Create an account to start your mapping journey.</p>
                                 <Button variant="secondary" className="w-full bg-gray-200 hover:bg-gray-300 text-black dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white">
-                                    <Link href="/auth/register">Create Account</Link>
+                                    <a href="/auth/register">Create Account</a>
                                 </Button>
                             </CardContent>
                         </motion.div>

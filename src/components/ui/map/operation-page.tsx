@@ -2,12 +2,13 @@
 
 import type React from "react"
 
-import { addGeojsonToMap, bufferLayers, centroidLayers, clipLayers, differenceLayers, hexagonLayer, linesToPolygonLayers, pointAlongLinesLayers, polygonToLinesLayers, removeDuplicatesLayers, simplifyLayers } from "@/tools/map-tools"
+import { addGeojsonToMap, bufferLayers, buildingLayers, centroidLayers, clipLayers, differenceLayers, hexagonLayer, linesToPolygonLayers, pointAlongLinesLayers, polygonToLinesLayers, removeDuplicatesLayers, simplifyLayers } from "@/tools/map-tools"
 import { Layer } from "@/types/map.types"
 import { motion } from 'framer-motion'
 import {
     ArrowLeft,
     Asterisk,
+    Building2,
     CircleDashed,
     CircleDot,
     Clock,
@@ -36,7 +37,6 @@ import {
 import { useEffect, useState } from "react"
 import { MapRef } from "react-map-gl"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../select"
-import { simplify } from "@turf/turf"
 
 export default function OperationComponents({
     layers,
@@ -87,6 +87,10 @@ export default function OperationComponents({
         { icon: <CircleDashed className="h-6 w-6" />, label: "Buffer Analysis" },
         { icon: <SquareStack className="h-6 w-6" />, label: "Overlay Analysis" },
         { icon: <Clock className="h-6 w-6" />, label: "Temporal Analysis" },
+    ]
+
+    const integrationOperations: OperationItem[] = [
+        { icon: <Building2 className="h-6 w-6" />, label: "Building" },
     ]
 
     // Operation details data
@@ -431,6 +435,33 @@ export default function OperationComponents({
                 },
             ]
         },
+        building: {
+            title: "Building",
+            description: "Create a building model.",
+            options: [
+                {
+                    id: "targetLayer",
+                    name: "Target Layer",
+                    type: "select",
+                    value: layers?.map((layer) => ({ key: layer.id, value: layer.name })),
+                    info: true,
+                },
+                {
+                    id: "cutBuilding",
+                    name: "Cut Building",
+                    type: "select",
+                    value: ["With Bounding Box", "Extract Building"],
+                    info: true,
+                },
+                {
+                    id: "keepGeometry",
+                    name: "Keep Attributes",
+                    type: "select",
+                    value: ["All", "Selected", "None"],
+                    info: false,
+                },
+            ]
+        },
     }
 
     useEffect(() => {
@@ -475,7 +506,6 @@ export default function OperationComponents({
         setIsLoading(true);
         const map = mapRef?.current?.getMap()
         const lowerOperationName = selectedOperation?.toLowerCase();
-        console.log("Options :", operationOptions);
         if (lowerOperationName === "boundary") {
             console.log("boundary", operationOptions);
         } else if (lowerOperationName === "buffer") {
@@ -653,10 +683,31 @@ export default function OperationComponents({
         } else if (lowerOperationName === "smoothing") {
 
         } else if (lowerOperationName === "split by line") {
-            
+
+        } else if (lowerOperationName === "building") {
+            const targetLayer = operationOptions.targetLayer
+            const cutBuilding = operationOptions.cutBuilding
+            if (targetLayer) {
+                const targetLayerSource = map?.getLayer(targetLayer)?.source ?? "";
+                const targetData = map?.getSource(targetLayerSource)?.serialize().data;
+                let buildingLayer = await buildingLayers(targetData);
+                console.log("Building layer created:", buildingLayer);
+                if (cutBuilding === "Extract Building") {
+                    buildingLayer = await clipLayers(targetData, buildingLayer);
+                }
+                if (buildingLayer) {
+                    const layerName = `Building ${(cutBuilding === "Extract Building") ? "Clip" : ""} ${(layers?.length ?? 0) + 1}`;
+                    addGeojsonToMap({
+                        mapRef: mapRef,
+                        setLayers: setLayers,
+                        data: buildingLayer as GeoJSON.GeoJSON,
+                        layerName: layerName,
+                    });
+                    console.log("Building layer created:", layerName);
+                }
+            }
         }
         setIsLoading(false);
-
     }
 
     // Get operation details for the selected operation
@@ -848,6 +899,24 @@ export default function OperationComponents({
                                 </div>
                             </div>
                         )}
+
+                        {/* Inttegration Section */}
+                        {filteredOperations(integrationOperations).length > 0 && (
+                            <div className="px-4 mb-6">
+                                <h2 className="text-base font-medium mb-3">Integration</h2>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {filteredOperations(integrationOperations).map((op, index) => (
+                                        <OperationButton
+                                            key={`analysis-${index}`}
+                                            icon={op.icon}
+                                            label={op.label}
+                                            onClick={() => handleOperationClick(op.label)}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                     </div>
                 )}
             </div>

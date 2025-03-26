@@ -1,13 +1,18 @@
 'use server'
 
-interface User {
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { decrypt } from "@/lib/crypt";
+import { getServerSession } from "next-auth";
+
+type User = {
     id: string,
-    email: string,
     name: string,
     username: string,
-    email_verified_at?: string | null,
-    created_at?: string,
-    updated_at?: string,
+    email: string,
+    email_verified_at: string | null,
+    created_at: string,
+    updated_at: string,
+    roles: string[],
 }
 
 type FormData = {
@@ -16,7 +21,7 @@ type FormData = {
     password: string,
 }
 
-const baseURL = process.env.APP_URL;
+const baseURL = process.env.NEXT_AUTH_URL;
 
 export const get = async (): Promise<User[]> => {
     const data = await fetch(`${baseURL}/users`);
@@ -30,8 +35,33 @@ export const register = async (formData: FormData): Promise<User> => {
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ formData })
+        body: JSON.stringify(formData)
     });
+    
+    if (!data.ok) {
+        throw new Error(`HTTP error! status: ${data.status}`);
+    }
+    
+    const json = await data.json();
+    return json;
+}
+
+export const userDetails = async (): Promise<User> => {
+    const session = await getServerSession(authOptions);
+    const accessToken = decrypt(session?.user.accessToken);
+    const data = await fetch(`${baseURL}/auth/user`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept' : 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+        },
+    });
+    
+    if (!data.ok) {
+        throw new Error(`HTTP error! status: ${data.status}`);
+    }
+    
     const json = await data.json();
     return json;
 }

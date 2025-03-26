@@ -1,3 +1,4 @@
+import { overpassBuildingIntegration } from "@/services/map-integrations";
 import { Layer, MapServiceVendor, Place } from "@/types/map.types";
 import * as turf from "@turf/turf";
 import { Feature, FeatureCollection, Geometry, LineString, MultiLineString, MultiPolygon, Point, Polygon } from "geojson";
@@ -449,6 +450,35 @@ const pointAlongLinesLayers = (
     }
 };
 
+const buildingLayers = async (featureCollection: FeatureCollection) => {
+    try {
+        const bbox = turf.bbox(featureCollection);
+        const buildings = await overpassBuildingIntegration(bbox);
+        if (buildings) {
+            const featureCollection = turf.featureCollection(buildings.filter((building: any): building is GeoJSON.Feature => building !== null));
+            return featureCollection;
+        }
+    } catch (error) {
+        console.error("Error fetching building data:", error);
+    }
+}
+
 export {
-    addGeojsonToMap, bufferLayers, calculateCoordinatesWithAspectRatio, centroidLayers, clipLayers, differenceLayers, getBBOX, hexagonLayer, isCoordinates, linesToPolygonLayers, pointAlongLinesLayers, polygonToLinesLayers, removeDuplicatesLayers, searchAlternatives, searchPlaces, simplifyLayers
+    addGeojsonToMap,
+    bufferLayers,
+    buildingLayers,
+    calculateCoordinatesWithAspectRatio,
+    centroidLayers,
+    clipLayers,
+    differenceLayers,
+    getBBOX,
+    hexagonLayer,
+    isCoordinates,
+    linesToPolygonLayers,
+    pointAlongLinesLayers,
+    polygonToLinesLayers,
+    removeDuplicatesLayers,
+    searchAlternatives,
+    searchPlaces,
+    simplifyLayers
 };

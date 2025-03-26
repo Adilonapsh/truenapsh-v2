@@ -18,7 +18,7 @@ interface ProjectCardProps {
 export default function ProjectCard({
     title = "Amazing Project",
     description = "This is a long description of the project that demonstrates how we handle overflow text in our card component. It might contain lots of details about the project.",
-    imageUrl = "/assets/placeholder.svg",
+    imageUrl = "/assets/map.png",
     tags = [],
     onClick = () => console.log("Card clicked"),
 }: ProjectCardProps) {
@@ -43,13 +43,13 @@ export default function ProjectCard({
                     <motion.div
                         animate={{ scale: isHovered ? 1.05 : 1 }}
                         transition={{ duration: 0.3 }}
-                        className="relative w-full h-full"
+                        className="relative w-full h-full overflow-hidden"
                     >
                         <Image
-                            src={imageUrl || "/assets/placeholder.svg"}
+                            src={imageUrl || "/assets/map.png"}
                             alt={title}
                             fill
-                            className="object-cover"
+                            className="object-cover overflow-hidden"
                             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         />
                     </motion.div>
@@ -61,11 +61,11 @@ export default function ProjectCard({
                         ))}
                     </div>
                 </CardHeader>
-                <CardContent className="p-4 space-y-2">
+                <CardContent className="p-4 space-y-1">
                     <h3 className="font-semibold text-lg tracking-tight">{title}</h3>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <p className="text-sm text-muted-foreground">{truncatedDescription}</p>
+                            <p className="text-xs text-muted-foreground">{truncatedDescription}</p>
                         </TooltipTrigger>
                         {description.length > 100 && (
                             <TooltipContent>

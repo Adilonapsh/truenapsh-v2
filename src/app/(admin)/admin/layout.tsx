@@ -34,10 +34,22 @@ let data = {
   ],
   navMain: [
     {
+      title: "Dashboard",
+      url: "#",
+      isActive: true,
+      icon: "frame",
+      items: [
+        {
+          title: "Project",
+          url: "/admin/dashboard",
+        },
+      ]
+    },
+    {
       title: "Playground",
       url: "#",
       icon: "square-terminal",
-      isActive: true,
+      isActive: false,
       items: [
         {
           title: "History",
