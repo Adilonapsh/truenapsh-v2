@@ -140,7 +140,7 @@ function MapMenu(
                                 }
                             }}
                         >
-                            Show Tools
+                            Tools
                         </MenubarCheckboxItem>
                         <MenubarSub>
                             <MenubarSubTrigger inset>Theme</MenubarSubTrigger>

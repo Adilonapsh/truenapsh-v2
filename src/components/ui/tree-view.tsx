@@ -21,6 +21,7 @@ type Metadata = {
 }
 
 type TreeNodeProps = {
+    id?: string,
     node: TreeNode
     level: number
     path: string

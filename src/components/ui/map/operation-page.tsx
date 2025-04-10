@@ -60,33 +60,33 @@ export default function OperationComponents({
         { icon: <Link className="h-6 w-6" />, label: "Difference" },
         { icon: <Combine className="h-6 w-6" />, label: "Intersection" },
         // { icon: <Unlink className="h-6 w-6" />, label: "Subtract" },
-        { icon: <Union className="h-6 w-6" />, label: "Union" },
+        // { icon: <Union className="h-6 w-6" />, label: "Union" },
         // { icon: <Triangle className="h-6 w-6" />, label: "Wedge Buffer" },
     ]
 
     const geometryOperations: OperationItem[] = [
         { icon: <Pentagon className="h-6 w-6" />, label: "Centroid" },
-        { icon: <CircleDot className="h-6 w-6" />, label: "Fill Holes" },
+        // { icon: <CircleDot className="h-6 w-6" />, label: "Fill Holes" },
         { icon: <SquareStack className="h-6 w-6" />, label: "Lines to Polygon" },
-        { icon: <Asterisk className="h-6 w-6" />, label: "Explode MultiFeatures" },
-        { icon: <LayoutGrid className="h-6 w-6" />, label: "Explode Linestrings" },
+        // { icon: <Asterisk className="h-6 w-6" />, label: "Explode MultiFeatures" },
+        // { icon: <LayoutGrid className="h-6 w-6" />, label: "Explode Linestrings" },
         { icon: <SquareDashedBottom className="h-6 w-6" />, label: "Polygon to Lines" },
         { icon: <Trash2 className="h-6 w-6" />, label: "Remove duplicates" },
         { icon: <LineChart className="h-6 w-6" />, label: "Generate Points Along Line" },
         { icon: <PenTool className="h-6 w-6" />, label: "Simplify" },
-        { icon: <Droplets className="h-6 w-6" />, label: "Smoothing" },
-        { icon: <SplitSquareVertical className="h-6 w-6" />, label: "Split by line" },
+        // { icon: <Droplets className="h-6 w-6" />, label: "Smoothing" },
+        // { icon: <SplitSquareVertical className="h-6 w-6" />, label: "Split by line" },
     ]
 
     const analysisOperations: OperationItem[] = [
-        { icon: <Hash className="h-6 w-6" />, label: "Count Features in Surface" },
-        { icon: <Grid className="h-6 w-6" />, label: "Spatial Aggregation" },
-        { icon: <Clock className="h-6 w-6" />, label: "Nearest Neighbour" },
-        { icon: <X className="h-6 w-6" />, label: "Voronoi Polygons" },
+        // { icon: <Hash className="h-6 w-6" />, label: "Count Features in Surface" },
+        // { icon: <Grid className="h-6 w-6" />, label: "Spatial Aggregation" },
+        // { icon: <Clock className="h-6 w-6" />, label: "Nearest Neighbour" },
+        // { icon: <X className="h-6 w-6" />, label: "Voronoi Polygons" },
         { icon: <Hexagon className="h-6 w-6" />, label: "Hexagon Grid" },
-        { icon: <CircleDashed className="h-6 w-6" />, label: "Buffer Analysis" },
-        { icon: <SquareStack className="h-6 w-6" />, label: "Overlay Analysis" },
-        { icon: <Clock className="h-6 w-6" />, label: "Temporal Analysis" },
+        // { icon: <CircleDashed className="h-6 w-6" />, label: "Buffer Analysis" },
+        // { icon: <SquareStack className="h-6 w-6" />, label: "Overlay Analysis" },
+        // { icon: <Clock className="h-6 w-6" />, label: "Temporal Analysis" },
     ]
 
     const integrationOperations: OperationItem[] = [
@@ -439,6 +439,13 @@ export default function OperationComponents({
             title: "Building",
             description: "Create a building model.",
             options: [
+                {
+                    id: "sourceBuilding",
+                    name: "Source Building",
+                    type: "select",
+                    value: ["Open street map", "Google Buildings"],
+                    info: true,
+                },
                 {
                     id: "targetLayer",
                     name: "Target Layer",

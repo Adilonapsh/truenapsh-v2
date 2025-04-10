@@ -1,4 +1,5 @@
 import { MapLayerMouseEvent } from "mapbox-gl";
+import { TransformRequestFunction } from "mapbox-gl";
 import { ColorSpecification, ExpressionSpecification } from "mapbox-gl";
 import React from "react";
 import { MapRef } from "react-map-gl";
@@ -19,6 +20,7 @@ type MapComponentsProps = {
     handleDragOver?: (event: React.DragEvent<HTMLDivElement>) => void;
     handleDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
     onContextMenu?: (e: MapLayerMouseEvent) => void;
+    transformRequests?: TransformRequestFunction;
 }
 
 type ViewState = {
@@ -61,6 +63,7 @@ enum MapServiceVendor {
     Geoserver = "Geoserver",
     ArcGIS = "ArcGIS",
     GeoJSON = "GeoJSON",
+    XYZ = "XYZ",
     Image = "Image",
     Text = "Text",
     Icon = "Icon",

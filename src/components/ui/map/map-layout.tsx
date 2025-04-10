@@ -127,7 +127,7 @@ export default function MapLayout({
         aiChat: false,
         node_workspace: false,
         routes: false,
-        tools: true,
+        tools: false,
     });
     const [isLoading, setIsLoading] = useState<MapIsLoading>({
         initLoading: true,
@@ -261,7 +261,7 @@ export default function MapLayout({
 
 
             // Load Draw Styles
-            const customStyles = [
+            const drawStyles = [
                 {
                     id: 'gl-draw-polygon-fill',
                     type: 'fill',
@@ -304,7 +304,7 @@ export default function MapLayout({
 
             const draw = new MapboxDraw({
                 displayControlsDefault: false,
-                styles: customStyles,
+                styles: drawStyles,
                 controls: {
                     polygon: true,
                     line_string: true,
@@ -942,8 +942,47 @@ export default function MapLayout({
     }
 
     const handleDatasets = async () => {
-        const datasets = await getWMSServices(datasetProperties.url, datasetProperties.map_service_vendor);
-        setDatasetResult(datasets ?? []);
+        if (datasetProperties.map_service_vendor == MapServiceVendor.XYZ) {
+            const map = mapRef.current?.getMap();
+            if (map) {
+                const layerId = v4();
+                const href = datasetProperties.url;
+                const url = new URL(datasetProperties.url);
+                const domain = url.hostname;
+                console.log(href);
+                console.log(url.href);
+                console.log(domain);
+                map.addLayer({
+                    id: layerId,
+                    type: 'raster',
+                    source: {
+                        type: 'raster',
+                        tiles: [`/api/proxy?baseUrl=${encodeURIComponent(href)}&x={x}&y={y}&z={z}`],
+                        tileSize: 256
+                    },
+                    paint: {
+                        'raster-opacity': 1
+                    }
+                });
+
+                setLayers(prevLayers => [...prevLayers, {
+                    id: layerId,
+                    name: `XYZ Layer ${layers.length + 1}`,
+                    map_service_url: url.toString(),
+                    map_service_layer_name: '',
+                    map_service_vendor: MapServiceVendor.XYZ,
+                    type: '2D',
+                    visible: true,
+                    min_zoom: 0,
+                    max_zoom: 24,
+                    status: 'Local',
+                    rendered: 1
+                } as Layer]);
+            }
+        } else {
+            const datasets = await getWMSServices(datasetProperties.url, datasetProperties.map_service_vendor);
+            setDatasetResult(datasets ?? []);
+        }
     }
 
     const handleSelectedDatasets = (index: number) => {
@@ -1490,38 +1529,38 @@ export default function MapLayout({
         }
     }
 
-    const handleMapIntegration = async () => {
-        const map = mapRef.current?.getMap();
-        if (map) {
-            toast.promise(
-                new Promise((resolve, reject) => {
-                    try {
-                        const buildings = overpassBuildingIntegration();
-                        resolve(buildings);
-                    } catch (error) {
-                        reject(error);
-                    }
-                }),
-                {
-                    loading: 'Fetching building data...',
-                    success: 'Building data loaded successfully',
-                    error: 'Failed to fetch building data'
-                }
-            ).then((buildings) => {
-                if (buildings) {
-                    const featureCollection = turf.featureCollection(buildings.filter((building: any): building is GeoJSON.Feature => building !== null));
-                    addGeojsonToMap({
-                        mapRef: mapRef,
-                        setLayers: setLayers,
-                        layerName: `Buildings ${layers.length + 1}`,
-                        data: featureCollection
-                    });
-                }
-            }).catch((error) => {
-                console.error("Error fetching building data:", error);
-            });
-        }
-    }
+    // const handleMapIntegration = async () => {
+    //     const map = mapRef.current?.getMap();
+    //     if (map) {
+    //         toast.promise(
+    //             new Promise((resolve, reject) => {
+    //                 try {
+    //                     const buildings = overpassBuildingIntegration();
+    //                     resolve(buildings);
+    //                 } catch (error) {
+    //                     reject(error);
+    //                 }
+    //             }),
+    //             {
+    //                 loading: 'Fetching building data...',
+    //                 success: 'Building data loaded successfully',
+    //                 error: 'Failed to fetch building data'
+    //             }
+    //         ).then((buildings) => {
+    //             if (buildings) {
+    //                 const featureCollection = turf.featureCollection(buildings.filter((building: any): building is GeoJSON.Feature => building !== null));
+    //                 addGeojsonToMap({
+    //                     mapRef: mapRef,
+    //                     setLayers: setLayers,
+    //                     layerName: `Buildings ${layers.length + 1}`,
+    //                     data: featureCollection
+    //                 });
+    //             }
+    //         }).catch((error) => {
+    //             console.error("Error fetching building data:", error);
+    //         });
+    //     }
+    // }
 
 
     return (
@@ -1549,7 +1588,7 @@ export default function MapLayout({
                         <ContextMenuItem className="text-xs" onClick={() => { handleCopyCoordinates() }}>Copy Coordinates</ContextMenuItem>
                         <ContextMenuItem className="text-xs" onClick={() => { handleRouteOrigin() }}>Route From Here</ContextMenuItem>
                         <ContextMenuItem className="text-xs" onClick={() => { handleRouteDestination() }}>Route To Here</ContextMenuItem>
-                        <ContextMenuItem className="text-xs" onClick={() => { handleMapIntegration() }}>Building</ContextMenuItem>
+                        {/* <ContextMenuItem className="text-xs" onClick={() => { handleMapIntegration() }}>Building</ContextMenuItem> */}
                     </ContextMenuContent>
                 )}
             </ContextMenu>
@@ -2049,10 +2088,15 @@ export default function MapLayout({
                                                         <SelectContent>
                                                             <SelectItem value={MapServiceVendor.Geoserver}>Geoserver</SelectItem>
                                                             <SelectItem value={MapServiceVendor.ArcGIS}>ArcGIS</SelectItem>
+                                                            <SelectItem value={MapServiceVendor.XYZ}>XYZ</SelectItem>
                                                             {/* <SelectItem value={MapServiceVendor.GeoJSON}>Geojson</SelectItem> */}
                                                         </SelectContent>
                                                     </Select>
-                                                    <Input type="url" placeholder="http(s)://(domain)/(path)/(to)/(wms)/wms" className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
+                                                    <Input type="url" placeholder={
+                                                        (datasetProperties.map_service_vendor == MapServiceVendor.Geoserver) ? "http(s)://(domain)/(path)/(to)/(wms)/wms"
+                                                            : (datasetProperties.map_service_vendor == MapServiceVendor.ArcGIS) ? "http(s)://(domain)/(path)/(to)/(services)"
+                                                                : "http(s)://(domain)/(path)/(to)/(tiles)/x/y/z"
+                                                    } className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
                                                     <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
                                                 </div>
                                                 <div className='h-[50vh] w-full'>

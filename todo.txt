@@ -20,6 +20,8 @@
 20. Add Mapbox Geojson Extent (Done)
 21. Add Tools Turf (Add Buffer, Clip, Difference, LineTo Polygon, Centorid, Polygon to Lines, Hexagon Grid, Remove Duplicates,WIP)
 22. Add Create Projects
+23. Add xyz Tiles to mapbox (Done)
+24. Add Custom Legends
 
 
 

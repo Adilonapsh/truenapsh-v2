@@ -1,4 +1,4 @@
-import { Link, ListOrdered } from "lucide-react";
+import { Link, ListOrdered, Radio } from "lucide-react";
 import { Input } from "../input";
 import { ChartBar, Database, FileInputIcon, FileOutput, Filter, MapIcon } from 'lucide-react'
 
@@ -9,10 +9,14 @@ import { Position } from "@xyflow/react";
 import { FaObjectGroup } from "react-icons/fa6";
 import { TbNumber123 } from "react-icons/tb";
 import { BiGitBranch } from "react-icons/bi";
+import { useState } from "react";
 
 export const widgets = {
     "Flow": [
         { id: "group-node", type: 'group-node', label: 'Group Node', icon: FaObjectGroup, color: 'blue', handleSource: Position.Right, handleTarget: null },
+    ],
+    "Trigger": [
+        { id: "websocket", type: 'websocket', label: 'Websocket', icon: Radio, color: 'blue', handleSource: Position.Right, handleTarget: null },
     ],
     "Input/Output": [
         { id: "import", type: 'import', label: 'Import', icon: FileInputIcon, color: 'blue', handleSource: Position.Right, handleTarget: null, action: 'import' },
@@ -40,38 +44,44 @@ export const widgets = {
 }
 
 export function WidgetNode({ onDragStart }: { onDragStart: (event: DragEvent<Element>, nodeType: string, nodeData: any) => void }) {
-
-    
+    const [search, setSearch] = useState('');
 
     return (
         <div>
             <div className="mb-5">
-                <Input type="text" placeholder="Search Components" className="text-xs" />
+                <Input type="text" placeholder="Search Components" className="text-xs" onChange={(e) => setSearch(e.target.value)} />
             </div>
             <div className="h-full overflow-y-auto overflow-x-hidden">
-                {Object.entries(widgets).map(([category, widgets]) => (
-                    <div key={category} className="mb-4">
-                        <div className="flex gap-1 items-center">
-                            <h3 className="text-xs font-semibold mb-2">{category}</h3>
-                            <h3 className="text-xs font-semibold text-foreground mb-2">({widgets.length})</h3>
-                        </div>
-                        <div className="grid grid-cols-5 gap-2">
-                            {widgets.map((widget) => (
-                                <div key={widget.id} className="flex flex-col items-center justify-center">
-                                    <div
-                                        key={widget.id}
-                                        className="bg-gray-50 cursor-move h-10 w-10 border flex flex-col items-center justify-center rounded-lg"
-                                        onDragStart={(event) => onDragStart(event, widget.type, widget)}
-                                        draggable
-                                    >
-                                        <widget.icon className={`text-${widget.color}-500`} size={20} />
+                {Object.entries(widgets).map(([category, widgetList]) => {
+                    const filteredWidgets = widgetList.filter((widget) =>
+                        widget.label.toLowerCase().includes(search.toLowerCase())
+                    );
+
+                    if (filteredWidgets.length === 0) return null;
+
+                    return (
+                        <div key={category} className="mb-4">
+                            <div className="flex gap-1 items-center">
+                                <h3 className="text-xs font-semibold mb-2">{category}</h3>
+                                <h3 className="text-xs font-semibold text-foreground mb-2">({filteredWidgets.length})</h3>
+                            </div>
+                            <div className="grid grid-cols-5 gap-2">
+                                {filteredWidgets.map((widget) => (
+                                    <div key={widget.id} className="flex flex-col items-center justify-center">
+                                        <div
+                                            className="bg-gray-50 cursor-move h-10 w-10 border flex flex-col items-center justify-center rounded-lg"
+                                            onDragStart={(event) => onDragStart(event, widget.type, widget)}
+                                            draggable
+                                        >
+                                            <widget.icon className={`text-${widget.color}-500`} size={20} />
+                                        </div>
+                                        <span className="text-[8pt] text-center mt-1 text-foreground">{widget.label}</span>
                                     </div>
-                                    <span className="text-[8pt] text-center mt-1 text-foreground">{widget.label}</span>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    )
+                })}
             </div>
         </div>
     );

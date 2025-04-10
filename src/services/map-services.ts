@@ -284,7 +284,6 @@ const getWMSServices = async (url: string, map_service_vendor: string) => {
         return transform;
         // return getEsriServices(url);
     }
-
 }
 
 const transfromEsriServicesToFolder = async (url: string) => {

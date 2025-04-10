@@ -18,7 +18,8 @@ function MapView({
     handleDragOver,
     handleDrop,
     onRotate,
-    onContextMenu
+    onContextMenu,
+    transformRequests
 }: MapComponentsProps) {
     return (
         <div
@@ -48,6 +49,7 @@ function MapView({
                 onRotate={onRotate}
                 fadeDuration={500}
                 onContextMenu={onContextMenu}
+                transformRequest={transformRequests}
             >
                 <ScaleControl />
                 {/* <NavigationControl position="bottom-right" /> */}
