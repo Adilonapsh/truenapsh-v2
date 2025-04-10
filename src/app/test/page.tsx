@@ -1,3 +1,4 @@
+import AdminUnauthorized from '@/components/ui/auth/error/admin-unauthorized'
 import { TagInput } from '@/components/ui/tag-input'
 import React from 'react'
 
@@ -11,6 +12,7 @@ const TestPage = (props: Props) => {
     ]
     return (
         <div>
+            <AdminUnauthorized/>
             <TagInput suggestions={suggestion} label='Test Tags' maxTags={20} />
         </div>
     )

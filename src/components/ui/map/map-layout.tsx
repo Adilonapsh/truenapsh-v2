@@ -29,7 +29,7 @@ import { BoundingBox, InfoFeature, Layer, LayoutDisplay, Location, MapboxLayerSt
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { ArrowUp, Eye, EyeClosed, Fullscreen, LayersIcon, MinusIcon, PlusCircleIcon, PlusIcon, SaveAll, X } from 'lucide-react';
-import mapboxgl, { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, MapMouseEvent } from 'mapbox-gl';
+import mapboxgl, { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, LngLatBoundsLike, MapMouseEvent } from 'mapbox-gl';
 import React, { useEffect, useRef, useState } from 'react';
 import { BiCollapse, BiLogOutCircle, BiTrash } from 'react-icons/bi';
 import { FiFilter } from 'react-icons/fi';
@@ -60,7 +60,6 @@ import {
     TabsTrigger,
 } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { overpassBuildingIntegration } from "@/services/map-integrations";
 import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, transfromEsriServicesToFolder, } from '@/services/map-services';
 import { addGeojsonToMap, calculateCoordinatesWithAspectRatio, searchAlternatives } from "@/tools/map-tools";
 import { Datasets } from "@/types/datasets.types";
@@ -190,9 +189,6 @@ export default function MapLayout({
 
     const [selectedDatasets, setSelectedDatasets] = useState<ParsedLayer[]>([]);
     const [infoFeatures, setInfoFeatures] = useState<InfoFeature[]>([])
-    const [addLayerSettings, setAddLayerSetings] = useState({
-        active: "",
-    })
     const [toggleEdit, setToggleEdit] = useState<boolean>(false);
     const [datasets, setDatasets] = useState<Datasets[]>(datasetsFetch)
     const [activeDatasets, setActiveDatasets] = useState<Datasets | null>(null);
@@ -209,7 +205,7 @@ export default function MapLayout({
     const [activeRoutes, setActiveRoutes] = useState<{
         origin?: number[] | undefined,
         destination?: number[] | undefined,
-        properties?: any,
+        properties?: Record<string, any>,
     } | null>(null);
 
 
@@ -1267,7 +1263,7 @@ export default function MapLayout({
                 }
             });
             if (maxBbox.length > 0) {
-                map.fitBounds(maxBbox as any, {
+                map.fitBounds(maxBbox as LngLatBoundsLike, {
                     padding: 25,
                     duration: 1000,
                 });
@@ -1946,13 +1942,13 @@ export default function MapLayout({
             </div>
             <div className='absolute bottom-5 left-1/2 -translate-x-1/2 z-[1]'>
                 <div className="flex justify-center items-center gap-1 bg-white dark:bg-background p-1 rounded-lg">
-                    <Button variant={"ghost"} size="sm" onClick={(e) => handleNorth()}><ArrowUp style={{ transform: `rotate(${-compass.rotate}deg)` }} /></Button>
-                    <Button variant={"ghost"} size="sm" onClick={(e) => handleZoomOut()}><MinusIcon /></Button>
+                    <Button variant={"ghost"} size="sm" onClick={() => handleNorth()}><ArrowUp style={{ transform: `rotate(${-compass.rotate}deg)` }} /></Button>
+                    <Button variant={"ghost"} size="sm" onClick={() => handleZoomOut()}><MinusIcon /></Button>
                     <label htmlFor="" className="text-xs w-5 text-center">{zoom}</label>
-                    <Button variant={"ghost"} size="sm" onClick={(e) => handleZoomIn()}><PlusIcon /></Button>
-                    <Button variant={"ghost"} size="sm" onClick={(e) => handleMaxLayersBbox()}><Fullscreen /></Button>
-                    {!isDrawDone && (<Button variant={"ghost"} size="sm" onClick={(e) => saveFeaturesToLayer()}><SaveAll /></Button>)}
-                    {routeCoordinates?.destination && (<Button variant={"ghost"} size="sm" onClick={(e) => handleRoutes()}><TbRouteSquare /></Button>)}
+                    <Button variant={"ghost"} size="sm" onClick={() => handleZoomIn()}><PlusIcon /></Button>
+                    <Button variant={"ghost"} size="sm" onClick={() => handleMaxLayersBbox()}><Fullscreen /></Button>
+                    {!isDrawDone && (<Button variant={"ghost"} size="sm" onClick={() => saveFeaturesToLayer()}><SaveAll /></Button>)}
+                    {routeCoordinates?.destination && (<Button variant={"ghost"} size="sm" onClick={() => handleRoutes()}><TbRouteSquare /></Button>)}
                 </div>
             </div>
 
@@ -1985,7 +1981,7 @@ export default function MapLayout({
                 <div className='absolute top-0 h-screen w-screen left-0 rounded p-5 z-10'>
                     <div className='bg-white w-full h-full p-5 dark:bg-background'>
                         <div className='absolute flex top-0 right-0'>
-                            <Button variant={"ghost"} className='rounded-full p-3' onClick={(e) => { setDisplayLayouts({ ...displayLayouts, node_workspace: false }) }}>
+                            <Button variant={"ghost"} className='rounded-full p-3' onClick={() => { setDisplayLayouts({ ...displayLayouts, node_workspace: false }) }}>
                                 <X size={20} />
                             </Button>
                         </div>

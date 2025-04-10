@@ -5,182 +5,182 @@ import { LayoutClient } from "./layout-client"
 import { Toaster } from "react-hot-toast"
 
 const workSans = Work_Sans({
-  variable: "--font-work-sans",
-  subsets: ["latin"],
+    variable: "--font-work-sans",
+    subsets: ["latin"],
 })
 
 const manRope = Manrope({
-  variable: "--font-man-rope",
-  subsets: ["latin"],
+    variable: "--font-man-rope",
+    subsets: ["latin"],
 })
 
 export const metadata = {
-  title: "Maps - Truenapsh",
-  description: "Truenapsh.",
+    title: "Maps - Truenapsh",
+    description: "Truenapsh.",
 }
 
-let data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  teams: [
-    {
-      name: "Default",
-      logo: "gallery-vertical-end",
-      plan: "Enterprise",
+const data = {
+    user: {
+        name: "shadcn",
+        email: "m@example.com",
+        avatar: "/avatars/shadcn.jpg",
     },
-  ],
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "#",
-      isActive: true,
-      icon: "frame",
-      items: [
+    teams: [
         {
-          title: "Project",
-          url: "/admin/dashboard",
+            name: "Default",
+            logo: "gallery-vertical-end",
+            plan: "Enterprise",
         },
-      ]
-    },
-    {
-      title: "Playground",
-      url: "#",
-      icon: "square-terminal",
-      isActive: false,
-      items: [
+    ],
+    navMain: [
         {
-          title: "History",
-          url: "#",
+            title: "Dashboard",
+            url: "#",
+            isActive: true,
+            icon: "frame",
+            items: [
+                {
+                    title: "Project",
+                    url: "/admin/dashboard",
+                },
+            ]
         },
         {
-          title: "Starred",
-          url: "#",
+            title: "Playground",
+            url: "#",
+            icon: "square-terminal",
+            isActive: false,
+            items: [
+                {
+                    title: "History",
+                    url: "#",
+                },
+                {
+                    title: "Starred",
+                    url: "#",
+                },
+                {
+                    title: "Settings",
+                    url: "#",
+                },
+            ],
         },
         {
-          title: "Settings",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: "bot",
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: "book-open",
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
+            title: "Models",
+            url: "#",
+            icon: "bot",
+            items: [
+                {
+                    title: "Genesis",
+                    url: "#",
+                },
+                {
+                    title: "Explorer",
+                    url: "#",
+                },
+                {
+                    title: "Quantum",
+                    url: "#",
+                },
+            ],
         },
         {
-          title: "Get Started",
-          url: "#",
+            title: "Documentation",
+            url: "#",
+            icon: "book-open",
+            items: [
+                {
+                    title: "Introduction",
+                    url: "#",
+                },
+                {
+                    title: "Get Started",
+                    url: "#",
+                },
+                {
+                    title: "Tutorials",
+                    url: "#",
+                },
+                {
+                    title: "Changelog",
+                    url: "#",
+                },
+            ],
         },
         {
-          title: "Tutorials",
-          url: "#",
+            title: "Settings",
+            url: "#",
+            icon: "settings-2",
+            items: [
+                {
+                    title: "General",
+                    url: "#",
+                },
+                {
+                    title: "Team",
+                    url: "#",
+                },
+                {
+                    title: "Billing",
+                    url: "#",
+                },
+                {
+                    title: "Limits",
+                    url: "#",
+                },
+            ],
+        },
+    ],
+    projects: [
+        {
+            name: "Design Engineering",
+            url: "#",
+            icon: "frame",
         },
         {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: "settings-2",
-      items: [
-        {
-          title: "General",
-          url: "#",
+            name: "Sales & Marketing",
+            url: "#",
+            icon: "pie-chart",
         },
         {
-          title: "Team",
-          url: "#",
+            name: "Travel",
+            url: "#",
+            icon: "map",
         },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: "frame",
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: "pie-chart",
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: "map",
-    },
-  ],
+    ],
 }
 
 export default async function RootLayout({
-  children,
+    children,
 }: Readonly<{
-  children: React.ReactNode
+    children: React.ReactNode
 }>) {
 
-  const session = await getServerSession()
-  data.user = session?.user
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${workSans.variable} ${manRope.variable} antialiased`}>
-        <Toaster
-          position="top-right"
-          reverseOrder={false}
-          gutter={8}
-          containerClassName=""
-          containerStyle={{}}
-          toastOptions={{
-            className: '',
-            duration: 5000,
-            // style: {
-            //     background: '#363636',
-            //     color: '#fff',
-            // },
-            success: {
-              duration: 3000,
-            },
-          }}
-        />
-        <LayoutClient data={data}>{children}</LayoutClient>
-      </body>
-    </html>
-  )
+    const session = await getServerSession()
+    data.user = session?.user
+    return (
+        <html lang="id" suppressHydrationWarning>
+            <body className={`${workSans.variable} ${manRope.variable} antialiased`}>
+                <Toaster
+                    position="top-right"
+                    reverseOrder={false}
+                    gutter={8}
+                    containerClassName=""
+                    containerStyle={{}}
+                    toastOptions={{
+                        className: '',
+                        duration: 5000,
+                        // style: {
+                        //     background: '#363636',
+                        //     color: '#fff',
+                        // },
+                        success: {
+                            duration: 3000,
+                        },
+                    }}
+                />
+                <LayoutClient data={data}>{children}</LayoutClient>
+            </body>
+        </html>
+    )
 }

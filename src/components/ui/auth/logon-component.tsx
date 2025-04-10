@@ -1,31 +1,55 @@
 'use client'
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { MapIcon, GithubIcon, TwitterIcon } from 'lucide-react'
-import { signIn, useSession } from 'next-auth/react'
+import { Input } from "@/components/ui/input"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { motion } from 'framer-motion'
+import { GithubIcon, KeyIcon, KeyRoundIcon, MapIcon, TwitterIcon } from 'lucide-react'
+import { signIn } from 'next-auth/react'
+import Link from 'next/link'
+import { useState } from 'react'
+import { useForm } from "react-hook-form"
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
+import { z } from 'zod'
+import { Form, FormControl, FormField, FormItem, FormMessage } from "../form"
+import { Alert, AlertDescription, AlertTitle } from "../alert"
+
+
+const loginSchema = z.object({
+    identifier: z.string(),
+    password: z.string(),
+    rememberMe: z.boolean().optional(),
+});
+
+type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginComponent() {
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
     const [isLoading, setIsLoading] = useState(false);
 
+    const form = useForm<LoginForm>({
+        resolver: zodResolver(loginSchema),
+        defaultValues: {
+            identifier: "",
+            password: "",
+            rememberMe: false
+        },
+    })
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const error = searchParams.get('error');
+
+
+    const onSubmit = async (formData: LoginForm) => {
         setIsLoading(true);
-        e.preventDefault()
 
         const result = await signIn("credentials", {
-            email,
-            password,
+            email: formData.identifier,
+            password: formData.password,
             redirect: true,
-            callbackUrl: "/admin/dashboard",
+            callbackUrl: error ? "" : "/admin/dashboard",
         });
+
         if (result?.ok) {
             console.log("Login successful!");
         } else {
@@ -73,61 +97,67 @@ export default function LoginComponent() {
                                 <CardTitle className="text-2xl font-bold text-gray-800 dark:text-gray-200">Sign in to your account</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <form className="space-y-4" onSubmit={handleSubmit}>
-                                    <div>
-                                        <p htmlFor="email" className="text-gray-700 dark:text-gray-300">Username/Email address</p>
-                                        <Input
-                                            id="email"
-                                            name="email"
-                                            type="text"
-                                            autoComplete="email"
-                                            required
-                                            className="mt-1"
-                                            value={email}
-                                            aria-autocomplete="list"
-                                            onChange={(e) => setEmail(e.target.value)}
+                                {error && (
+                                    <Alert variant={'destructive'} className="flex items-center gap-6 mb-5">
+                                        <KeyRoundIcon className="mt-2" size={"20"}/>
+                                        <div className="mt-2">
+                                            <AlertTitle>Login Failed</AlertTitle>
+                                            <AlertDescription>
+                                                <p>Please check your credentials and try again.</p>
+                                            </AlertDescription>
+                                        </div>
+                                    </Alert>
+                                )}
+                                <Form {...form}>
+                                    <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+                                        <FormField
+                                            control={form.control}
+                                            name="identifier"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <p className="text-gray-700 dark:text-gray-300">Email/Username</p>
+                                                    <FormControl>
+                                                        <Input placeholder="Email/Username" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
                                         />
-                                    </div>
-                                    <div>
-                                        <p htmlFor="password" className="text-gray-700 dark:text-gray-300">Password</p>
-                                        <Input
-                                            id="password"
+                                        <FormField
+                                            control={form.control}
                                             name="password"
-                                            type="password"
-                                            autoComplete="current-password"
-                                            required
-                                            className="mt-1"
-                                            value={password}
-                                            aria-autocomplete="list"
-                                            onChange={(e) => setPassword(e.target.value)}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <p className="text-gray-700 dark:text-gray-300">Password</p>
+                                                    <FormControl>
+                                                        <Input type="password" placeholder="Password" {...field} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
                                         />
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center">
-                                            <input
-                                                id="remember-me"
-                                                name="remember-me"
-                                                type="checkbox"
-                                                className="h-4 w-4 rounded border-gray-300 text-black focus:ring-gray-500 dark:border-gray-600 dark:text-white dark:focus:ring-gray-400"
-                                            />
-                                            <p htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                                                Remember me
-                                            </p>
-                                        </div>
-                                        <div className="text-sm">
-                                            <Link href="/forgot-password" className="font-medium text-gray-600 hover:text-gray-500 dark:text-gray-400 dark:hover:text-gray-300">
-                                                Forgot your password?
-                                            </Link>
-                                        </div>
-                                    </div>
-                                    <Button type="submit" className="w-full bg-black hover:bg-gray-800 text-white dark:bg-white dark:hover:bg-gray-200 dark:text-black">
-                                        {isLoading ? (
-                                            <AiOutlineLoading3Quarters className='animate-spin' />
-                                        ) : (
-                                            <p>Sign in</p>
-                                        )}
-                                    </Button>
-                                </form>
+                                        <FormField
+                                            control={form.control}
+                                            name="rememberMe"
+                                            render={({ field }) => (
+                                                <FormItem className="flex items-center gap-2">
+                                                    <FormControl>
+                                                        <input type="checkbox" className="h-4 w-4 rounded border-gray-300" {...field} checked={field.value} />
+                                                    </FormControl>
+                                                    <p className="text-gray-700 dark:text-gray-300 !m-0">Remember me</p>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <Button type="submit" className="w-full bg-black hover:bg-gray-800 text-white dark:bg-white dark:hover:bg-gray-200 dark:text-black">
+                                            {isLoading ? (
+                                                <AiOutlineLoading3Quarters className='animate-spin' />
+                                            ) : (
+                                                <p>Sign in</p>
+                                            )}
+                                        </Button>
+                                    </form>
+                                </Form>
                             </CardContent>
                         </motion.div>
                     </Card>
