@@ -66,7 +66,7 @@ const NodeWrapper = ({
     </div>
 );
 
-export function GroupNode({ data, selected }) {
+export function GroupNode({ data, selected }: { data: any, selected: boolean }) {
     const [groupName, setGroupName] = useState(data.label);
 
     const onGroupNameChange = useCallback((evt: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,7 +92,7 @@ export function GroupNode({ data, selected }) {
 }
 
 export const nodeTypes = Object.values(widgets).flat().reduce((acc, widget) => {
-    acc[widget.type] = (props) => {
+    acc[widget.type] = (props: any) => {
         const type = props.type;
         if (type.includes("-node")) {
             if (type.includes("group")) {

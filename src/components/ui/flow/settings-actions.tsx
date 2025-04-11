@@ -53,7 +53,7 @@ function SettingActions({
 }) {
 
     const handleInputChange = (value: string, id: string) => {
-        updateNodeProperties({ ...selectedNode.data, metadata: { ...selectedNode.data?.metadata, [id]: value } })
+        updateNodeProperties({ ...selectedNode?.data, metadata: { ...selectedNode?.data?.metadata, [id]: value } })
     }
     return (
         <div>
@@ -62,7 +62,7 @@ function SettingActions({
                 <Input
                     id="nodeLabel"
                     type="text"
-                    value={selectedNode.data.label}
+                    value={selectedNode?.data.label}
                     onChange={(e) => updateNodeProperties({ label: e.target.value })}
                     className="border rounded"
                 />
@@ -81,7 +81,7 @@ function SettingActions({
                 <AccordionItem value="item-1">
                     <AccordionTrigger className='text-xs'>Actions</AccordionTrigger>
                     <AccordionContent className='px-1'>
-                        {selectedNode && settingsInputs[selectedNode.type]?.map((input: {
+                        {selectedNode && selectedNode.type && settingsInputs[selectedNode.type]?.map((input: {
                             id: string;
                             label: string;
                             type: string;

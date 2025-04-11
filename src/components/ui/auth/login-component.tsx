@@ -59,7 +59,7 @@ export default function LoginComponent() {
             } else {
                 console.log("Login failed!");
             }
-        } catch (error) {
+        } catch (error: unknown) {
             if (error instanceof AuthError) {
                 switch (error.type) {
                     case "CredentialsSignin":

@@ -1,9 +1,10 @@
+import { BoundingBox } from '@/types/map.types';
 import * as turf from '@turf/turf';
 
-const overpassBuildingIntegration = async (bbox) => {
+const overpassBuildingIntegration = async (bbox: [number, number, number, number]) => {
     const bboxNamed = {
         south: bbox[1],
-        west: bbox[0], 
+        west: bbox[0],
         north: bbox[3],
         east: bbox[2]
     };

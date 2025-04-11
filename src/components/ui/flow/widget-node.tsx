@@ -43,7 +43,7 @@ export const widgets = {
     ]
 }
 
-export function WidgetNode({ onDragStart }: { onDragStart: (event: DragEvent<Element>, nodeType: string, nodeData: any) => void }) {
+export function WidgetNode({ onDragStart }: { onDragStart: (event: React.DragEvent<Element>, nodeType: string, nodeData: any) => void }) {
     const [search, setSearch] = useState('');
 
     return (
