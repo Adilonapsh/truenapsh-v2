@@ -34,7 +34,7 @@ export default function ProjectCard({
     return (
         <TooltipProvider>
             <Card
-                className="w-full max-w-md border bg-white dark:bg-gray-950 shadow-lg cursor-pointer group"
+                className="w-full lg:max-w-md border bg-white dark:bg-gray-950 shadow-lg cursor-pointer group"
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 onClick={onClick}

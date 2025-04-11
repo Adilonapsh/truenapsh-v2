@@ -31,9 +31,9 @@ export default function DashboardPage() {
 
     return (
         <div>
-            <div className='grid grid-cols-1 lg:grid-cols-4 gap-2'>
-                <div className='flex'>
-                    <Card className="w-full max-w-md bg-white dark:bg-gray-950 shadow-lg border-0">
+            <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4'>
+                <div className='flex w-full'>
+                    <Card className="w-full lg:max-w-md bg-white dark:bg-gray-950 shadow-lg border-0">
                         <CardHeader className="space-y-1 pb-8">
                             <CardTitle className="text-2xl font-semibold tracking-tight">Create Project</CardTitle>
                             <p className="text-sm text-muted-foreground">Start a new project from scratch or import an existing one</p>
@@ -61,7 +61,7 @@ export default function DashboardPage() {
                 {loadingProject ? (
                     Array(3).fill(0).map((_, i) => (
                         <div key={i} className="animate-pulse">
-                            <Card className="w-full max-w-md border bg-gray-100 dark:bg-gray-900 shadow-lg">
+                            <Card className="w-full lg:max-w-md border bg-gray-100 dark:bg-gray-900 shadow-lg">
                                 <CardHeader className="p-0 relative overflow-hidden aspect-video bg-gray-200 dark:bg-gray-700" />
                                 <CardContent className="p-4 space-y-2">
                                     <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
@@ -72,7 +72,7 @@ export default function DashboardPage() {
                     ))
                 ) : (
                     projects?.map((project: Project, i: number) => (
-                        <a href={`/map/${project.id}`} key={i}>
+                        <a href={`/map/${project.id}`} key={i} className='w-full'>
                             <ProjectCard title={project.name} description={project?.description} imageUrl={project.thumbnail ?? ""} tags={project?.tags as string[]} />
                         </a>
                     ))

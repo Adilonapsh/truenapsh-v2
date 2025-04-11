@@ -1,4 +1,4 @@
-import LoginComponent from '@/components/ui/auth/logon-component'
+import LoginComponent from '@/components/ui/auth/login-component'
 
 
 export default async function LoginPage() {

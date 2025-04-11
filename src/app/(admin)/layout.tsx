@@ -8,13 +8,13 @@ import "../globals.css";
 
 
 const workSans = Work_Sans({
-  variable: "--font-work-sans",
-  subsets: ["latin"],
+    variable: "--font-work-sans",
+    subsets: ["latin"],
 });
 
 const manRope = Manrope({
-  variable: "--font-man-rope",
-  subsets: ["latin"],
+    variable: "--font-man-rope",
+    subsets: ["latin"],
 });
 
 // export const metadata: Metadata = {
@@ -23,28 +23,24 @@ const manRope = Manrope({
 // };
 
 export default function RootLayout({
-  children,
+    children,
 }: Readonly<{
-  children: React.ReactNode;
+    children: React.ReactNode;
 }>) {
 
 
-  return (
-    <html lang="id" suppressHydrationWarning>
-      <body
-        className={`${workSans.variable} ${manRope.variable} antialiased`}
-      >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <SessionProvider>
-            {children}
-          </SessionProvider>
-        </ThemeProvider>
-      </body>
-    </html>
-  );
+    return (
+        <div>
+            <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                // disableTransitionOnChange
+            >
+                <SessionProvider>
+                    {children}
+                </SessionProvider>
+            </ThemeProvider>
+        </div>
+    );
 }

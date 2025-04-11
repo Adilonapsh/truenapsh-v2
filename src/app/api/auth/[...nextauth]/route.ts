@@ -13,7 +13,10 @@ export const authOptions = {
             async authorize(credentials) {
                 const res = await fetch(`${process.env.NEXT_AUTH_URL}/auth/login`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                    },
                     body: JSON.stringify({
                         email: credentials?.email,
                         password: credentials?.password,
@@ -21,8 +24,7 @@ export const authOptions = {
                 });
 
                 const response = await res.json();
-                // console.log("Ini User dari Laravel : ", response)
-
+                
                 if (res.ok && response) {
                     const user = {
                         ...response.user,
