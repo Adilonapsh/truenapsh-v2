@@ -2,7 +2,7 @@
 2. Ambil File Esri dari URL (Done)
 3. Ambil Layer Info dari Esri (done)
 4. Add Accordion in style panel (Done)
-5. Add Register Flow 
+5. Add Register Flow (done)
 6. Add Function to the flow workspaces (WIP)
 7. Add Bookmark Camera
 8. Add Reset on Styles (WIP, Stroke and Fill Done)
@@ -15,7 +15,7 @@
 15. FIX ADD LAYER RESPONSIVE (Done)
 16. FIX ESRI GET LAYERS (Done)
 17. Get Extent Arcgis (Done)
-18. Add Integrations Overpass (WIP Bounding Box)
+18. Add Integrations Overpass (Done)
 19. Fix Geojson on map click (Done)
 20. Add Mapbox Geojson Extent (Done)
 21. Add Tools Turf (Add Buffer, Clip, Difference, LineTo Polygon, Centorid, Polygon to Lines, Hexagon Grid, Remove Duplicates,WIP)
