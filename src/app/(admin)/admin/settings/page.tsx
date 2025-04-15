@@ -10,7 +10,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { userDetails } from "@/server/users"
+import { update, userDetails } from "@/server/users"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Bell, Code, Eye, EyeOff, Mail, Upload, User } from "lucide-react"
 import Image from "next/image"
@@ -20,8 +20,7 @@ import { z } from "zod"
 
 // Define the form schema with Zod
 const formSchema = z.object({
-    firstName: z.string().min(2, { message: "First name must be at least 2 characters" }),
-    lastName: z.string(),
+    name: z.string().min(2, { message: "Name must be at least 2 characters" }),
     username: z.string()
         .min(8, "Username must be at least 8 characters")
         .max(30, "Username cannot exceed 30 characters")
@@ -29,7 +28,7 @@ const formSchema = z.object({
         .trim(),
     email: z.string().email({ message: "Please enter a valid email address" }),
     role: z.string().min(1, { message: "Role is required" }),
-    profilePicture: z.instanceof(File).optional(),
+    profile_picture: z.instanceof(File).optional(),
 })
 
 // Password form schema
@@ -54,8 +53,8 @@ const passwordSchema = z
 const profileSchema = z.object({
     displayName: z.string().min(2, "Display name must be at least 2 characters"),
     bio: z.string().max(160, "Bio must be less than 160 characters"),
-    website: z.string().url("Please enter a valid URL").or(z.literal("")),
-    location: z.string().optional(),
+    website: z.string().url("Please enter a valid URL").or(z.literal("")).optional(),
+    // location: z.string().optional(),
     isPublic: z.boolean().default(true),
 })
 
@@ -89,11 +88,10 @@ export default function SettingsPage() {
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            firstName: "",
-            lastName: "",
+            name: "",
             email: "",
             username: "",
-            role: "Product Designer",
+            role: "",
         },
     })
 
@@ -112,40 +110,38 @@ export default function SettingsPage() {
         resolver: zodResolver(profileSchema),
         defaultValues: {
             displayName: "",
-            bio: "Product designer at Untitled UI",
-            website: "https://oliviarhye.com",
-            location: "San Francisco, CA",
+            bio: "",
+            website: "",
             isPublic: true,
         },
     })
 
-    useEffect(() => {
-        const fetchUsersDetails = async () => {
-            try {
-                const data = await userDetails();
-                setProfile(data);
+    const fetchUsersDetails = async () => {
+        try {
+            const data = await userDetails();
+            setProfile(data);
 
-                // Update form values after fetching profile
-                form.reset({
-                    firstName: data.name,
-                    lastName: "",
-                    email: data.email,
-                    username: data.username,
-                    role: "Product Designer",
-                });
+            form.reset({
+                name: data.name,
+                email: data.email,
+                username: data.username,
+                role: "I Dont Know",
+            });
 
-                profileForm.reset({
-                    displayName: data.name,
-                    bio: "Product designer at Untitled UI",
-                    website: "https://oliviarhye.com",
-                    location: "San Francisco, CA",
-                    isPublic: true,
-                });
+            profileForm.reset({
+                displayName: data.name,
+                bio: data.bio,
+                website: data.website,
+                // location: "San Francisco, CA",
+                isPublic: true,
+            });
 
-            } catch (err) {
-                console.log(err);
-            }
-        };
+        } catch (err) {
+            console.log(err);
+        }
+    };
+
+    useEffect(() => {  
         fetchUsersDetails();
     }, [form, profileForm]);
 
@@ -171,7 +167,7 @@ export default function SettingsPage() {
         }
 
         // Set the file in the form
-        form.setValue("profilePicture", file)
+        form.setValue("profile_picture", file)
 
         // Create a preview
         const reader = new FileReader()
@@ -187,11 +183,6 @@ export default function SettingsPage() {
         setFeedback(null)
 
         try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 1500))
-
-            // In a real application, you would create a FormData object
-            // and send it to your API endpoint
             const formData = new FormData()
             Object.entries(data).forEach(([key, value]) => {
                 if (value instanceof File) {
@@ -201,15 +192,16 @@ export default function SettingsPage() {
                 }
             })
 
-            // Log the form data (in a real app, you'd send this to your API)
-            console.log("Form submitted:", data)
-            console.log("Profile picture:", data.profilePicture?.name)
-
-            setFeedback({
-                type: "success",
-                message: "Your profile information has been updated successfully.",
-            })
+            const response = await update(formData);
+            if (response && response.user) {
+                fetchUsersDetails();
+                setFeedback({
+                    type: "success",
+                    message: "Your profile information has been updated successfully.",
+                })
+            }
         } catch (error) {
+            console.log(error)
             setFeedback({
                 type: "error",
                 message: "There was an error updating your profile.",
@@ -224,15 +216,17 @@ export default function SettingsPage() {
         setFeedback(null)
 
         try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 1000))
-
-            console.log("Password updated:", data)
-
-            setFeedback({
-                type: "success",
-                message: "Your password has been changed successfully.",
-            })
+            const formData = new FormData();
+            Object.entries(data).forEach(([key, value]) => {
+                formData.append(key, value);
+            });
+            const response = await update(formData);
+            if (response) {
+                setFeedback({
+                    type: "success",
+                    message: "Your profile information has been updated successfully.",
+                })
+            }
 
             passwordForm.reset({
                 currentPassword: "",
@@ -252,10 +246,20 @@ export default function SettingsPage() {
         setFeedback(null)
 
         try {
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 1000))
-
-            console.log("Profile updated:", data)
+            console.log("Ini Profile Data", data);
+            const formData = new FormData();
+            Object.entries(data).forEach(([key, value]) => {
+                formData.append(key, value);
+            });
+            
+            const response = await update(formData);
+            console.log("Ini Response", response);
+            if (response) {
+                setFeedback({
+                    type: "success",
+                    message: "Your profile information has been updated successfully.",
+                })
+            }
 
             setFeedback({
                 type: "success",
@@ -349,50 +353,38 @@ export default function SettingsPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <FormField
                                         control={form.control}
-                                        name="firstName"
+                                        name="name"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>First name</FormLabel>
+                                                <FormLabel>Name</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="First name" {...field} />
+                                                    <Input placeholder="Name" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
                                     />
+
                                     <FormField
                                         control={form.control}
-                                        name="lastName"
+                                        name="username"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Last name</FormLabel>
+                                                <FormLabel>Username</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Last name" {...field} />
+                                                    <div className="relative">
+                                                        <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                                            <User className="text-[#667085]" />
+                                                        </div>
+                                                        <Input className="pl-10" {...field} />
+                                                    </div>
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
                                     />
-                                </div>
 
-                                <FormField
-                                    control={form.control}
-                                    name="username"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Username</FormLabel>
-                                            <FormControl>
-                                                <div className="relative">
-                                                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                                                        <User className="text-[#667085]" />
-                                                    </div>
-                                                    <Input className="pl-10" {...field} />
-                                                </div>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                </div>
 
                                 {/* Email */}
                                 <FormField
@@ -418,7 +410,7 @@ export default function SettingsPage() {
                                 {/* Photo */}
                                 <FormField
                                     control={form.control}
-                                    name="profilePicture"
+                                    name="profile_picture"
                                     render={({ field: { value, onChange, ...fieldProps } }) => (
                                         <FormItem>
                                             <FormLabel>Your photo</FormLabel>

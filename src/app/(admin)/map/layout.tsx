@@ -1,23 +1,12 @@
-import { Manrope, Work_Sans } from "next/font/google";
+import { Metadata } from "next";
 import "../../css/custom.css";
 import "../../globals.css";
 import { MapLayoutClient } from "./layout-client";
 
-
-const workSans = Work_Sans({
-    variable: "--font-work-sans",
-    subsets: ["latin"],
-});
-
-const manRope = Manrope({
-    variable: "--font-man-rope",
-    subsets: ["latin"],
-});
-
-// export const metadata: Metadata = {
-//   title: "Maps - Truenapsh",
-//   description: "Truenapsh.",
-// };
+export const metadata: Metadata = {
+  title: "Maps - Truenapsh",
+  description: "Truenapsh.",
+};
 
 export default function RootLayout({
     children,
@@ -26,10 +15,8 @@ export default function RootLayout({
 }>) {
 
     return (
-        <html lang="id" suppressHydrationWarning>
-            <body className={`${workSans.variable} ${manRope.variable} antialiased`}>
-                <MapLayoutClient>{children}</MapLayoutClient>
-            </body>
-        </html>
+        <section>
+            <MapLayoutClient>{children}</MapLayoutClient>
+        </section>
     );
 }

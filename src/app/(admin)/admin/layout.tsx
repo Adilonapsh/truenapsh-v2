@@ -1,21 +1,11 @@
 import "@/app/globals.css"
 import { getServerSession } from "next-auth"
-import { Manrope, Work_Sans } from "next/font/google"
-import { LayoutClient } from "./layout-client"
 import { Toaster } from "react-hot-toast"
+import { LayoutClient } from "./layout-client"
 
-const workSans = Work_Sans({
-    variable: "--font-work-sans",
-    subsets: ["latin"],
-})
-
-const manRope = Manrope({
-    variable: "--font-man-rope",
-    subsets: ["latin"],
-})
 
 export const metadata = {
-    title: "Maps - Truenapsh",
+    title: "Dashboard - Truenapsh",
     description: "Truenapsh.",
 }
 
@@ -159,28 +149,26 @@ export default async function RootLayout({
     const session = await getServerSession()
     data.user = session?.user
     return (
-        <html lang="id" suppressHydrationWarning>
-            <body className={`${workSans.variable} ${manRope.variable} antialiased`}>
-                <Toaster
-                    position="top-right"
-                    reverseOrder={false}
-                    gutter={8}
-                    containerClassName=""
-                    containerStyle={{}}
-                    toastOptions={{
-                        className: '',
-                        duration: 5000,
-                        // style: {
-                        //     background: '#363636',
-                        //     color: '#fff',
-                        // },
-                        success: {
-                            duration: 3000,
-                        },
-                    }}
-                />
-                <LayoutClient data={data}>{children}</LayoutClient>
-            </body>
-        </html>
+        <section>
+            <Toaster
+                position="top-right"
+                reverseOrder={false}
+                gutter={8}
+                containerClassName=""
+                containerStyle={{}}
+                toastOptions={{
+                    className: '',
+                    duration: 5000,
+                    // style: {
+                    //     background: '#363636',
+                    //     color: '#fff',
+                    // },
+                    success: {
+                        duration: 3000,
+                    },
+                }}
+            />
+            <LayoutClient data={data}>{children}</LayoutClient>
+        </section>
     )
 }

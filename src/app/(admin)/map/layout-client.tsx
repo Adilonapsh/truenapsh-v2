@@ -9,7 +9,6 @@ export function MapLayoutClient({ children }: { children: React.ReactNode }) {
                 attribute="class"
                 defaultTheme="system"
                 enableSystem
-                disableTransitionOnChanges
             >
                 <SessionProvider>
                     {children}

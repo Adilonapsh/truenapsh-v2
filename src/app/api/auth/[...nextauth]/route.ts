@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 export const authOptions = {
     providers: [
         CredentialsProvider({
+            id: "laravel-auth",
             name: "Credentials",
             credentials: {
                 email: { label: "Email", type: "email" },
@@ -24,7 +25,9 @@ export const authOptions = {
                 });
 
                 const response = await res.json();
-                
+
+                console.log("Ini Respon credential biasa", response);
+
                 if (res.ok && response) {
                     const user = {
                         ...response.user,
@@ -36,6 +39,37 @@ export const authOptions = {
                 return null;
             },
         }),
+        CredentialsProvider({
+            id: "laravel-github",
+            name: "LaravelGitHub",
+            credentials: {
+                token: { label: "Token", type: "text" },
+            },
+            async authorize(credentials) {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_AUTH_URL}/auth/user`, {
+                    headers: {
+                        Authorization: `Bearer ${credentials?.token}`,
+                        Accept: "application/json",
+                    },
+                });
+            
+                const response = await res.json();
+            
+                if (res.ok && response) {
+                    const user = {
+                        ...response,
+                        token: credentials?.token,
+                    };
+                    return user;
+                }
+            
+                return null;
+            },
+        }),
+        // GitHubProvider({
+        //     clientId: process.env.GITHUB_ID!,
+        //     clientSecret: process.env.GITHUB_SECRET!,
+        // }),
     ],
     callbacks: {
         async jwt({ token, user }: { token: any; user: any }) {

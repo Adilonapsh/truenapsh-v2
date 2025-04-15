@@ -37,11 +37,11 @@ export const register = async (formData: FormData): Promise<User> => {
         },
         body: JSON.stringify(formData)
     });
-    
+
     if (!data.ok) {
         throw new Error(`HTTP error! status: ${data.status}`);
     }
-    
+
     const json = await data.json();
     return json;
 }
@@ -53,15 +53,42 @@ export const userDetails = async (): Promise<User> => {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
-            'Accept' : 'application/json',
+            'Accept': 'application/json',
             'Authorization': `Bearer ${accessToken}`,
         },
     });
-    
+
     if (!data.ok) {
         throw new Error(`HTTP error! status: ${data.status}`);
     }
-    
+
     const json = await data.json();
     return json;
+}
+
+export const update = async (formData): Promise<User> => {
+    const session = await getServerSession(authOptions);
+    const accessToken = decrypt(session?.user.accessToken);
+
+    try {
+        const data = await fetch(`${baseURL}/auth/update-profile`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+            },
+            body: formData
+        });
+        const json = await data.json();
+        return json;
+    } catch (error: any) {
+        if (error.response) {
+            const errData = await error.response.json();
+            console.log('Validation errors:', errData.errors);
+        } else {
+            console.log('Fetch failed:', error.message);
+        }
+    }
+
+
 }

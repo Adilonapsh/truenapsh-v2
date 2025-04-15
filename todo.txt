@@ -22,7 +22,7 @@
 22. Add Create Projects (Done)
 23. Add xyz Tiles to mapbox (Done)
 24. Add Custom Legends
-25. Add Github Signin
+25. Add Github Signin (Done)
 
 
 

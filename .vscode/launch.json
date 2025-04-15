@@ -21,6 +21,12 @@
             "outFiles": [
                 "${workspaceFolder}/**/*.js"
             ]
+        },
+        {
+            "command": "cd C:\\laragon\\www\\truemaps-backend && php artisan serve",
+            "name": "Launch Backend",
+            "request": "launch",
+            "type": "node-terminal"
         }
     ]
 }
