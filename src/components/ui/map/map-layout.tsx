@@ -104,6 +104,7 @@ import MapMenu from './map-menu';
 import OperationComponents from "./operation-page";
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
+import io from 'socket.io-client';
 
 
 export default function MapLayout({
@@ -116,7 +117,7 @@ export default function MapLayout({
     const mapRef = useRef<MapRef>(null);
     const drawRef = useRef<MapboxDraw | null>(null); // Ref untuk MapboxDraw
     const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
-    const [mousePosition, setMousePosition] = useState<mapboxgl.LngLat | null>(null);
+    const mousePositionRef = useRef<mapboxgl.LngLat | null>(null);
     const [currentMapClick, setCurrentMapClick] = useState<Location | null>(null);
     const [displayLayouts, setDisplayLayouts] = useState<LayoutDisplay>({
         layerInfo: false,
@@ -221,12 +222,104 @@ export default function MapLayout({
 
     const onMouseMove = (e: MapMouseEvent) => {
         const { lngLat } = e;
-        setMousePosition(lngLat);
+        mousePositionRef.current = lngLat;
     };
+
+
+    // WIP WEBSOCKET
+    const cursorElement = (userId: string, color: string, name?: string) => {
+        const el = document.createElement('div');
+        el.className = 'cursor-marker';
+        el.innerHTML = `
+            <svg class="cursor-marker-child" width="25px" height="25px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M7.92098 2.29951C6.93571 1.5331 5.5 2.23523 5.5 3.48349V20.4923C5.5 21.9145 7.2945 22.5382 8.17661 21.4226L12.3676 16.1224C12.6806 15.7267 13.1574 15.4958 13.6619 15.4958H20.5143C21.9425 15.4958 22.5626 13.6887 21.4353 12.8119L7.92098 2.29951Z" fill="${color}" stroke="white" stroke-width="1"/>
+            </svg>
+            <div class="cursor-label">${name}</div>
+        `;
+
+        el.addEventListener('mouseenter', () => {
+            el.querySelector('.cursor-label')?.classList.remove('hidden');
+        });
+        el.addEventListener('mouseleave', () => {
+            el.querySelector('.cursor-label')?.classList.add('hidden');
+        });
+
+        return el;
+    };
+
+    const socketRef = useRef<any>(null);
+    const cursorsRef = useRef<Record<string, mapboxgl.Marker>>({});
+    type CursorData = { id: string; lng: number; lat: number, username: string, color: string };
+    const labelTimeouts: { [id: string]: NodeJS.Timeout } = {};
+    socketRef.current = io('http://localhost:3001');
+    const initWebsocket = () => {
+        const map = mapRef.current?.getMap();
+        const userColor = '#' + Math.floor(Math.random() * 16777215).toString(16);
+        const username = 'User_' + Math.floor(Math.random() * 1000);
+        if (map) {
+            map.on('mousemove', (e) => {
+                socketRef.current.emit('cursor-move', {
+                    lng: e.lngLat.lng,
+                    lat: e.lngLat.lat,
+                    username,
+                    color: userColor
+                });
+            });
+
+            socketRef.current.on('cursor-update', ({ id, lng, lat, username, color }: CursorData) => {
+                const myUserId = socketRef.current.id;
+                if (id === myUserId) return;
+                if (!cursorsRef.current[id]) {
+                    const markerEl = cursorElement(id, color, username);
+                    cursorsRef.current[id] = new mapboxgl.Marker({ element: markerEl })
+                        .setLngLat([lng, lat])
+                        .addTo(map);
+                    markerEl.classList.add('cursor-enter');
+                    setTimeout(() => el.classList.remove('cursor-enter'), 300);
+                } else {
+                    cursorsRef.current[id].setLngLat([lng, lat]);
+                }
+
+                const el = cursorsRef.current[id].getElement();
+                const label = el.querySelector('.cursor-label') as HTMLElement;
+                if (label) {
+                    label.classList.add('hidden');
+                    clearTimeout(labelTimeouts[id]);
+
+                    // Tampilkan lagi setelah 1 detik diam
+                    labelTimeouts[id] = setTimeout(() => {
+                        label.classList.remove('hidden');
+                    }, 1000);
+                }
+            });
+
+            socketRef.current.on('cursor-remove', (id: string) => {
+                if (cursorsRef.current[id]) {
+                    cursorsRef.current[id].remove();
+                    delete cursorsRef.current[id];
+                }
+            });
+        }
+    }
+    useEffect(() => {
+        const socket = socketRef.current
+
+        // Disconnect waktu user keluar
+        const handleUnload = () => socket.disconnect();
+        window.addEventListener('beforeunload', handleUnload);
+
+        return () => {
+            socket.disconnect();
+            window.removeEventListener('beforeunload', handleUnload);
+        };
+    }, [mapRef]);
+    //   END WIP WEBSOCKET 
 
     const onMapLoad = () => {
         const map = mapRef.current?.getMap();
         if (map) {
+            initWebsocket()
+
             setZoom(parseFloat(map.getZoom().toFixed(1)));
             // Load Layers
             layers.forEach(layer => {
@@ -254,7 +347,6 @@ export default function MapLayout({
                     },
                 });
             });
-
 
             // Load Draw Styles
             const drawStyles = [
@@ -749,8 +841,8 @@ export default function MapLayout({
                     const reader = new FileReader();
                     reader.onload = () => {
                         const imgSrc = reader.result as string;
-                        if (mousePosition) {
-                            addImageToMap(imgSrc, mousePosition);
+                        if (mousePositionRef.current) {
+                            addImageToMap(imgSrc, mousePositionRef.current);
                         } else {
                             console.error("Mouse position is null. Cannot add image to map.");
                         }
@@ -1917,7 +2009,13 @@ export default function MapLayout({
             {/* BOTTOM EL */}
             <div className='absolute bottom-2 right-14 mb-5 ml-28 z-[1]'>
                 <div className='bg-white p-2 text-xs rounded-lg min-w-52 text-center dark:bg-background'>
-                    {mousePosition?.lng.toFixed(9)}, {mousePosition?.lat.toFixed(9)}
+                    {mousePositionRef.current ? (
+                        <>
+                            {mousePositionRef.current.lng.toFixed(9)}, {mousePositionRef.current.lat.toFixed(9)}
+                        </>
+                    ) : (
+                        "Coordinates not available"
+                    )}
                 </div>
             </div>
             <div className='absolute bottom-14 right-14 mb-5 ml-28 z-[1]'>

@@ -15,9 +15,6 @@ export default function AuthCallbackPage() {
 
     const [isLoading, setIsLoading] = useState(false)
 
-    console.log("token", token);
-    console.log("provider", provider);
-
     useEffect(() => {
         const handleSignIn = async () => {
             setIsLoading(true)

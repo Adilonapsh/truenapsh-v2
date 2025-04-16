@@ -10,9 +10,9 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { update, userDetails } from "@/server/users"
+import { update, User, userDetails } from "@/server/users"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Bell, Code, Eye, EyeOff, Mail, Upload, User } from "lucide-react"
+import { Bell, Code, Eye, EyeOff, Mail, Upload, User as UserIcon } from "lucide-react"
 import Image from "next/image"
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
@@ -52,7 +52,7 @@ const passwordSchema = z
 // Profile form schema
 const profileSchema = z.object({
     displayName: z.string().min(2, "Display name must be at least 2 characters"),
-    bio: z.string().max(160, "Bio must be less than 160 characters"),
+    bio: z.string().max(160, "Bio must be less than 160 characters").optional(),
     website: z.string().url("Please enter a valid URL").or(z.literal("")).optional(),
     // location: z.string().optional(),
     isPublic: z.boolean().default(true),
@@ -62,16 +62,7 @@ type FormValues = z.infer<typeof formSchema>
 type PasswordFormValues = z.infer<typeof passwordSchema>
 type ProfileFormValues = z.infer<typeof profileSchema>
 
-type User = {
-    id: string,
-    name: string,
-    username: string,
-    email: string,
-    email_verified_at: string | null,
-    created_at: string,
-    updated_at: string,
-    roles: string[],
-}
+
 
 export default function SettingsPage() {
     const [profileImage, setProfileImage] = useState<string | null>(null)
@@ -130,8 +121,8 @@ export default function SettingsPage() {
 
             profileForm.reset({
                 displayName: data.name,
-                bio: data.bio,
-                website: data.website,
+                bio: data.bio || '',
+                website: data.website || '',
                 // location: "San Francisco, CA",
                 isPublic: true,
             });
@@ -193,7 +184,7 @@ export default function SettingsPage() {
             })
 
             const response = await update(formData);
-            if (response && response.user) {
+            if (response) {
                 fetchUsersDetails();
                 setFeedback({
                     type: "success",
@@ -249,11 +240,11 @@ export default function SettingsPage() {
             console.log("Ini Profile Data", data);
             const formData = new FormData();
             Object.entries(data).forEach(([key, value]) => {
-                formData.append(key, value);
+                formData.append(key, typeof value === 'boolean' ? value.toString() : value);
             });
             
             const response = await update(formData);
-            console.log("Ini Response", response);
+
             if (response) {
                 setFeedback({
                     type: "success",
@@ -374,7 +365,7 @@ export default function SettingsPage() {
                                                 <FormControl>
                                                     <div className="relative">
                                                         <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                                                            <User className="text-[#667085]" />
+                                                            <UserIcon className="text-[#667085]" />
                                                         </div>
                                                         <Input className="pl-10" {...field} />
                                                     </div>

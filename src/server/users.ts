@@ -4,12 +4,19 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { decrypt } from "@/lib/crypt";
 import { getServerSession } from "next-auth";
 
-type User = {
+type UserResponse = {
+    message: string,
+    data: User
+}
+
+export type User = {
     id: string,
     name: string,
     username: string,
     email: string,
-    email_verified_at: string | null,
+    email_verified_at?: string | null,
+    bio?: string | null,
+    website?: string | null,
     created_at: string,
     updated_at: string,
     roles: string[],
@@ -66,7 +73,7 @@ export const userDetails = async (): Promise<User> => {
     return json;
 }
 
-export const update = async (formData): Promise<User> => {
+export const update = async (formData): Promise<User | undefined> => {
     const session = await getServerSession(authOptions);
     const accessToken = decrypt(session?.user.accessToken);
 
