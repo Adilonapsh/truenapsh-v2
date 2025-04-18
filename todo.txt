@@ -25,7 +25,11 @@
 25. Add Github Signin (Done)
 26. Add Landing Page
 27. Add Collaboration (Ganti ID socket dengan user ID)
-28. Fix Re-render
+28. Fix Re-render (Done)
+29. Add Elevation Integration
+30. Add Charts
+31. Add Filter Data Map
+32. Fix Tools Scroll Bar
 
 
 

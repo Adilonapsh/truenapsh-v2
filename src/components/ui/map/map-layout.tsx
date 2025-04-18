@@ -117,7 +117,7 @@ export default function MapLayout({
     const mapRef = useRef<MapRef>(null);
     const drawRef = useRef<MapboxDraw | null>(null); // Ref untuk MapboxDraw
     const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
-    const mousePositionRef = useRef<mapboxgl.LngLat | null>(null);
+    const [mousePosition, setMousePosition] = useState<mapboxgl.LngLat | null>(null);
     const [currentMapClick, setCurrentMapClick] = useState<Location | null>(null);
     const [displayLayouts, setDisplayLayouts] = useState<LayoutDisplay>({
         layerInfo: false,
@@ -222,7 +222,7 @@ export default function MapLayout({
 
     const onMouseMove = (e: MapMouseEvent) => {
         const { lngLat } = e;
-        mousePositionRef.current = lngLat;
+        setMousePosition(lngLat);
     };
 
 
@@ -251,8 +251,8 @@ export default function MapLayout({
     const cursorsRef = useRef<Record<string, mapboxgl.Marker>>({});
     type CursorData = { id: string; lng: number; lat: number, username: string, color: string };
     const labelTimeouts: { [id: string]: NodeJS.Timeout } = {};
-    socketRef.current = io('http://localhost:3001');
     const initWebsocket = () => {
+        socketRef.current = io('http://localhost:3001');
         const map = mapRef.current?.getMap();
         const userColor = '#' + Math.floor(Math.random() * 16777215).toString(16);
         const username = 'User_' + Math.floor(Math.random() * 1000);
@@ -841,8 +841,8 @@ export default function MapLayout({
                     const reader = new FileReader();
                     reader.onload = () => {
                         const imgSrc = reader.result as string;
-                        if (mousePositionRef.current) {
-                            addImageToMap(imgSrc, mousePositionRef.current);
+                        if (mousePosition) {
+                            addImageToMap(imgSrc, mousePosition);
                         } else {
                             console.error("Mouse position is null. Cannot add image to map.");
                         }
@@ -2009,9 +2009,9 @@ export default function MapLayout({
             {/* BOTTOM EL */}
             <div className='absolute bottom-2 right-14 mb-5 ml-28 z-[1]'>
                 <div className='bg-white p-2 text-xs rounded-lg min-w-52 text-center dark:bg-background'>
-                    {mousePositionRef.current ? (
+                    {mousePosition ? (
                         <>
-                            {mousePositionRef.current.lng.toFixed(9)}, {mousePositionRef.current.lat.toFixed(9)}
+                            {mousePosition.lng.toFixed(9)}, {mousePosition.lat.toFixed(9)}
                         </>
                     ) : (
                         "Coordinates not available"

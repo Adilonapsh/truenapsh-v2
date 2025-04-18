@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { addGeojsonToMap, bufferLayers, buildingLayers, centroidLayers, clipLayers, differenceLayers, hexagonLayer, linesToPolygonLayers, pointAlongLinesLayers, polygonToLinesLayers, removeDuplicatesLayers, simplifyLayers } from "@/tools/map-tools"
+import { addGeojsonToMap, bufferLayers, buildingLayers, centroidLayers, clipLayers, differenceLayers, elevationLayers, hexagonLayer, linesToPolygonLayers, pointAlongLinesLayers, polygonToLinesLayers, removeDuplicatesLayers, simplifyLayers } from "@/tools/map-tools"
 import { Layer } from "@/types/map.types"
 import { motion } from 'framer-motion'
 import {
@@ -37,6 +37,7 @@ import {
 import { useEffect, useState } from "react"
 import { MapRef } from "react-map-gl"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../select"
+import { MdTerrain } from "react-icons/md"
 
 export default function OperationComponents({
     layers,
@@ -91,6 +92,7 @@ export default function OperationComponents({
 
     const integrationOperations: OperationItem[] = [
         { icon: <Building2 className="h-6 w-6" />, label: "Building" },
+        { icon: <MdTerrain className="h-6 w-6" />, label: "Elevation" },
     ]
 
     // Operation details data
@@ -469,6 +471,33 @@ export default function OperationComponents({
                 },
             ]
         },
+        elevation: {
+            title: "Elevation",
+            description: "Create a Elevation model.",
+            options: [
+                {
+                    id: "sourceelevation",
+                    name: "Elevation Source",
+                    type: "select",
+                    value: ["Open street map", "Google Buildings"],
+                    info: true,
+                },
+                {
+                    id: "targetLayer",
+                    name: "Target Layer",
+                    type: "select",
+                    value: layers?.map((layer) => ({ key: layer.id, value: layer.name })),
+                    info: true,
+                },
+                {
+                    id: "keepGeometry",
+                    name: "Keep Attributes",
+                    type: "select",
+                    value: ["All", "Selected", "None"],
+                    info: false,
+                },
+            ]
+        }
     }
 
     useEffect(() => {
@@ -712,6 +741,15 @@ export default function OperationComponents({
                     });
                     console.log("Building layer created:", layerName);
                 }
+            }
+        } else if (lowerOperationName === "elevation") {
+            const targetLayer = operationOptions.targetLayer
+            const sourceElevation = operationOptions.sourceelevation
+            if (targetLayer) {
+                const targetLayerSource = map?.getLayer(targetLayer)?.source ?? "";
+                const targetData = map?.getSource(targetLayerSource)?.serialize().data;
+                let elevationLayer = await elevationLayers(targetData, sourceElevation);
+                console.log("Elevation layer created:", buildingLayer);
             }
         }
         setIsLoading(false);

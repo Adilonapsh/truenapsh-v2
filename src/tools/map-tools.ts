@@ -463,6 +463,14 @@ const buildingLayers = async (featureCollection: FeatureCollection) => {
     }
 }
 
+const elevationLayers = async (featureCollection: FeatureCollection, source: string) => {
+    try {
+
+    } catch (error) {
+        console.error("Error fetching building data:", error);
+    }
+}
+
 export {
     addGeojsonToMap,
     bufferLayers,
@@ -480,5 +488,6 @@ export {
     removeDuplicatesLayers,
     searchAlternatives,
     searchPlaces,
-    simplifyLayers
+    simplifyLayers,
+    elevationLayers,
 };
