@@ -83,11 +83,13 @@ import JSZip from "jszip";
 import { MapLayerMouseEvent } from "mapbox-gl";
 import { signOut } from 'next-auth/react';
 import Image from 'next/image';
+import { useParams } from "next/navigation";
 import toast from 'react-hot-toast';
 import { AiOutlineLoading3Quarters, AiOutlineSisternode } from 'react-icons/ai';
 import { LuDatabase } from 'react-icons/lu';
 import { WiStars } from "react-icons/wi";
 import shp from 'shpjs';
+import io from 'socket.io-client';
 import * as topojson from "topojson-client";
 import { v4 } from 'uuid';
 import * as wkt from "wkt";
@@ -104,7 +106,6 @@ import MapMenu from './map-menu';
 import OperationComponents from "./operation-page";
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
-import io from 'socket.io-client';
 
 
 export default function MapLayout({
@@ -114,6 +115,7 @@ export default function MapLayout({
     layersFetch: Layer[],
     datasetsFetch: Datasets[]
 }) {
+    const params = useParams();
     const mapRef = useRef<MapRef>(null);
     const drawRef = useRef<MapboxDraw | null>(null); // Ref untuk MapboxDraw
     const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
@@ -238,6 +240,7 @@ export default function MapLayout({
         `;
 
         el.addEventListener('mouseenter', () => {
+            console.log(el.querySelector('.cursor-label'))
             el.querySelector('.cursor-label')?.classList.remove('hidden');
         });
         el.addEventListener('mouseleave', () => {
@@ -246,11 +249,13 @@ export default function MapLayout({
 
         return el;
     };
+    
 
     const socketRef = useRef<any>(null);
     const cursorsRef = useRef<Record<string, mapboxgl.Marker>>({});
-    type CursorData = { id: string; lng: number; lat: number, username: string, color: string };
+    type CursorData = { id: string; lng: number; lat: number, projectId: string, username: string, color: string };
     const labelTimeouts: { [id: string]: NodeJS.Timeout } = {};
+    const projectIdParams = params.id;
     const initWebsocket = () => {
         socketRef.current = io('http://localhost:3001');
         const map = mapRef.current?.getMap();
@@ -262,13 +267,14 @@ export default function MapLayout({
                     lng: e.lngLat.lng,
                     lat: e.lngLat.lat,
                     username,
-                    color: userColor
+                    color: userColor,
+                    projectid: projectIdParams,
                 });
             });
 
-            socketRef.current.on('cursor-update', ({ id, lng, lat, username, color }: CursorData) => {
+            socketRef.current.on('cursor-update', ({ id, lng, lat, projectId, username, color }: CursorData) => {
                 const myUserId = socketRef.current.id;
-                if (id === myUserId) return;
+                if (id === myUserId || projectId != projectId) return;
                 if (!cursorsRef.current[id]) {
                     const markerEl = cursorElement(id, color, username);
                     cursorsRef.current[id] = new mapboxgl.Marker({ element: markerEl })
