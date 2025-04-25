@@ -249,7 +249,7 @@ export default function MapLayout({
 
         return el;
     };
-    
+
 
     const socketRef = useRef<any>(null);
     const cursorsRef = useRef<Record<string, mapboxgl.Marker>>({});
@@ -306,7 +306,9 @@ export default function MapLayout({
                 }
             });
         }
+       
     }
+
     useEffect(() => {
         const socket = socketRef.current
 
@@ -319,6 +321,7 @@ export default function MapLayout({
             window.removeEventListener('beforeunload', handleUnload);
         };
     }, [mapRef]);
+
     //   END WIP WEBSOCKET 
 
     const onMapLoad = () => {
@@ -1656,6 +1659,40 @@ export default function MapLayout({
     //     }
     // }
 
+    const handleMapboxCommand = (command: any) => {
+        if (!mapRef.current) return;
+
+        if (typeof command === 'string') {
+            // Handle string seperti sebelumnya
+            switch (command) {
+                case 'zoom_ke_indonesia':
+                    mapRef.current.flyTo({ center: [113.9213, -0.7893], zoom: 4, speed: 1.2 });
+                    break;
+                case 'tilt_50':
+                    mapRef.current.easeTo({ pitch: 50, duration: 1000 });
+                    break;
+                // dll...
+            }
+        } else if (typeof command === 'object') {
+            const {
+                action,
+                center,
+                zoom,
+                pitch,
+                bearing,
+                speed = 1.2,
+                duration = 1000,
+            } = command;
+
+            if (action === 'flyTo') {
+                console.log("Ini command flyTo", command)
+                mapRef.current.flyTo({ center, zoom, pitch, bearing, speed });
+            } else if (action === 'easeTo') {
+                mapRef.current.getMap().easeTo({ center, zoom, pitch, bearing, duration });
+            }
+        }
+    }
+
 
     return (
         <div className='relative w-screen h-screen bg-gray-200'>
@@ -1910,7 +1947,7 @@ export default function MapLayout({
                             </Button>
                         </div>
                         <div>
-                            <ChatWithAI />
+                            <ChatWithAI onCommandReceived={handleMapboxCommand} />
                         </div>
                     </div>
                 )}

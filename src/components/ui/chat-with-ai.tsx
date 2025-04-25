@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useChat } from 'ai/react'
+import { useEffect, useState } from 'react'
+import { useChat } from '@ai-sdk/react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,14 +17,44 @@ interface ChatWithAIProps {
     title?: string;
     placeholder?: string;
     className?: string;
+    onCommandReceived?: (command: string | Record<string, any>) => void;
 }
 
-export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ketik pesan Anda...", className = "" }: ChatWithAIProps) {
+export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Type your message...", className = "", onCommandReceived }: ChatWithAIProps) {
     const [error, setError] = useState<string | null>(null);
-    const { messages, input, handleInputChange, isLoading, append, stop } = useChat({
+    const { messages, input, handleInputChange, isLoading, append, stop, status } = useChat({
         api: '/api/ai-chat',
-        initialMessages: [],
+        initialMessages: [
+            { id: '1', role: 'assistant', content: "Hello! How can I help you today?" }
+        ],
+        onFinish: (message) => {
+            if (message?.role === 'assistant' && message.content) {
+                executeCommands(message.content);
+            }
+        }
     })
+
+
+    const executeCommands = (content?: string) => {
+        const commands = content?.split('::CMD::');
+        commands?.forEach(command => {
+            if (command.includes('::ENDCMD::')) {
+                const cmd = command?.split('::ENDCMD::')[0];
+                const isLikelyJSON = cmd.startsWith('{') || cmd.startsWith('[');
+                if (isLikelyJSON) {
+                    try {
+                        const parsed = JSON.parse(cmd);
+                        if (parsed && typeof parsed === 'object') {
+                            onCommandReceived?.(parsed);
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn('Gagal parse JSON dari AI:', e);
+                    }
+                }
+            }
+        });
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,8 +73,6 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ke
             console.error('Error sending message:', err);
             setError('Terjadi kesalahan saat mengirim pesan. Pastikan LM Studio berjalan dan terhubung.');
         }
-
-
     };
 
     const handleStop = () => {
@@ -79,7 +107,7 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ke
             <CardContent className='mb-2'>
                 <div className="max-h-[70vh] overflow-auto pr-4">
                     {messages.map(m => (
-                        <div key={m.id} className={`mb-4 w-96 ${m.role === 'user' ? 'text-right' : 'text-left'}`}>
+                        <div key={m.id} className={`mb-4 w-96 mt-5 ${m.role === 'user' ? 'text-right' : 'text-left'}`}>
                             <div className={`inline-block p-2 max-w-96 rounded-lg ${m.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-800'}`}>
                                 <div className="prose max-w-none prose-headings:text-blue-600 prose-strong:text-red-500 prose-em:text-green-500 prose-code:bg-gray-100 prose-code:rounded-lg prose-code:p-2">
                                     <ReactMarkdown
@@ -139,7 +167,7 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ke
                     </div>
                     <Button type="submit" disabled={isLoading}>
                         <Send className="h-4 w-4 mr-2" />
-                        Kirim
+                        Send
                     </Button>
 
                 </form>
