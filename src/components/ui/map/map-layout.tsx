@@ -61,7 +61,7 @@ import {
 } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, transfromEsriServicesToFolder, } from '@/services/map-services';
-import { addGeojsonToMap, calculateCoordinatesWithAspectRatio, searchAlternatives } from "@/tools/map-tools";
+import { addGeojsonToMap, aiCommand, calculateCoordinatesWithAspectRatio, searchAlternatives } from "@/tools/map-tools";
 import { Datasets } from "@/types/datasets.types";
 import {
     closestCorners,
@@ -289,7 +289,7 @@ export default function MapLayout({
                 const el = cursorsRef.current[id].getElement();
                 const label = el.querySelector('.cursor-label') as HTMLElement;
                 if (label) {
-                    label.classList.add('hidden');
+                    label.classList.remove('hidden');
                     clearTimeout(labelTimeouts[id]);
 
                     // Tampilkan lagi setelah 1 detik diam
@@ -306,7 +306,7 @@ export default function MapLayout({
                 }
             });
         }
-       
+
     }
 
     useEffect(() => {
@@ -1674,22 +1674,7 @@ export default function MapLayout({
                 // dll...
             }
         } else if (typeof command === 'object') {
-            const {
-                action,
-                center,
-                zoom,
-                pitch,
-                bearing,
-                speed = 1.2,
-                duration = 1000,
-            } = command;
-
-            if (action === 'flyTo') {
-                console.log("Ini command flyTo", command)
-                mapRef.current.flyTo({ center, zoom, pitch, bearing, speed });
-            } else if (action === 'easeTo') {
-                mapRef.current.getMap().easeTo({ center, zoom, pitch, bearing, duration });
-            }
+            aiCommand(mapRef, command, layers);
         }
     }
 

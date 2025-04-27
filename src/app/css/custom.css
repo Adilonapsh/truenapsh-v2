@@ -81,14 +81,14 @@
 
 .cursor-label {
   position: absolute;
-  top:25px;
-  left:auto;
+  top:15px;
+  left:15px;
   right:auto;
   background-color: white;
   color: #333;
   font-size: 11px;
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: 10px;
   margin-bottom: 2px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.2);
   font-weight: 500;

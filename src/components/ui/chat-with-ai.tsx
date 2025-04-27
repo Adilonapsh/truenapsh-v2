@@ -63,7 +63,6 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ty
             target: { value: '' }
         } as React.ChangeEvent<HTMLInputElement>);
         if (!input.trim()) return;
-
         try {
             await append({
                 content: input,
