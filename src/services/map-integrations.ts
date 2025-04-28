@@ -1,7 +1,8 @@
 import { BoundingBox } from '@/types/map.types';
 import * as turf from '@turf/turf';
+import { BBox } from 'geojson';
 
-const overpassBuildingIntegration = async (bbox: [number, number, number, number]) => {
+const overpassBuildingIntegration = async (bbox: BBox) => {
     const bboxNamed = {
         south: bbox[1],
         west: bbox[0],
@@ -27,9 +28,6 @@ const overpassBuildingIntegration = async (bbox: [number, number, number, number
             .filter((el: any) => el.type === "way" && el.geometry)
             .map((way: any) => {
                 const coords = way.geometry.map((pt: any) => [pt.lon, pt.lat]);
-                // if (coords.length > 2 && coords[0] !== coords[coords.length - 1]) {
-                //     coords.push(coords[0]);
-                // }
                 return turf.polygon([coords], way.tags);
             });
     } catch (error) {

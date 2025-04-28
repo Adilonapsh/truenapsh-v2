@@ -749,7 +749,7 @@ export default function OperationComponents({
                 const targetLayerSource = map?.getLayer(targetLayer)?.source ?? "";
                 const targetData = map?.getSource(targetLayerSource)?.serialize().data;
                 let elevationLayer = await elevationLayers(targetData, sourceElevation);
-                console.log("Elevation layer created:", buildingLayer);
+                console.log("Elevation layer created:", elevationLayer);
             }
         }
         setIsLoading(false);
@@ -768,8 +768,8 @@ export default function OperationComponents({
     }
 
     return (
-        <div className="flex h-screen w-full overflow-hidden">
-            <div className="w-80 h-full overflow-y-auto">
+        <div className="flex h-full w-full overflow-hidden">
+            <div className="w-full h-full">
                 {selectedOperation ? (
                     // Operation Detail Panel
                     <div className="h-full overflow-y-auto">

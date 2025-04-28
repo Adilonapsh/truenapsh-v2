@@ -4,7 +4,7 @@
 4. Add Accordion in style panel (Done)
 5. Add Register Flow (done)
 6. Add Function to the flow workspaces (WIP)
-7. Add Bookmark Camera
+7. Add Bookmark Camera (Done)
 8. Add Reset on Styles (WIP, Stroke and Fill Done)
 9. Add Darkmode to auth
 10. atur z index styles (Done)
@@ -23,13 +23,14 @@
 23. Add xyz Tiles to mapbox (Done)
 24. Add Custom Legends 
 25. Add Github Signin (Done)
-26. Add Landing Page
+26. Add Landing Page (WIP)
 27. Add Collaboration (Ganti ID socket dengan user ID)
 28. Fix Re-render (Done)
 29. Add Elevation Integration
 30. Add Charts
 31. Add Filter Data Map
-32. Fix Tools Scroll Bar
+32. Fix Tools Scroll Bar (Done)
+33. Add Layers variable To System Prompt
 
 
 

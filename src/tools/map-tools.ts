@@ -234,7 +234,7 @@ const clipLayers = (
                     return intersection ? { ...intersection, properties: { ...feature1.properties } } : null;
                 }).filter(Boolean);
             } else {
-                const intersection = turf.intersect(turf.featureCollection([feature1, clipFeature]));
+                const intersection = turf.intersect(turf.featureCollection([feature1, featureClip]));
                 return intersection ? { ...intersection, properties: { ...feature1.properties } } : null;
             }
         }).filter(Boolean));
@@ -465,14 +465,14 @@ const buildingLayers = async (featureCollection: FeatureCollection) => {
 
 const elevationLayers = async (featureCollection: FeatureCollection, source: string) => {
     try {
-
+        console.log("WIP GUYES")
     } catch (error) {
         console.error("Error fetching building data:", error);
     }
 }
 
 const aiCommand = (
-    mapRef: React.RefObject<MapRef>,
+    mapRef: React.RefObject<MapRef | null>,
     command: Record<string, any>,
     layers: Layer[],
 ) => {
@@ -500,24 +500,22 @@ const aiCommand = (
 
     try {
         if (action === 'flyTo') {
-            mapRef.current.flyTo({ ...commonParams, speed });
+            mapRef?.current?.flyTo({ ...commonParams, speed });
         } else if (action === 'easeTo') {
-            mapRef.current.getMap().easeTo({ ...commonParams, duration });
+            mapRef?.current?.getMap().easeTo({ ...commonParams, duration });
         } else if (action === 'findLayer') {
-            mapRef.current.getMap().getLayer(command.idLayer);
+            mapRef?.current?.getMap().getLayer(command.idLayer);
         } else if (action === 'filterLayer') {
-            console.log("ini Commandnya", command);
             const layerId: string = layers.find(layer => layer.name === command.layerName)?.id ?? "";
             if (layerId) {
-                console.log("Ini Layer ", mapRef.current.getMap().getLayer(layerId));
-                mapRef.current.getMap().setFilter(layerId, command.filter);
-                const features = mapRef.current.getMap().queryRenderedFeatures({ layers: [layerId] });
+                mapRef?.current?.getMap().setFilter(layerId, command.filter);
+                const features = mapRef?.current?.getMap().queryRenderedFeatures({ layers: [layerId] });
                 console.log("Ini Features ", features);
                 if (features.length > 0) {
                     const bbox = turf.bbox(turf.featureCollection(features));
-                    mapRef.current.getMap().fitBounds([
-                        [bbox[0], bbox[1]], 
-                        [bbox[2], bbox[3]] 
+                    mapRef?.current?.getMap().fitBounds([
+                        [bbox[0], bbox[1]],
+                        [bbox[2], bbox[3]]
                     ], {
                         padding: 50,
                         maxZoom: 15
@@ -532,14 +530,12 @@ const aiCommand = (
 }
 
 export {
-    addGeojsonToMap,
-    bufferLayers,
+    addGeojsonToMap, aiCommand, bufferLayers,
     buildingLayers,
     calculateCoordinatesWithAspectRatio,
     centroidLayers,
     clipLayers,
-    differenceLayers,
-    getBBOX,
+    differenceLayers, elevationLayers, getBBOX,
     hexagonLayer,
     isCoordinates,
     linesToPolygonLayers,
@@ -548,7 +544,6 @@ export {
     removeDuplicatesLayers,
     searchAlternatives,
     searchPlaces,
-    simplifyLayers,
-    elevationLayers,
-    aiCommand,
+    simplifyLayers
 };
+

@@ -100,13 +100,13 @@ import { Input } from '../input';
 import AnimatedLoadingScreen from '../loading-animation-screen';
 import { ScrollArea } from "../scroll-area";
 import TreeDirectory from '../tree-view';
+import BookmarkDropdown, { Bookmark } from "./bookmark-dropdown";
 import IconLayerType from './icon-layer-type';
 import LegendEsri from "./legend-esri";
 import MapMenu from './map-menu';
 import OperationComponents from "./operation-page";
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
-
 
 export default function MapLayout({
     layersFetch,
@@ -210,6 +210,9 @@ export default function MapLayout({
         destination?: number[] | undefined,
         properties?: Record<string, any>,
     } | null>(null);
+
+    const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
+    const [selectedBookmark, setSelectedBookmark] = useState<Bookmark | null>(null)
 
 
     // MAP FUNCTIONS
@@ -782,8 +785,6 @@ export default function MapLayout({
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: shapeData as GeoJSON.GeoJSON
                     });
-                } else if (fl.name.includes(".gpkg")) {
-                    toast.error("Geopackage in progress");
                 } else if (fl.name.includes(".kml")) {
                     const text = await fl.text();
 
@@ -858,7 +859,7 @@ export default function MapLayout({
                     };
                     reader.readAsDataURL(fl);
                 } else {
-                    throw new Error("Selected file must be .geojson, .gpkg, .kml, .kmz, .topojson, .wkt, .zip or an image.");
+                    throw new Error("Selected file must be .geojson, .kml, .kmz, .topojson, .wkt, .zip or an image.");
                 }
             });
         } catch (err) {
@@ -1678,6 +1679,59 @@ export default function MapLayout({
         }
     }
 
+    const handleAddBookmark = (name: string) => {
+        const map = mapRef.current?.getMap();
+        const properties = {
+            center: map?.getCenter(),
+            zoom: map?.getZoom(),
+            pitch: map?.getPitch(),
+            bearing: map?.getBearing(),
+        }
+
+        const newBookmark: Bookmark = {
+            id: v4(),
+            name: name,
+            properties
+        }
+        setBookmarks([...bookmarks, newBookmark])
+    }
+
+    const handleDeleteBookmark = (id: string) => {
+        if (selectedBookmark && selectedBookmark.id === id) {
+            setSelectedBookmark(null)
+        }
+        setBookmarks(bookmarks.filter((bookmark) => bookmark.id !== id))
+    }
+
+    const handleEditBookmark = (id: string, newName: string) => {
+        const updatedBookmarks = bookmarks.map((bookmark) =>
+            bookmark.id === id ? { ...bookmark, name: newName } : bookmark,
+        )
+        setBookmarks(updatedBookmarks)
+
+        if (selectedBookmark && selectedBookmark.id === id) {
+            const updatedBookmark = updatedBookmarks.find((b) => b.id === id)
+            if (updatedBookmark) {
+                setSelectedBookmark(updatedBookmark)
+            }
+        }
+    }
+
+    const handleSelectBookmark = (bookmark: Bookmark) => {
+        setSelectedBookmark(bookmark)
+        const { center, zoom, pitch, bearing } = bookmark.properties
+        if (bookmark) {
+            mapRef.current?.getMap()?.flyTo({
+                center,
+                zoom,
+                bearing,
+                pitch,
+                speed: 0.5,
+                curve: 1,
+            })
+        }
+    }
+
 
     return (
         <div className='relative w-screen h-screen bg-gray-200'>
@@ -1827,6 +1881,14 @@ export default function MapLayout({
             </div>
             <div className='absolute top-0 mt-5 ml-[22rem] font-bold'>
                 <MapMenu onSave={handleOnSave} onExit={handleOnExit} setDisplayLayouts={setDisplayLayouts} displayLayouts={displayLayouts}></MapMenu>
+                <BookmarkDropdown
+                    bookmarks={bookmarks}
+                    selectedBookmark={selectedBookmark}
+                    onAddBookmark={handleAddBookmark}
+                    onDeleteBookmark={handleDeleteBookmark}
+                    onEditBookmark={handleEditBookmark}
+                    onSelectBookmark={handleSelectBookmark}
+                />
             </div>
 
 
@@ -2012,7 +2074,7 @@ export default function MapLayout({
 
             <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
                 {displayLayouts.tools && (
-                    <Card className="w-[320px] shadow-lg text-sm overflow-hidden">
+                    <Card className="w-[320px] shadow-lg text-sm">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="relative font-medium">
                                 <div>
@@ -2027,7 +2089,7 @@ export default function MapLayout({
                                 <X className="h-4 w-4" />
                             </Button>
                         </CardHeader>
-                        <CardContent className="max-h-[70vh] overflow-y-scroll p-0">
+                        <CardContent className="max-h-[70vh] p-0 overflow-y-auto">
                             <OperationComponents layers={layers} mapRef={mapRef} setLayers={setLayers} />
                         </CardContent>
                     </Card>
