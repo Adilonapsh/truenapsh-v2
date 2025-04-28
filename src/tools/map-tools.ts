@@ -63,7 +63,7 @@ const searchAlternatives = async (from: number[], to: number[]) => {
             }
         });
         const data = await response.json();
-        let alternatives: any = [];
+        const alternatives: any = [];
         data.data.alternatives.forEach((alternative: { coords: { x: number; y: number }[]; response: any }) => {
             const { coords, response } = alternative;
             const transformed = coords.map(({ x, y }) => [x, y]);
@@ -466,6 +466,55 @@ const buildingLayers = async (featureCollection: FeatureCollection) => {
 const elevationLayers = async (featureCollection: FeatureCollection, source: string) => {
     try {
         console.log("WIP GUYES")
+        if (source === "Map Toolkit") {
+            const points = featureCollection.features.map(feature => {
+                const coords = feature.geometry.coordinates;
+                return Array.isArray(coords[0]) ? coords[0].map(c => `[${c}]`).join(',') : `[${coords}]`;
+            });
+            const response = await fetch(`https://maptoolkit.p.rapidapi.com/elevation?points=[${points}]`, {
+                headers: {
+                    'x-rapidapi-key': '313cbbad8cmshee05ce25c9e166bp101569jsnef19f7ec20c8',
+                    'x-rapidapi-host': 'maptoolkit.p.rapidapi.com'
+                }
+            });
+            const data = await response.json();
+            console.log("Ini Response : ", data);
+        } else if (source === "Open Elevation") {
+            const points = featureCollection.features.map(feature => {
+                const coords = feature.geometry.coordinates;
+                const coordArray = Array.isArray(coords[0]) ? coords[0] : coords;
+                return {
+                    latitude: coordArray[1],
+                    longitude: coordArray[0]
+                };
+            });
+            const latitudes = points.map(p => p.latitude).join(',');
+            const longitudes = points.map(p => p.longitude).join(',');
+            const response = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${latitudes}&longitude=${longitudes}`);
+            const data = await response.json();
+            console.log("Ini Response : ", data);
+        } else if(source === "GPXZ"){
+            const points = featureCollection.features.map(feature => {
+                const coords = feature.geometry.coordinates;
+                const coordArray = Array.isArray(coords[0]) ? coords[0] : coords;
+                return {
+                    latitude: coordArray[1],
+                    longitude: coordArray[0]
+                };
+            });
+            const pointsStr = points.map(p => `${p.latitude},${p.longitude}`).join('|');
+
+            const response = await fetch(`https://api.gpxz.io/v1/elevation/points`, {
+                method: 'POST',
+                headers: {
+                    'x-api-key': 'ak_1fJxvQgh_GDctGup4zErSqvRg',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `latlons=${pointsStr}`
+            });
+            const data = await response.json();
+            console.log("Ini Response : ", data);
+        }
     } catch (error) {
         console.error("Error fetching building data:", error);
     }

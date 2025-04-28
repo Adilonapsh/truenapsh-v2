@@ -1881,6 +1881,12 @@ export default function MapLayout({
             </div>
             <div className='absolute top-0 mt-5 ml-[22rem] font-bold'>
                 <MapMenu onSave={handleOnSave} onExit={handleOnExit} setDisplayLayouts={setDisplayLayouts} displayLayouts={displayLayouts}></MapMenu>
+            </div>
+
+
+            {/* RIGHT SIDE */}
+
+            <div className='absolute top-0 right-0 p-5 font-bold'>
                 <BookmarkDropdown
                     bookmarks={bookmarks}
                     selectedBookmark={selectedBookmark}
@@ -1890,9 +1896,6 @@ export default function MapLayout({
                     onSelectBookmark={handleSelectBookmark}
                 />
             </div>
-
-
-            {/* RIGHT SIDE */}
             <div className='absolute top-0 right-0 p-5 text-xs min-w-96'>
                 {displayLayouts.layerInfo ?
                     <div className='bg-white rounded-lg max-h-[calc(100vh-15rem)] max-w-xl overflow-auto dark:bg-background'>
@@ -2071,7 +2074,6 @@ export default function MapLayout({
                     </Card>
                 )}
             </div>
-
             <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
                 {displayLayouts.tools && (
                     <Card className="w-[320px] shadow-lg text-sm">

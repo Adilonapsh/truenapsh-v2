@@ -107,10 +107,10 @@ export default function BookmarkDropdown({
     }
 
     return (
-        <div className="p-4">
+        <div>
             <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-[300px] justify-between">
+                    <Button variant="outline" className="w-[200px] justify-between">
                         {selectedBookmark ? selectedBookmark.name : "Bookmarks"}
                         <ChevronDown className="h-4 w-4" />
                     </Button>

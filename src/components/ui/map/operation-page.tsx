@@ -7,18 +7,10 @@ import { Layer } from "@/types/map.types"
 import { motion } from 'framer-motion'
 import {
     ArrowLeft,
-    Asterisk,
     Building2,
-    CircleDashed,
-    CircleDot,
-    Clock,
     Combine,
-    Droplets,
-    Grid,
-    Hash,
     Hexagon,
     Info,
-    LayoutGrid,
     LineChart,
     Link,
     Pentagon,
@@ -26,18 +18,15 @@ import {
     Scissors,
     Search,
     Settings,
-    SplitSquareVertical,
     Square,
     SquareDashedBottom,
     SquareStack,
-    Trash2,
-    FlagIcon as Union,
-    X
+    Trash2
 } from "lucide-react"
 import { useEffect, useState } from "react"
+import { MdTerrain } from "react-icons/md"
 import { MapRef } from "react-map-gl"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../select"
-import { MdTerrain } from "react-icons/md"
 
 export default function OperationComponents({
     layers,
@@ -479,7 +468,7 @@ export default function OperationComponents({
                     id: "sourceelevation",
                     name: "Elevation Source",
                     type: "select",
-                    value: ["Open street map", "Google Buildings"],
+                    value: ["Map Toolkit", "Open Elevation", "GPXZ"],
                     info: true,
                 },
                 {
@@ -488,6 +477,20 @@ export default function OperationComponents({
                     type: "select",
                     value: layers?.map((layer) => ({ key: layer.id, value: layer.name })),
                     info: true,
+                },
+                {
+                    id: "interval",
+                    name: "Sample Interval",
+                    type: "number",
+                    value: "0",
+                    info: true,
+                },
+                {
+                    id: "units",
+                    name: "Units",
+                    type: "select",
+                    value: ["meters", "metres", "millimeters", "millimetres", "centimeters", "centimetres", "kilometers", "kilometres", "miles", "nauticalmiles", "inches", "yards", "feet", "radians", "degrees"],
+                    info: false,
                 },
                 {
                     id: "keepGeometry",
@@ -748,7 +751,8 @@ export default function OperationComponents({
             if (targetLayer) {
                 const targetLayerSource = map?.getLayer(targetLayer)?.source ?? "";
                 const targetData = map?.getSource(targetLayerSource)?.serialize().data;
-                let elevationLayer = await elevationLayers(targetData, sourceElevation);
+                const pointsLayer = await pointAlongLinesLayers(targetData, Number(operationOptions.interval), operationOptions.units)
+                let elevationLayer = await elevationLayers(pointsLayer, sourceElevation);
                 console.log("Elevation layer created:", elevationLayer);
             }
         }
