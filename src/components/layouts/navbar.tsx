@@ -59,7 +59,7 @@ export default function Navbar() {
                 <div className="flex h-16 items-center justify-between px-2">
                     <Link href="/" className="flex items-center gap-3">
                         <Hexagon className="h-8 w-8 text-cyan-500" />
-                        <span className="font-bold text-xl">TrueMaps</span>
+                        <span className="font-bold text-xl hidden lg:block">TrueMaps</span>
                     </Link>
 
                     <nav className="hidden md:flex items-center space-x-8">

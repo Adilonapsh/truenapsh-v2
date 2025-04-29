@@ -1,10 +1,11 @@
+import { CtaSection } from "@/components/layouts/call-to-action";
 import { Footer } from "@/components/layouts/footer";
 import Navbar from "@/components/layouts/navbar";
 import { Testimonials } from "@/components/layouts/testimonials";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import HeroPill from "@/components/ui/hero-pill";
 import { TwitterLogoIcon } from "@radix-ui/react-icons";
-import { Copy, Hexagon, MapIcon, Sparkles } from "lucide-react";
+import { Hexagon, HexagonIcon, Map, MapIcon, Sparkles, SparklesIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { FaGithub } from "react-icons/fa6";
@@ -13,7 +14,7 @@ export default function Home() {
     return (
         <div>
             <Navbar />
-            <section className="relative h-screen pt-24 pb-20 overflow-hidden">
+            <section className="relative min-h-screen lg:h-screen pt-24 pb-20 overflow-hidden">
                 <div className="flex items-center container mx-auto h-full px-4">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
                         <div className="space-y-8">
@@ -100,13 +101,13 @@ export default function Home() {
                             Used by professionals working at:
                         </h1>
                     </div>
-                    <div className="flex flex-col lg:flex-row justify-center items-center gap-10 filter grayscale">
-                        <img className="h-7 lg:h-10" src="/assets/logo/logoipsum-1.svg" alt="" />
-                        <img className="h-7 lg:h-10" src="/assets/logo/logoipsum-2.svg" alt="" />
-                        <img className="h-7 lg:h-10" src="/assets/logo/logoipsum-3.svg" alt="" />
-                        <img className="h-7 lg:h-10" src="/assets/logo/logoipsum-4.svg" alt="" />
-                        <img className="h-7 lg:h-10" src="/assets/logo/logoipsum-5.svg" alt="" />
-                        <img className="h-7 lg:h-10" src="/assets/logo/logoipsum-6s.svg" alt="" />
+                    <div className="flex flex-col lg:flex-row justify-center items-center gap-10 filter grayscale dark:invert">
+                        <Image height={100} width={150} className="h-7 lg:h-10" src="/assets/logo/logoipsum-1.svg" alt="" />
+                        <Image height={100} width={150} className="h-7 lg:h-10" src="/assets/logo/logoipsum-2.svg" alt="" />
+                        <Image height={100} width={150} className="h-7 lg:h-10" src="/assets/logo/logoipsum-3.svg" alt="" />
+                        <Image height={100} width={150} className="h-7 lg:h-10" src="/assets/logo/logoipsum-4.svg" alt="" />
+                        <Image height={100} width={150} className="h-7 lg:h-10" src="/assets/logo/logoipsum-5.svg" alt="" />
+                        <Image height={100} width={150} className="h-7 lg:h-10" src="/assets/logo/logoipsum-6.svg" alt="" />
                     </div>
                 </div>
             </section>
@@ -117,9 +118,11 @@ export default function Home() {
                             <img src="/assets/logo/logoipsum-2.svg" alt="" />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <MapIcon size={20} />
-                            <h5 className="text-xl font-semibold">Lorem ipsum dolor sit.</h5>
-                            <p className="text-sm">Lorem ipsum, dolor sit amet consectetur adipisicing elit. Reiciendis, ullam.</p>
+                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center mb-4">
+                                <Map size={24} className="text-background" />
+                            </div>
+                            <h5 className="text-xl font-semibold">Real-time Data Visualization</h5>
+                            <p className="text-sm">Visualize spatial data in real-time with interactive maps and customizable dashboards.</p>
                         </div>
                     </div>
                     <div className="rounded-lg border min-h-[350px] p-5">
@@ -127,9 +130,11 @@ export default function Home() {
                             <img src="/assets/logo/logoipsum-3.svg" alt="" />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <MapIcon size={20} />
-                            <h5 className="text-xl font-semibold">Lorem ipsum dolor sit.</h5>
-                            <p className="text-sm">Lorem ipsum, dolor sit amet consectetur adipisicing elit. Reiciendis, ullam.</p>
+                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center mb-4">
+                                <SparklesIcon size={24} className="text-background" />
+                            </div>
+                            <h5 className="text-xl font-semibold">Advanced Analytics</h5>
+                            <p className="text-sm">Perform complex spatial analyses with our intuitive and powerful analytics engine.</p>
                         </div>
                     </div>
                     <div className="rounded-lg border min-h-[350px] p-5">
@@ -137,9 +142,11 @@ export default function Home() {
                             <img src="/assets/logo/logoipsum-5.svg" alt="" />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <MapIcon size={20} />
-                            <h5 className="text-xl font-semibold">Lorem ipsum dolor sit.</h5>
-                            <p className="text-sm">Lorem ipsum, dolor sit amet consectetur adipisicing elit. Reiciendis, ullam.</p>
+                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center mb-4">
+                                <HexagonIcon size={24} className="text-background" />
+                            </div>
+                            <h5 className="text-xl font-semibold">Secure Cloud Infrastructure</h5>
+                            <p className="text-sm">Keep your data safe with our enterprise-grade security and compliance features.</p>
                         </div>
                     </div>
                     <div className="lg:col-span-2 rounded-lg border min-h-[350px] p-5">
@@ -147,9 +154,11 @@ export default function Home() {
                             <img src="/assets/logo/logoipsum-2.svg" alt="" />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <MapIcon size={20} />
-                            <h5 className="text-xl font-semibold">Lorem ipsum dolor sit.</h5>
-                            <p className="text-sm">Lorem ipsum, dolor sit amet consectetur adipisicing elit. Reiciendis, ullam.</p>
+                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center mb-4">
+                                <MapIcon size={24} className="text-background" />
+                            </div>
+                            <h5 className="text-xl font-semibold">Collaborative Workspaces</h5>
+                            <p className="text-sm">Work together seamlessly with team collaboration tools designed for spatial projects.</p>
                         </div>
                     </div>
                     <div className="rounded-lg border min-h-[350px] p-5">
@@ -157,13 +166,15 @@ export default function Home() {
                             <img src="/assets/logo/logoipsum-1.svg" alt="" />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <MapIcon size={20} />
-                            <h5 className="text-xl font-semibold">Lorem ipsum dolor sit.</h5>
-                            <p className="text-sm">Lorem ipsum, dolor sit amet consectetur adipisicing elit. Reiciendis, ullam.</p>
+                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center mb-4">
+                                <SparklesIcon size={24} className="text-background" />
+                            </div>
+                            <h5 className="text-xl font-semibold">Custom Integrations</h5>
+                            <p className="text-sm">Connect TrueMaps with your existing tools through our extensive API ecosystem.</p>
                         </div>
                     </div>
                 </div>
-            </section>
+            </section >
             <section className="min-h-[700px] w-full flex items-center justify-center">
                 <Testimonials
                     className="self-center"
@@ -277,6 +288,9 @@ export default function Home() {
                     </Accordion>
                 </div>
             </section>
+            <section>
+                <CtaSection />
+            </section>
             <footer className="container">
                 <Footer
                     logo={<Hexagon className="h-10 w-10" />}
@@ -309,6 +323,6 @@ export default function Home() {
                     }}
                 />
             </footer>
-        </div>
+        </div >
     );
 }

@@ -274,7 +274,7 @@ const MapVisualizer = () => {
         <div className="relative">
             <div className="relative h-[500px] w-full">
                 <div
-                    className={`absolute top-0 -right-20 w-[120%] h-[500px] rounded-xl overflow-hidden shadow-xl transition-transform duration-[8000ms] ease-in-out ${isRotated ? 'rotate-2' : '-rotate-2'}`}
+                    className={`absolute top-0 -right-20 w-[120%] h-[500px] rounded-xl overflow-hidden shadow-xl transition-transform ease-in-out ${isRotated ? 'rotate-2' : '-rotate-2'}`}
                     style={{ transformOrigin: 'center center' }}
                 >
                     <div className="absolute inset-0 bg-gradient-to-br from-gray-900/80 to-black/95 backdrop-blur-sm rounded-xl"></div>
