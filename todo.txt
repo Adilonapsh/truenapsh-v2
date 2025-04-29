@@ -26,7 +26,7 @@
 26. Add Landing Page (WIP)
 27. Add Collaboration (Ganti ID socket dengan user ID)
 28. Fix Re-render (Done)
-29. Add Elevation Integration
+29. Add Elevation Integration (Done)
 30. Add Charts
 31. Add Filter Data Map
 32. Fix Tools Scroll Bar (Done)

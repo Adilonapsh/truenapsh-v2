@@ -25,7 +25,7 @@ const HeroPill = ({
             className={cn(
                 "flex w-auto items-center space-x-2 rounded-full",
                 "bg-background/20 ring-1 ring-accent",
-                "px-2 py-1 whitespace-pre",
+                "px-2 py-1 ",
                 className
             )}
             initial={{ opacity: 0, y: -20 }}

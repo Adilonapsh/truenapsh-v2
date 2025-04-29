@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Sun, Moon, GalleryVerticalEnd } from "lucide-react"
+import { Sun, Moon, GalleryVerticalEnd, Hexagon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export default function Navbar() {
@@ -57,8 +57,9 @@ export default function Navbar() {
                 )}
             >
                 <div className="flex h-16 items-center justify-between px-2">
-                    <Link href="/" className="flex items-center">
-                        <GalleryVerticalEnd className="size-4" />
+                    <Link href="/" className="flex items-center gap-3">
+                        <Hexagon className="h-8 w-8 text-cyan-500" />
+                        <span className="font-bold text-xl">TrueMaps</span>
                     </Link>
 
                     <nav className="hidden md:flex items-center space-x-8">
