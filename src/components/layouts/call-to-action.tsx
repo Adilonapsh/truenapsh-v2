@@ -45,7 +45,7 @@ export const CtaSection = () => {
                     <div className="absolute -bottom-40 -left-40 h-80 w-80 bg-blue-500/20 rounded-full blur-3xl"></div>
 
                     <div className="relative z-10 text-center space-y-6">
-                        <h2 className="text-3xl md:text-4xl font-bold text-background">
+                        <h2 className="text-3xl md:text-4xl font-bold text-white">
                             Ready to transform your
                             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
                                 spatial analytics workflow?

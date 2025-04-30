@@ -262,7 +262,8 @@ export default function MapLayout({
     const initWebsocket = () => {
         socketRef.current = io('http://localhost:3001');
         const map = mapRef.current?.getMap();
-        const userColor = '#' + Math.floor(Math.random() * 16777215).toString(16);
+        const colors = ["#FF4747", "#FFC400", "#47FF4D", "#47FFFF", "#4797FF", "#8B47FF", "#FF47FC"]
+        const userColor = colors[Math.floor(Math.random() * colors.length)] ?? '#' + Math.floor(Math.random() * 16777215).toString(16);
         const username = 'User_' + Math.floor(Math.random() * 1000);
         if (map) {
             map.on('mousemove', (e) => {

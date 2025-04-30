@@ -77,14 +77,14 @@ export default function Home() {
 
                         <div className="relative">
                             <div className="relative h-[500px] w-full">
-                                <div className="absolute top-0 -right-20 w-[120%] h-[500px] rounded-xl overflow-hidden">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-gray-900/80 to-black/95 backdrop-blur-sm rounded-xl transform rotate-2 scale-105"></div>
+                                <div className="absolute top-0 -left-72 lg:left-0 w-[960px] h-[540px] rounded-xl overflow-hidden">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-gray-900/80 to-black/95 backdrop-blur-sm rounded-xl"></div>
                                     <Image
-                                        src="/assets/map.png"
+                                        src="/assets/thumbnail.png"
                                         alt="Dashboard Preview"
-                                        width={700}
-                                        height={500}
-                                        className="object-cover w-full h-full opacity-90 transform rotate-2 scale-105"
+                                        width={1920}
+                                        height={1080}
+                                        className="opacity-90"
                                     />
                                 </div>
                             </div>
@@ -117,8 +117,8 @@ export default function Home() {
                         <div className="h-[200px] flex justify-center items-center border mb-4">
                             <img src="/assets/logo/logoipsum-2.svg" alt="" />
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center mb-4">
+                        <div className="flex flex-col gap-3">
+                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center gap-3">
                                 <Map size={24} className="text-background" />
                             </div>
                             <h5 className="text-xl font-semibold">Real-time Data Visualization</h5>
@@ -129,8 +129,8 @@ export default function Home() {
                         <div className="h-[200px] flex justify-center items-center border mb-4">
                             <img src="/assets/logo/logoipsum-3.svg" alt="" />
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center mb-4">
+                        <div className="flex flex-col gap-3">
+                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center gap-3">
                                 <SparklesIcon size={24} className="text-background" />
                             </div>
                             <h5 className="text-xl font-semibold">Advanced Analytics</h5>
@@ -141,11 +141,11 @@ export default function Home() {
                         <div className="h-[200px] flex justify-center items-center border mb-4">
                             <img src="/assets/logo/logoipsum-5.svg" alt="" />
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center mb-4">
+                        <div className="flex flex-col gap-3">
+                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center gap-3">
                                 <HexagonIcon size={24} className="text-background" />
                             </div>
-                            <h5 className="text-xl font-semibold">Secure Cloud Infrastructure</h5>
+                            <h5 className="text-xl font-semibold"></h5>
                             <p className="text-sm">Keep your data safe with our enterprise-grade security and compliance features.</p>
                         </div>
                     </div>
@@ -153,8 +153,8 @@ export default function Home() {
                         <div className="h-[200px] flex justify-center items-center border mb-4">
                             <img src="/assets/logo/logoipsum-2.svg" alt="" />
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center mb-4">
+                        <div className="flex flex-col gap-3">
+                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center gap-3">
                                 <MapIcon size={24} className="text-background" />
                             </div>
                             <h5 className="text-xl font-semibold">Collaborative Workspaces</h5>
@@ -165,8 +165,8 @@ export default function Home() {
                         <div className="h-[200px] flex justify-center items-center border mb-4">
                             <img src="/assets/logo/logoipsum-1.svg" alt="" />
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center mb-4">
+                        <div className="flex flex-col gap-3">
+                            <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center gap-3">
                                 <SparklesIcon size={24} className="text-background" />
                             </div>
                             <h5 className="text-xl font-semibold">Custom Integrations</h5>
