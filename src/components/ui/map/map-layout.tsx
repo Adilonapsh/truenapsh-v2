@@ -259,8 +259,9 @@ export default function MapLayout({
     type CursorData = { id: string; lng: number; lat: number, projectId: string, username: string, color: string };
     const labelTimeouts: { [id: string]: NodeJS.Timeout } = {};
     const projectIdParams = params.id;
+    
     const initWebsocket = () => {
-        socketRef.current = io('http://localhost:3001');
+        socketRef.current = io(`${process.env.NEXT_PUBLIC_WEBSOCKET_URL}`);
         const map = mapRef.current?.getMap();
         const colors = ["#FF4747", "#FFC400", "#47FF4D", "#47FFFF", "#4797FF", "#8B47FF", "#FF47FC"]
         const userColor = colors[Math.floor(Math.random() * colors.length)] ?? '#' + Math.floor(Math.random() * 16777215).toString(16);

@@ -51,8 +51,6 @@ export default function LoginComponent() {
                 callbackUrl: "/admin/dashboard",
             });
 
-            console.log("ini result", result);
-
             if (result?.ok) {
                 console.log("Login successful!");
                 router.push("/admin/dashboard");
