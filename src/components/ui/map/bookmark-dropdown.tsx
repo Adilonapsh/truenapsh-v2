@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { ChevronDown, Plus, Settings, Trash2, Edit2, Check } from "lucide-react"
+import { Check, ChevronDown, Edit2, Plus, Settings, Trash2 } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -12,13 +12,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { LngLat } from "mapbox-gl"
-
-export interface Bookmark {
-    id: string
-    name: string
-    properties: Record<string, string | number | boolean | LngLat>
-}
+import { Bookmark } from "@/types/bookmark.types"
 
 interface BookmarkDropdownProps {
     bookmarks: Bookmark[]

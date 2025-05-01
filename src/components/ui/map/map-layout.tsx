@@ -29,7 +29,7 @@ import { BoundingBox, InfoFeature, Layer, LayoutDisplay, Location, MapboxLayerSt
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { ArrowUp, Eye, EyeClosed, Fullscreen, LayersIcon, MinusIcon, PlusCircleIcon, PlusIcon, SaveAll, X } from 'lucide-react';
-import mapboxgl, { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, LngLatBoundsLike, MapMouseEvent } from 'mapbox-gl';
+import mapboxgl, { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, LngLat, LngLatBoundsLike, MapMouseEvent } from 'mapbox-gl';
 import React, { useEffect, useRef, useState } from 'react';
 import { BiCollapse, BiLogOutCircle, BiTrash } from 'react-icons/bi';
 import { FiFilter } from 'react-icons/fi';
@@ -100,20 +100,24 @@ import { Input } from '../input';
 import AnimatedLoadingScreen from '../loading-animation-screen';
 import { ScrollArea } from "../scroll-area";
 import TreeDirectory from '../tree-view';
-import BookmarkDropdown, { Bookmark } from "./bookmark-dropdown";
+import BookmarkDropdown from "./bookmark-dropdown";
 import IconLayerType from './icon-layer-type';
 import LegendEsri from "./legend-esri";
 import MapMenu from './map-menu';
 import OperationComponents from "./operation-page";
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
+import { Bookmark } from "@/types/bookmark.types";
+import { addBookmark, removeBookmark, updateBookmark } from "@/server/bookmark";
 
 export default function MapLayout({
     layersFetch,
-    datasetsFetch
+    datasetsFetch,
+    bookmarkFetch,
 }: {
     layersFetch: Layer[],
-    datasetsFetch: Datasets[]
+    datasetsFetch: Datasets[],
+    bookmarkFetch: Bookmark[]
 }) {
     const params = useParams();
     const mapRef = useRef<MapRef>(null);
@@ -211,7 +215,7 @@ export default function MapLayout({
         properties?: Record<string, any>,
     } | null>(null);
 
-    const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
+    const [bookmarks, setBookmarks] = useState<Bookmark[]>(bookmarkFetch)
     const [selectedBookmark, setSelectedBookmark] = useState<Bookmark | null>(null)
 
 
@@ -258,8 +262,8 @@ export default function MapLayout({
     const cursorsRef = useRef<Record<string, mapboxgl.Marker>>({});
     type CursorData = { id: string; lng: number; lat: number, projectId: string, username: string, color: string };
     const labelTimeouts: { [id: string]: NodeJS.Timeout } = {};
-    const projectIdParams = params.id;
-    
+    const projectIdParams: string | undefined = params.id;
+
     const initWebsocket = () => {
         socketRef.current = io(`${process.env.NEXT_PUBLIC_WEBSOCKET_URL}`);
         const map = mapRef.current?.getMap();
@@ -1629,38 +1633,6 @@ export default function MapLayout({
         }
     }
 
-    // const handleMapIntegration = async () => {
-    //     const map = mapRef.current?.getMap();
-    //     if (map) {
-    //         toast.promise(
-    //             new Promise((resolve, reject) => {
-    //                 try {
-    //                     const buildings = overpassBuildingIntegration();
-    //                     resolve(buildings);
-    //                 } catch (error) {
-    //                     reject(error);
-    //                 }
-    //             }),
-    //             {
-    //                 loading: 'Fetching building data...',
-    //                 success: 'Building data loaded successfully',
-    //                 error: 'Failed to fetch building data'
-    //             }
-    //         ).then((buildings) => {
-    //             if (buildings) {
-    //                 const featureCollection = turf.featureCollection(buildings.filter((building: any): building is GeoJSON.Feature => building !== null));
-    //                 addGeojsonToMap({
-    //                     mapRef: mapRef,
-    //                     setLayers: setLayers,
-    //                     layerName: `Buildings ${layers.length + 1}`,
-    //                     data: featureCollection
-    //                 });
-    //             }
-    //         }).catch((error) => {
-    //             console.error("Error fetching building data:", error);
-    //         });
-    //     }
-    // }
 
     const handleMapboxCommand = (command: any) => {
         if (!mapRef.current) return;
@@ -1681,10 +1653,12 @@ export default function MapLayout({
         }
     }
 
-    const handleAddBookmark = (name: string) => {
+    const handleAddBookmark = async (name: string) => {
         const map = mapRef.current?.getMap();
-        const properties = {
-            center: map?.getCenter(),
+
+        const center = map?.getCenter();
+        const properties: Record<string, object | string | number | undefined | LngLat> = {
+            center: center ? { lng: center.lng, lat: center.lat } : undefined,
             zoom: map?.getZoom(),
             pitch: map?.getPitch(),
             bearing: map?.getBearing(),
@@ -1693,19 +1667,38 @@ export default function MapLayout({
         const newBookmark: Bookmark = {
             id: v4(),
             name: name,
+            project_id: projectIdParams,
             properties
         }
-        setBookmarks([...bookmarks, newBookmark])
+
+        const response = await toast.promise(
+            addBookmark(newBookmark),
+            {
+                loading: 'Saving bookmark...',
+                success: 'Bookmark saved!',
+                error: 'Failed to save bookmark'
+            }
+        )
+        setBookmarks([...bookmarks, response.data])
+
     }
 
-    const handleDeleteBookmark = (id: string) => {
+    const handleDeleteBookmark = async (id: string) => {
         if (selectedBookmark && selectedBookmark.id === id) {
             setSelectedBookmark(null)
         }
         setBookmarks(bookmarks.filter((bookmark) => bookmark.id !== id))
+        const response = toast.promise(
+            removeBookmark(id),
+            {
+                loading: 'Deleting bookmark...',
+                success: 'Bookmark deleted!',
+                error: 'Failed to delete bookmark'
+            }
+        )
     }
 
-    const handleEditBookmark = (id: string, newName: string) => {
+    const handleEditBookmark = async (id: string, newName: string) => {
         const updatedBookmarks = bookmarks.map((bookmark) =>
             bookmark.id === id ? { ...bookmark, name: newName } : bookmark,
         )
@@ -1714,6 +1707,19 @@ export default function MapLayout({
         if (selectedBookmark && selectedBookmark.id === id) {
             const updatedBookmark = updatedBookmarks.find((b) => b.id === id)
             if (updatedBookmark) {
+                const properties: Bookmark = {
+                    id: id,
+                    name: newName,
+                }
+
+                const response = await toast.promise(
+                    updateBookmark(id, properties),
+                    {
+                        loading: 'Updating bookmark...',
+                        success: 'Bookmark updated!',
+                        error: 'Failed to update bookmark'
+                    }
+                )
                 setSelectedBookmark(updatedBookmark)
             }
         }
@@ -1721,7 +1727,9 @@ export default function MapLayout({
 
     const handleSelectBookmark = (bookmark: Bookmark) => {
         setSelectedBookmark(bookmark)
-        const { center, zoom, pitch, bearing } = bookmark.properties
+
+        const properties = typeof bookmark.properties === 'string' ? JSON.parse(bookmark.properties) : bookmark.properties;
+        const { center, zoom, pitch, bearing } = properties;
         if (bookmark) {
             mapRef.current?.getMap()?.flyTo({
                 center,
