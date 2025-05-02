@@ -6,12 +6,12 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
 
-    const allowedOrigins = ['https://truenapsh.my.id','https://maps.truenapsh.my.id',"http://localhost:3000","http://localhost:3001"];
+    const allowedOrigins = ['https://truenapsh.my.id', 'https://maps.truenapsh.my.id', "https://trumap.web.id", "http://localhost:3000", "http://localhost:3001"];
     const origin = req.headers.get('origin');
 
     if (!origin || !allowedOrigins.includes(origin)) {
         return new Response(
-            JSON.stringify({ error: 'Origin tidak diizinkan' }),
+            JSON.stringify({ error: 'Origin not allowed' }),
             {
                 status: 403,
                 headers: { 'Content-Type': 'application/json' },
@@ -29,6 +29,7 @@ export async function POST(req: Request) {
             model: google('gemini-1.5-flash'),
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.8,
+            // tools: [],
         });
         return result.toDataStreamResponse();
     } catch (error) {

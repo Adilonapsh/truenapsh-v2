@@ -262,7 +262,7 @@ export default function MapLayout({
     const cursorsRef = useRef<Record<string, mapboxgl.Marker>>({});
     type CursorData = { id: string; lng: number; lat: number, projectId: string, username: string, color: string };
     const labelTimeouts: { [id: string]: NodeJS.Timeout } = {};
-    const projectIdParams: string | undefined = params.id;
+    const projectIdParams: string | undefined = params.id?.toString();
 
     const initWebsocket = () => {
         socketRef.current = io(`${process.env.NEXT_PUBLIC_WEBSOCKET_URL}`);
@@ -1679,7 +1679,9 @@ export default function MapLayout({
                 error: 'Failed to save bookmark'
             }
         )
-        setBookmarks([...bookmarks, response.data])
+
+        const { data }: { data: Bookmark } = response;
+        setBookmarks([...bookmarks, data])
 
     }
 
