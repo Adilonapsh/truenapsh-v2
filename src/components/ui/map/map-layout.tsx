@@ -109,6 +109,7 @@ import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
 import { Bookmark } from "@/types/bookmark.types";
 import { addBookmark, removeBookmark, updateBookmark } from "@/server/bookmark";
+import { DynamicTable } from "../dynamic-table";
 
 export default function MapLayout({
     layersFetch,
@@ -217,6 +218,11 @@ export default function MapLayout({
 
     const [bookmarks, setBookmarks] = useState<Bookmark[]>(bookmarkFetch)
     const [selectedBookmark, setSelectedBookmark] = useState<Bookmark | null>(null)
+
+    const [tableData, setTableData] = useState({
+        header: [],
+        rows: [],
+    });
 
 
     // MAP FUNCTIONS
@@ -1633,7 +1639,6 @@ export default function MapLayout({
         }
     }
 
-
     const handleMapboxCommand = (command: any) => {
         if (!mapRef.current) return;
 
@@ -1742,6 +1747,26 @@ export default function MapLayout({
                 curve: 1,
             })
         }
+    }
+
+    const handleTableMapbox = (index: number) => {
+        const map = mapRef?.current?.getMap();
+        const layerId = layers[index]?.id;
+        const sourceId = map?.getLayer(layerId)?.source;
+        console.log(sourceId)
+        const data = map?.getSource(sourceId ?? "")?.serialize();
+        let header: string[] = [];
+        let rows: any[] = [];
+        if (data.type == "geojson") {
+            const allProperties = data?.data?.features?.map((feature: { properties: any }) => feature.properties) || [];
+            header = Object.keys(allProperties[0]) ?? [];
+            rows = allProperties.map((properties: any) => Object.values(properties)) ?? [];
+        }
+        setTableData({
+            header,
+            rows
+        })
+        console.log(header, rows);
     }
 
 
@@ -1875,7 +1900,7 @@ export default function MapLayout({
                                                     <Button variant={"ghost"} size="sm" onClick={() => setLayerVisible(index, layer.visible)}>{layer.visible ? <Eye size={"12pt"} /> : <EyeClosed size={"12pt"} />}</Button>
                                                     <Button variant={"ghost"} size="sm" onClick={() => { handleConvertToVector(layer) }}><HiCubeTransparent size={"12pt"} /></Button>
                                                     <Button variant={"ghost"} size="sm" onClick={() => handleZoomToLayer(index)}> <TbZoomInAreaFilled size={"12pt"} /></Button>
-                                                    <Button variant={"ghost"} size="sm"><FiFilter size={"12pt"} /></Button>
+                                                    <Button variant={"ghost"} size="sm" onClick={() => handleTableMapbox(index)}><FiFilter size={"12pt"} /></Button>
                                                     <Button variant={"ghost"} size="sm" onClick={() => handleStyleLayer(index)}><MdOutlineStyle size={"12pt"} /></Button>
                                                     <Button variant={"ghost"} size="sm" className='text-red-700' onClick={() => handleRemoveLayer(index)}><BiTrash size={"12pt"} /></Button>
                                                 </div>
@@ -2351,6 +2376,13 @@ export default function MapLayout({
                     </div>
                 </div>
             )}
+
+
+
+            <div className='relative w-full xl:w-1/2 bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll'>
+                <DynamicTable headers={tableData.header} data={tableData.rows} />
+            </div>
+
         </div >
     )
 }
