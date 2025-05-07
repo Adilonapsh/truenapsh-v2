@@ -141,6 +141,7 @@ type LayoutDisplay = {
     node_workspace: boolean,
     routes: boolean,
     tools: boolean,
+    table: boolean,
 }
 
 export type {

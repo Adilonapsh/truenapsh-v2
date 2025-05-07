@@ -25,6 +25,7 @@ function MapView({
         <div
             onDragOver={handleDragOver}
             onDrop={handleDrop}
+            className="w-full h-full"
         >
             <Map
                 mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
@@ -36,7 +37,7 @@ function MapView({
                 }}
                 antialias={true}
                 dragPan={true}
-                style={{ width: "100%", height: "100vh" }}
+                style={{ width: "100%", height: "100%" }}
                 onZoom={onZoom}
                 onClick={onClick}
                 onMouseMove={onMouseMove}
@@ -53,8 +54,8 @@ function MapView({
             >
                 <ScaleControl />
                 {/* <NavigationControl position="bottom-right" /> */}
-                <FullscreenControl position="bottom-right" />
-                <GeolocateControl position="bottom-right" />
+                {/* <FullscreenControl position="bottom-right" />
+                <GeolocateControl position="bottom-right" /> */}
             </Map>
         </div >
     )

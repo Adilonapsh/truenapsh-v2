@@ -101,22 +101,29 @@
   pointer-events: none;
 }
 
+.mapbox-gl-draw_ctrl-draw-btn {
+  display: none !important;
+}
+
+.mapboxgl-ctrl-group {
+  background-color: rgba(30, 30, 30, 0.8) !important; /* Dark background */
+  border-radius: 8px !important; /* Smooth edges */
+}
+
+.mapboxgl-ctrl button {
+  color: white !important; /* White icon color */
+}
+
+.mapboxgl-ctrl button:hover {
+  background-color: rgba(50, 50, 50, 0.9) !important; /* Darker hover effect */
+}
+
 
   
 @layer components {
-  .mapboxgl-ctrl-group {
-    background-color: rgba(30, 30, 30, 0.8) !important; /* Dark background */
-    border-radius: 8px !important; /* Smooth edges */
-  }
-  
-  .mapboxgl-ctrl button {
-    color: white !important; /* White icon color */
-  }
-  
-  .mapboxgl-ctrl button:hover {
-    background-color: rgba(50, 50, 50, 0.9) !important; /* Darker hover effect */
-  }
+ 
 
+  
 
 
 }

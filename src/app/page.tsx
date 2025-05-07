@@ -63,12 +63,12 @@ export default function Home() {
                                             >
                                                 <div className="absolute inset-0 bg-background group-hover:bg-gradient-to-br from-cyan-600/80 to-blue-600/90" />
                                             </div>
-                                            <Link
+                                            <a
                                                 href="/auth/login"
                                                 className="relative z-10 inline-flex items-center justify-center rounded-md text-sm font-medium w-full h-10 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
                                             >
                                                 <span className="font-semibold">Start building</span>
-                                            </Link>
+                                            </a>
                                         </div>
                                     </div>
                                 </div>

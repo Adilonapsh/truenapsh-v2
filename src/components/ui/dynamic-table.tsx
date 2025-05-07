@@ -1,67 +1,68 @@
 "use client"
 
-import React from "react"
-import { useState, useMemo, useEffect, useCallback } from "react"
-import {
-    flexRender,
-    getCoreRowModel,
-    getSortedRowModel,
-    getFilteredRowModel,
-    getPaginationRowModel,
-    useReactTable,
-    type ColumnDef,
-    type SortingState,
-    type PaginationState,
-    type ColumnFiltersState,
-    type VisibilityState,
-    type RowSelectionState,
-} from "@tanstack/react-table"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-    Search,
-    ChevronLeft,
-    ChevronRight,
-    ArrowUpDown,
-    Filter,
-    X,
-    Eye,
-    Download,
-    MoreHorizontal,
-    FileDown,
-    Paintbrush,
-    Copy,
-    Trash,
-    FileEdit,
-} from "lucide-react"
-import {
-    DndContext,
-    closestCenter,
-    KeyboardSensor,
-    PointerSensor,
-    useSensor,
-    useSensors,
-    type DragEndEvent,
-} from "@dnd-kit/core"
-import { SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
-import { restrictToHorizontalAxis } from "@dnd-kit/modifiers"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
     DropdownMenuContent,
-    DropdownMenuTrigger,
-    DropdownMenuSeparator,
     DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+    DndContext,
+    KeyboardSensor,
+    PointerSensor,
+    closestCenter,
+    useSensor,
+    useSensors,
+    type DragEndEvent,
+} from "@dnd-kit/core"
+import { restrictToHorizontalAxis } from "@dnd-kit/modifiers"
+import { SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+import {
+    flexRender,
+    getCoreRowModel,
+    getFilteredRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    useReactTable,
+    type ColumnDef,
+    type ColumnFiltersState,
+    type PaginationState,
+    type RowSelectionState,
+    type SortingState,
+    type VisibilityState,
+} from "@tanstack/react-table"
 import { useVirtualizer } from "@tanstack/react-virtual"
+import {
+    ArrowUpDown,
+    ChevronLeft,
+    ChevronRight,
+    Copy,
+    Download,
+    Eye,
+    FileDown,
+    FileEdit,
+    Filter,
+    MoreHorizontal,
+    Paintbrush,
+    Search,
+    Trash,
+    X
+} from "lucide-react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
+import { HiOutlineFastForward } from "react-icons/hi"
+import { HiOutlineBackward } from "react-icons/hi2"
 // import { ConditionalFormatDialog, type ConditionalFormatRule } from "./conditional-format-dialog"
 // import { ErrorBoundary } from "./error-boundary"
 
@@ -150,10 +151,10 @@ function DraggableColumnHeader({
                         >
                             <ArrowUpDown
                                 className={`h-3 w-3 ${header.column.getIsSorted() === "asc"
-                                        ? "text-primary rotate-180"
-                                        : header.column.getIsSorted() === "desc"
-                                            ? "text-primary"
-                                            : ""
+                                    ? "text-primary rotate-180"
+                                    : header.column.getIsSorted() === "desc"
+                                        ? "text-primary"
+                                        : ""
                                     }`}
                             />
                         </Button>
@@ -640,308 +641,304 @@ export function DynamicTable({ headers, data }: CsvTableProps) {
 
     return (
         // <ErrorBoundary>
-            <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-4 justify-between">
-                    <div className="relative flex-1">
-                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search data..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-8"
-                        />
+        <div className="space-y-4 w-full">
+            <div className="flex flex-col sm:flex-row gap-4 justify-between">
+                <div className="relative flex-1">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search data..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-8"
+                    />
+                </div>
+                <div className="flex gap-2">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="gap-2">
+                                <FileDown className="h-4 w-4" />
+                                Export
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleExport("csv")} className="cursor-pointer">
+                                <Download className="mr-2 h-4 w-4" />
+                                Export as CSV
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport("json")} className="cursor-pointer">
+                                <Download className="mr-2 h-4 w-4" />
+                                Export as JSON
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExport("excel")} className="cursor-pointer">
+                                <Download className="mr-2 h-4 w-4" />
+                                Export for Excel
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* <Button variant="outline" className="gap-2" onClick={() => setIsFormatDialogOpen(true)}>
+                        <Paintbrush className="h-4 w-4" />
+                        Format
+                    </Button> */}
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="gap-2">
+                                <Eye className="h-4 w-4" />
+                                Columns
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[200px]">
+                            <div className="p-2">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium">Toggle Columns</span>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 px-2 text-xs"
+                                        onClick={() => table.toggleAllColumnsVisible(true)}
+                                    >
+                                        Show All
+                                    </Button>
+                                </div>
+                                <DropdownMenuSeparator />
+                                <ScrollArea className="h-80">
+                                    <div className="p-2">
+                                        {table
+                                            .getAllColumns()
+                                            .filter((column) => column.getCanHide())
+                                            .map((column) => {
+                                                return (
+                                                    <DropdownMenuCheckboxItem
+                                                        key={column.id}
+                                                        className="capitalize"
+                                                        checked={column.getIsVisible()}
+                                                        onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                                                    >
+                                                        {column.id}
+                                                    </DropdownMenuCheckboxItem>
+                                                )
+                                            })}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </div>
+
+            {selectedRowsCount > 0 && (
+                <div className="bg-muted/50 p-2 rounded-md flex items-center justify-between">
+                    <div className="text-sm">
+                        {selectedRowsCount} {selectedRowsCount === 1 ? "row" : "rows"} selected
                     </div>
                     <div className="flex gap-2">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="gap-2">
-                                    <FileDown className="h-4 w-4" />
-                                    Export
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleExport("csv")} className="cursor-pointer">
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Export as CSV
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExport("json")} className="cursor-pointer">
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Export as JSON
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExport("excel")} className="cursor-pointer">
-                                    <Download className="mr-2 h-4 w-4" />
-                                    Export for Excel
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                const selectedRows = table
+                                    .getFilteredRowModel()
+                                    .rows.filter((row) => row.getIsSelected())
+                                    .map((row) => row.original)
 
-                        <Button variant="outline" className="gap-2" onClick={() => setIsFormatDialogOpen(true)}>
-                            <Paintbrush className="h-4 w-4" />
-                            Format
+                                const visibleColumns = table
+                                    .getAllColumns()
+                                    .filter((col) => col.getIsVisible() && col.id !== "select" && col.id !== "actions")
+                                    .map((col) => col.id)
+
+                                exportData(
+                                    selectedRows,
+                                    "csv",
+                                    `selected-rows-${new Date().toISOString().split("T")[0]}`,
+                                    visibleColumns,
+                                )
+                            }}
+                        >
+                            Export Selected
                         </Button>
+                        <Button variant="outline" size="sm" onClick={() => setRowSelection({})}>
+                            Clear Selection
+                        </Button>
+                    </div>
+                </div>
+            )}
 
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="gap-2">
-                                    <Eye className="h-4 w-4" />
-                                    Columns
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-[200px]">
-                                <div className="p-2">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-sm font-medium">Toggle Columns</span>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-8 px-2 text-xs"
-                                            onClick={() => table.toggleAllColumnsVisible(true)}
-                                        >
-                                            Show All
-                                        </Button>
-                                    </div>
-                                    <DropdownMenuSeparator />
-                                    <ScrollArea className="h-80">
-                                        <div className="p-2">
-                                            {table
-                                                .getAllColumns()
-                                                .filter((column) => column.getCanHide())
-                                                .map((column) => {
+            {activeFilters && activeFilters.length > 0 && (
+                <div className="flex flex-wrap gap-2 items-center">
+                    <span className="text-sm font-medium">Active Filters:</span>
+                    {activeFilters.map((filter) => (
+                        <Badge key={filter.column} variant="secondary" className="flex items-center gap-1">
+                            {filter.column}: {filter.values.length > 1 ? `(${filter.values.length} selected)` : filter.values[0]}
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => clearFilter(filter.column)}
+                                className="h-4 w-4 p-0 ml-1"
+                            >
+                                <X className="h-3 w-3" />
+                            </Button>
+                        </Badge>
+                    ))}
+                    <Button variant="ghost" size="sm" onClick={() => setColumnFilters([])} className="h-7 px-2 text-xs">
+                        Clear All
+                    </Button>
+                </div>
+            )}
+
+            <div
+                className="w-full rounded-md border"
+            >
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                    modifiers={[restrictToHorizontalAxis]}
+                >
+                    <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
+                        <div ref={tableContainerRef} className="overflow-auto max-h-[300px]">
+                            <Table>
+                                <TableHeader>
+                                    {table.getHeaderGroups().map((headerGroup) => (
+                                        <TableRow key={headerGroup.id}>
+                                            {headerGroup.headers.map((header) => (
+                                                <DraggableColumnHeader key={header.id} header={header} id={header.column.id} table={table} />
+                                            ))}
+                                        </TableRow>
+                                    ))}
+                                </TableHeader>
+                                <TableBody>
+                                    {rows.length > 0 ? (
+                                        <>
+                                            {/* Add padding to top based on virtual items */}
+                                            {hasVirtualItems && <tr style={{ height: `${virtualItems[0]?.start || 0}px` }} />}
+
+                                            {/* Render only the visible items */}
+                                            {hasVirtualItems &&
+                                                virtualItems.map((virtualRow) => {
+                                                    const row = rows[virtualRow.index]
+                                                    if (!row) return null
+
                                                     return (
-                                                        <DropdownMenuCheckboxItem
-                                                            key={column.id}
-                                                            className="capitalize"
-                                                            checked={column.getIsVisible()}
-                                                            onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                                                        >
-                                                            {column.id}
-                                                        </DropdownMenuCheckboxItem>
+                                                        <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                                                            {row.getVisibleCells().map((cell) => (
+                                                                <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>
+                                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                                </TableCell>
+                                                            ))}
+                                                        </TableRow>
                                                     )
                                                 })}
-                                        </div>
-                                    </ScrollArea>
-                                </div>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </div>
 
-                {selectedRowsCount > 0 && (
-                    <div className="bg-muted/50 p-2 rounded-md flex items-center justify-between">
-                        <div className="text-sm">
-                            {selectedRowsCount} {selectedRowsCount === 1 ? "row" : "rows"} selected
+                                            {/* Add padding to bottom based on virtual items */}
+                                            {hasVirtualItems && (
+                                                <tr
+                                                    style={{
+                                                        height: `${rowVirtualizer.getTotalSize() - (virtualItems[virtualItems.length - 1]?.end || 0)
+                                                            }px`,
+                                                    }}
+                                                />
+                                            )}
+                                        </>
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={columns.length || 1} className="h-24 text-center">
+                                                No results.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
                         </div>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                    const selectedRows = table
-                                        .getFilteredRowModel()
-                                        .rows.filter((row) => row.getIsSelected())
-                                        .map((row) => row.original)
+                    </SortableContext>
+                </DndContext>
 
-                                    const visibleColumns = table
-                                        .getAllColumns()
-                                        .filter((col) => col.getIsVisible() && col.id !== "select" && col.id !== "actions")
-                                        .map((col) => col.id)
-
-                                    exportData(
-                                        selectedRows,
-                                        "csv",
-                                        `selected-rows-${new Date().toISOString().split("T")[0]}`,
-                                        visibleColumns,
-                                    )
+                <div className="flex items-center justify-between p-4 border-t">
+                    <div className="flex-1 text-sm text-muted-foreground">
+                        Showing{" "}
+                        {table.getFilteredRowModel().rows.length > 0
+                            ? `${table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}-${Math.min(
+                                (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                                table.getFilteredRowModel().rows.length,
+                            )}`
+                            : 0}{" "}
+                        of {table.getFilteredRowModel().rows.length} entries
+                    </div>
+                    <div className="flex items-center space-x-6 lg:space-x-8">
+                        <div className="flex items-center space-x-2">
+                            <p className="text-sm font-medium">Rows per page</p>
+                            <Select
+                                value={`${table.getState().pagination.pageSize}`}
+                                onValueChange={(value) => {
+                                    table.setPageSize(Number(value))
                                 }}
                             >
-                                Export Selected
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => setRowSelection({})}>
-                                Clear Selection
-                            </Button>
+                                <SelectTrigger className="h-8 w-[70px]">
+                                    <SelectValue placeholder={table.getState().pagination.pageSize} />
+                                </SelectTrigger>
+                                <SelectContent side="top">
+                                    {[10, 20, 30, 40, 50].map((pageSize) => (
+                                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                                            {pageSize}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
-                    </div>
-                )}
-
-                {activeFilters && activeFilters.length > 0 && (
-                    <div className="flex flex-wrap gap-2 items-center">
-                        <span className="text-sm font-medium">Active Filters:</span>
-                        {activeFilters.map((filter) => (
-                            <Badge key={filter.column} variant="secondary" className="flex items-center gap-1">
-                                {filter.column}: {filter.values.length > 1 ? `(${filter.values.length} selected)` : filter.values[0]}
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => clearFilter(filter.column)}
-                                    className="h-4 w-4 p-0 ml-1"
-                                >
-                                    <X className="h-3 w-3" />
-                                </Button>
-                            </Badge>
-                        ))}
-                        <Button variant="ghost" size="sm" onClick={() => setColumnFilters([])} className="h-7 px-2 text-xs">
-                            Clear All
-                        </Button>
-                    </div>
-                )}
-
-                <div
-                    className="rounded-md border"
-                    style={{
-                        width: "100%",
-                    }}
-                >
-                    <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={handleDragEnd}
-                        modifiers={[restrictToHorizontalAxis]}
-                    >
-                        <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
-                            <div ref={tableContainerRef} className="overflow-auto" style={{ height: "500px" }}>
-                                <Table>
-                                    <TableHeader>
-                                        {table.getHeaderGroups().map((headerGroup) => (
-                                            <TableRow key={headerGroup.id}>
-                                                {headerGroup.headers.map((header) => (
-                                                    <DraggableColumnHeader key={header.id} header={header} id={header.column.id} table={table} />
-                                                ))}
-                                            </TableRow>
-                                        ))}
-                                    </TableHeader>
-                                    <TableBody>
-                                        {rows.length > 0 ? (
-                                            <>
-                                                {/* Add padding to top based on virtual items */}
-                                                {hasVirtualItems && <tr style={{ height: `${virtualItems[0]?.start || 0}px` }} />}
-
-                                                {/* Render only the visible items */}
-                                                {hasVirtualItems &&
-                                                    virtualItems.map((virtualRow) => {
-                                                        const row = rows[virtualRow.index]
-                                                        if (!row) return null
-
-                                                        return (
-                                                            <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-                                                                {row.getVisibleCells().map((cell) => (
-                                                                    <TableCell key={cell.id} style={{ width: cell.column.getSize() }}>
-                                                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                                                    </TableCell>
-                                                                ))}
-                                                            </TableRow>
-                                                        )
-                                                    })}
-
-                                                {/* Add padding to bottom based on virtual items */}
-                                                {hasVirtualItems && (
-                                                    <tr
-                                                        style={{
-                                                            height: `${rowVirtualizer.getTotalSize() - (virtualItems[virtualItems.length - 1]?.end || 0)
-                                                                }px`,
-                                                        }}
-                                                    />
-                                                )}
-                                            </>
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell colSpan={columns.length || 1} className="h-24 text-center">
-                                                    No results.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </SortableContext>
-                    </DndContext>
-
-                    <div className="flex items-center justify-between p-4 border-t">
-                        <div className="flex-1 text-sm text-muted-foreground">
-                            Showing{" "}
-                            {table.getFilteredRowModel().rows.length > 0
-                                ? `${table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}-${Math.min(
-                                    (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-                                    table.getFilteredRowModel().rows.length,
-                                )}`
-                                : 0}{" "}
-                            of {table.getFilteredRowModel().rows.length} entries
+                        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount() || 1}
                         </div>
-                        <div className="flex items-center space-x-6 lg:space-x-8">
-                            <div className="flex items-center space-x-2">
-                                <p className="text-sm font-medium">Rows per page</p>
-                                <Select
-                                    value={`${table.getState().pagination.pageSize}`}
-                                    onValueChange={(value) => {
-                                        table.setPageSize(Number(value))
-                                    }}
-                                >
-                                    <SelectTrigger className="h-8 w-[70px]">
-                                        <SelectValue placeholder={table.getState().pagination.pageSize} />
-                                    </SelectTrigger>
-                                    <SelectContent side="top">
-                                        {[10, 20, 30, 40, 50].map((pageSize) => (
-                                            <SelectItem key={pageSize} value={`${pageSize}`}>
-                                                {pageSize}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount() || 1}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <Button
-                                    variant="outline"
-                                    className="hidden h-8 w-8 p-0 lg:flex"
-                                    onClick={() => table.setPageIndex(0)}
-                                    disabled={!table.getCanPreviousPage()}
-                                >
-                                    <span className="sr-only">Go to first page</span>
-                                    <ChevronLeft className="h-4 w-4" />
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="h-8 w-8 p-0"
-                                    onClick={() => table.previousPage()}
-                                    disabled={!table.getCanPreviousPage()}
-                                >
-                                    <span className="sr-only">Go to previous page</span>
-                                    <ChevronLeft className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="h-8 w-8 p-0"
-                                    onClick={() => table.nextPage()}
-                                    disabled={!table.getCanNextPage()}
-                                >
-                                    <span className="sr-only">Go to next page</span>
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    className="hidden h-8 w-8 p-0 lg:flex"
-                                    onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                                    disabled={!table.getCanNextPage()}
-                                >
-                                    <span className="sr-only">Go to last page</span>
-                                    <ChevronRight className="h-4 w-4" />
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
-                            </div>
+                        <div className="flex items-center space-x-2">
+                            <Button
+                                variant="outline"
+                                className="hidden h-8 w-8 p-0 lg:flex"
+                                onClick={() => table.setPageIndex(0)}
+                                disabled={!table.getCanPreviousPage()}
+                            >
+                                <span className="sr-only">Go to first page</span>
+                                <HiOutlineBackward className="h-4 w-4" />
+
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="h-8 w-8 p-0"
+                                onClick={() => table.previousPage()}
+                                disabled={!table.getCanPreviousPage()}
+                            >
+                                <span className="sr-only">Go to previous page</span>
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="h-8 w-8 p-0"
+                                onClick={() => table.nextPage()}
+                                disabled={!table.getCanNextPage()}
+                            >
+                                <span className="sr-only">Go to next page</span>
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="hidden h-8 w-8 p-0 lg:flex"
+                                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                                disabled={!table.getCanNextPage()}
+                            >
+                                <span className="sr-only">Go to last page</span>
+                                <HiOutlineFastForward className="h-4 w-4" />
+                            </Button>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* <ConditionalFormatDialog
+            {/* <ConditionalFormatDialog
                     open={isFormatDialogOpen}
                     onOpenChange={setIsFormatDialogOpen}
                     columns={headers || []}
                     rules={conditionalFormatRules}
                     onSaveRules={setConditionalFormatRules}
                 /> */}
-            </div>
+        </div>
         // </ErrorBoundary>
     )
 }
