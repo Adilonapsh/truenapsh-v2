@@ -140,7 +140,12 @@ const addGeojsonToMap = async ({
         min_zoom: 0,
         max_zoom: 24,
         status: "Local",
-        rendered: 1
+        rendered: 1,
+        metadata: {
+            map_service_url: mapServiceUrl,
+            map_service_layer_name: layerCode,
+            map_service_vendor: MapServiceVendor.GeoJSON,
+        }
     };
 
     const geometryTypes = [...new Set((data as GeoJSON.FeatureCollection).features.map(feature => feature.geometry.type))];
@@ -216,7 +221,8 @@ const addGeojsonToMap = async ({
                 minzoom: 0,
                 maxzoom: 24,
                 filter: ["in", "$type", config.types[0]],
-                paint: config.layerProps.paint
+                paint: config.layerProps.paint,
+                metadata: commonLayerProps.metadata ?? {}
             });
         }
     });
@@ -493,7 +499,7 @@ const elevationLayers = async (featureCollection: FeatureCollection, source: str
             const response = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${latitudes}&longitude=${longitudes}`);
             const data = await response.json();
             console.log("Ini Response : ", data);
-        } else if(source === "GPXZ"){
+        } else if (source === "GPXZ") {
             const points = featureCollection.features.map(feature => {
                 const coords = feature.geometry.coordinates;
                 const coordArray = Array.isArray(coords[0]) ? coords[0] : coords;

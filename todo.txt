@@ -32,6 +32,10 @@
 32. Fix Tools Scroll Bar (Done)
 33. Add Layers variable To System Prompt
 34. Bookmark Save (Done)
+35. Add Hotkeys to Draw (Done)
+36. Add Statistic to the table
+37. Add AI Highlight syntax (Done)
+38. Fix Table Freeze
 
 
 

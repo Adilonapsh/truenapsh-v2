@@ -61,7 +61,7 @@ import {
 } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { addBookmark, removeBookmark, updateBookmark } from "@/server/bookmark";
-import { convertWMSToVectorData, fetchLayerBbox, getFeatureInfo, getWMSServices, transfromEsriServicesToFolder, } from '@/services/map-services';
+import { convertWMSToVectorData, fetchLayerBbox, getAllFeaturesGeoserver, getFeatureInfo, getWMSServices, transfromEsriServicesToFolder, } from '@/services/map-services';
 import { addGeojsonToMap, aiCommand, calculateCoordinatesWithAspectRatio, searchAlternatives } from "@/tools/map-tools";
 import { Bookmark } from "@/types/bookmark.types";
 import { Datasets } from "@/types/datasets.types";
@@ -342,6 +342,27 @@ export default function MapLayout({
 
     //   END WIP WEBSOCKET 
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+        const tag = (document.activeElement?.tagName || '').toLowerCase();
+        const isTyping = tag === 'input' || tag === 'textarea';
+        if (isTyping) return;
+
+        if (!drawRef.current) return;
+
+        const key = e.key.toLowerCase();
+        if (key === 'p') {
+            drawRef.current.changeMode('draw_point');
+        } else if (key === 'l') {
+            drawRef.current.changeMode('draw_line_string');
+        } else if (key === 'g') {
+            drawRef.current.changeMode('draw_polygon');
+        } else if (e.key === 'Escape') {
+            drawRef.current.changeMode('simple_select');
+        } else if (e.key === 'Enter') {
+            saveFeaturesToLayer()
+        }
+    };
+
     const onMapLoad = () => {
         const map = mapRef.current?.getMap();
         if (map) {
@@ -372,6 +393,7 @@ export default function MapLayout({
                     paint: {
                         "raster-opacity": layer.visible ? 1 : 0,
                     },
+                    metadata: layer.metadata ?? {}
                 });
             });
 
@@ -450,6 +472,8 @@ export default function MapLayout({
             map.on('draw.modechange', (e: { mode: string }) => {
                 setDrawMode(e.mode);
             })
+
+            map.getCanvas().addEventListener('keydown', handleKeyDown);
 
         }
         setIsLoading({ ...isLoading, initLoading: false });
@@ -1062,9 +1086,6 @@ export default function MapLayout({
                 const href = datasetProperties.url;
                 const url = new URL(datasetProperties.url);
                 const domain = url.hostname;
-                console.log(href);
-                console.log(url.href);
-                console.log(domain);
                 map.addLayer({
                     id: layerId,
                     type: 'raster',
@@ -1075,6 +1096,11 @@ export default function MapLayout({
                     },
                     paint: {
                         'raster-opacity': 1
+                    },
+                    metadata: {
+                        domain: domain,
+                        url: href,
+                        map_service_vendor: MapServiceVendor.XYZ,
                     }
                 });
 
@@ -1089,7 +1115,12 @@ export default function MapLayout({
                     min_zoom: 0,
                     max_zoom: 24,
                     status: 'Local',
-                    rendered: 1
+                    rendered: 1,
+                    metadata: {
+                        domain: domain,
+                        url: href,
+                        map_service_vendor: MapServiceVendor.XYZ,
+                    }
                 } as Layer]);
             }
         } else {
@@ -1106,7 +1137,7 @@ export default function MapLayout({
             newDatasets.splice(existingIndex, 1);
             setSelectedDatasets(newDatasets);
         } else {
-            setSelectedDatasets([...selectedDatasets, { ...layer, index }]);
+            setSelectedDatasets([...selectedDatasets, { ...layer, index, map_service_vendor: datasetProperties.map_service_vendor as MapServiceVendor, url: datasetProperties.url }]);
         }
     }
 
@@ -1136,7 +1167,12 @@ export default function MapLayout({
                     min_zoom: minZoom,
                     max_zoom: maxZoom,
                     status: status,
-                    rendered: 1
+                    rendered: 1,
+                    metadata: {
+                        map_service_url: mapServiceUrl,
+                        map_service_layer_name: mapServiceLayerName,
+                        map_service_vendor: mapServiceVendor as MapServiceVendor,
+                    }
                 }]);
             });
             setSelectedDatasets([]);
@@ -1224,6 +1260,7 @@ export default function MapLayout({
                             paint: {
                                 "raster-opacity": 1,
                             },
+                            metadata: layer.metadata ?? {}
                         });
                     }
                 } else {
@@ -1256,7 +1293,8 @@ export default function MapLayout({
                 map.addLayer({
                     id: layerId,
                     type: 'raster',
-                    source: sourceId
+                    source: sourceId,
+                    metadata: {}
                 });
 
                 const layerName = "Image " + (layers.length + 1);
@@ -1752,24 +1790,49 @@ export default function MapLayout({
         }
     }
 
-    const handleTableMapbox = (index: number) => {
+    const handleTableMapbox = async (index: number) => {
         const map = mapRef?.current?.getMap();
         const layerId = layers[index]?.id;
-        const sourceId = map?.getLayer(layerId)?.source;
-        const data = map?.getSource(sourceId ?? "")?.serialize();
+        const layer = map?.getLayer(layerId);
+        const sourceId = layer?.source;
+        const metadata = (layer as LayerSpecification & { metadata?: any })?.metadata;
+
         let header: string[] = [];
         let rows: any[] = [];
+        console.log(metadata)
+
         setDisplayLayouts((prev) => ({ ...prev, table: true }));
-        if (data.type == "geojson") {
-            const allProperties = data?.data?.features?.map((feature: { properties: any }) => feature.properties) || [];
-            header = Object.keys(allProperties[0]) ?? [];
-            rows = allProperties.map((properties: any) => Object.values(properties)) ?? [];
+
+
+        if (metadata?.map_service_vendor === MapServiceVendor.GeoJSON) {
+            const source = map?.getSource(sourceId ?? "");
+            if (!source) return;
+
+            const data = source.serialize();
+            const features = data?.data?.features || [];
+
+            if (features.length === 0) return;
+
+            const allProperties = features.map(
+                (feature: { properties: any }) => feature.properties
+            );
+
+            header = Object.keys(allProperties[0] || {});
+            rows = allProperties.map((properties: Record<string, any>) => Object.values(properties));
+        } else if (metadata.map_service_vendor === MapServiceVendor.Geoserver) {
+            const data = await getAllFeaturesGeoserver(metadata.map_service_url, metadata.map_service_layer_name);
+            if (!data?.features?.length) return;
+            const allProperties = data.features.map(
+                (feature: { properties: any }) => feature.properties
+            );
+            header = Object.keys(allProperties[0] || {});
+            rows = allProperties.map((properties: Record<string, any>) => Object.values(properties));
         }
+
         setTableData({
             header,
             rows
         })
-        console.log(header, rows);
     }
 
     const handleDraw = (drawMode: string) => {
@@ -1781,7 +1844,7 @@ export default function MapLayout({
             drawRef.current?.changeMode("draw_polygon");
         } else if (drawMode === "single_delete") {
             const allFeatures = drawRef.current?.getAll().features;
-            const lastFeature = allFeatures[allFeatures.length - 1];
+            const lastFeature = allFeatures?.[allFeatures.length - 1];
             if (lastFeature) {
                 drawRef.current?.delete(lastFeature.id);
             }
@@ -2215,19 +2278,19 @@ export default function MapLayout({
                                         <DropdownMenuGroup>
                                             <DropdownMenuItem onClick={() => handleDraw("point")}>
                                                 Point
-                                                <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
+                                                <DropdownMenuShortcut>P</DropdownMenuShortcut>
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleDraw("line")}>
                                                 Linestring
-                                                <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
+                                                <DropdownMenuShortcut>L</DropdownMenuShortcut>
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleDraw("polygon")}>
                                                 Polygon
-                                                <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
+                                                <DropdownMenuShortcut>G</DropdownMenuShortcut>
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleDraw("single_delete")}>
                                                 Delete last feature
-                                                <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
+                                                <DropdownMenuShortcut>Del</DropdownMenuShortcut>
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleDraw("clear")}>
                                                 Delete all
@@ -2248,34 +2311,30 @@ export default function MapLayout({
                             </div>
                         </div>
                     </div>
-                    <div>
-                        {displayLayouts.table}awdawd
-                    </div>
                     <div className={`${displayLayouts.table ? "block" : "hidden"}`}>
-                    <ResizablePanelGroup direction="horizontal" >
-                        <ResizablePanel
-                            defaultSize={100}>
-                            <div className={`relative w-full bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll`}>
-                                <div className="flex justify-between items-center mb-2">
-                                    <h5 className='text-md font-bold mb-2'>Table</h5>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                                        setDisplayLayouts({ ...displayLayouts, table: false })
-                                        console.log("close")
-                                    }}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
+                        <ResizablePanelGroup direction="horizontal" >
+                            <ResizablePanel
+                                defaultSize={100}>
+                                <div className={`relative w-full bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll`}>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h5 className='text-md font-bold mb-2'>Table</h5>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                            setDisplayLayouts({ ...displayLayouts, table: false })
+                                        }}>
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    <DynamicTable headers={tableData.header} data={tableData.rows} />
                                 </div>
-                                <DynamicTable headers={tableData.header} data={tableData.rows} />
-                            </div>
-                        </ResizablePanel>
-                        <ResizableHandle />
-                        <ResizablePanel>
-                            <div className={`relative w-full h-full bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll`}>
-                                <div className="flex justify-between items-center">
+                            </ResizablePanel>
+                            <ResizableHandle />
+                            <ResizablePanel>
+                                <div className={`relative w-full h-full bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll`}>
+                                    <div className="flex justify-between items-center">
+                                    </div>
                                 </div>
-                            </div>
-                        </ResizablePanel>
-                    </ResizablePanelGroup>
+                            </ResizablePanel>
+                        </ResizablePanelGroup>
                     </div>
                 </div>
 

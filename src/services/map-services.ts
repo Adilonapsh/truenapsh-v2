@@ -65,7 +65,7 @@ const getFeatureInfo = async (e: mapboxgl.MapMouseEvent, layers: Layer | Layer[]
                     }
                 }
             } else {
-                const selectedFeatures = mapRef.queryRenderedFeatures(e.point,{
+                const selectedFeatures = mapRef.queryRenderedFeatures(e.point, {
                     layers: [layer.id],
                 });
                 if (selectedFeatures && selectedFeatures.length > 0) {
@@ -126,7 +126,7 @@ const convertWMSToVectorData = async (selectedLayer: Layer, mapRef: mapboxgl.Map
     let infoLayers = [];
     try {
         const response = await fetch(
-            `${selectedLayer?.map_service_url.replace("/wms", "")}/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=${selectedLayer?.map_service_layer_name}&outputFormat=application/json&srsName=EPSG:4326`
+            `${selectedLayer?.map_service_url.replace("/wms", "")}/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=${selectedLayer?.map_service_layer_name}&maxFeatures=1000000&outputFormat=application/json&srsName=EPSG:4326`
         );
         const data = await response.json();
 
@@ -318,6 +318,19 @@ const transfromEsriServicesToFolder = async (url: string) => {
     return generateFolder;
 }
 
+const getAllFeaturesGeoserver = async (url: string, layerId: string) => {
+    const workspace = layerId.split(":")[0];
+    const urls = `${url.replace("/wms", "")}/${workspace}/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=${layerId}&maxFeatures=100&outputFormat=application/json`
+    console.log("URL :", urls);
+    try {
+        const response = await fetch(urls);
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error("Failed to fetch or parse capabilities document:", error);
+    }
+}
+
 export {
     fetchGeoserverLayerBbox as fetchLayerBbox,
     getFeatureInfo,
@@ -331,4 +344,5 @@ export {
     //     getEsriServices,
     transfromEsriServicesToFolder,
     getWMSServices,
+    getAllFeaturesGeoserver,
 }
