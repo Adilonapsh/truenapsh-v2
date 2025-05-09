@@ -1793,6 +1793,9 @@ export default function MapLayout({
     const handleTableMapbox = async (index: number) => {
         const map = mapRef?.current?.getMap();
         const layerId = layers[index]?.id;
+        const mapServiceVendor = layers[index]?.map_service_vendor;
+        const mapServiceLayerName= layers[index]?.map_service_layer_name;
+        const mapServiceUrl= layers[index]?.map_service_url;
         const layer = map?.getLayer(layerId);
         const sourceId = layer?.source;
         const metadata = (layer as LayerSpecification & { metadata?: any })?.metadata;
@@ -1804,7 +1807,7 @@ export default function MapLayout({
         setDisplayLayouts((prev) => ({ ...prev, table: true }));
 
 
-        if (metadata?.map_service_vendor === MapServiceVendor.GeoJSON) {
+        if (mapServiceVendor === MapServiceVendor.GeoJSON) {
             const source = map?.getSource(sourceId ?? "");
             if (!source) return;
 
@@ -1819,8 +1822,8 @@ export default function MapLayout({
 
             header = Object.keys(allProperties[0] || {});
             rows = allProperties.map((properties: Record<string, any>) => Object.values(properties));
-        } else if (metadata.map_service_vendor === MapServiceVendor.Geoserver) {
-            const data = await getAllFeaturesGeoserver(metadata.map_service_url, metadata.map_service_layer_name);
+        } else if (mapServiceVendor === MapServiceVendor.Geoserver) {
+            const data = await getAllFeaturesGeoserver(mapServiceUrl, mapServiceLayerName);
             if (!data?.features?.length) return;
             const allProperties = data.features.map(
                 (feature: { properties: any }) => feature.properties

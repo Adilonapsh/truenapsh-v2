@@ -2086,7 +2086,12 @@ export function DynamicTable({ headers, data }: CsvTableProps) {
             }
         })
 
-        return [selectionColumn, leftActionColumn, ...dataColumns, rightActionColumn]
+        return [
+            selectionColumn, 
+            // leftActionColumn, 
+            ...dataColumns, 
+            // rightActionColumn
+        ]
     }, [headers, conditionalFormatRules, tableData])
 
     // Initialize column order if not set
@@ -2631,7 +2636,7 @@ export function DynamicTable({ headers, data }: CsvTableProps) {
 
     // Desktop layout with resizable panels
     return (
-        <div className="max-h-[500px]">
+        <div className="max-h-[500px] max-w-[96vw]">
             {showStats ? (
                 <ResizablePanelGroup
                     direction="horizontal"
