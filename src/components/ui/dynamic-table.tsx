@@ -505,7 +505,7 @@ function StatisticsPanel({
                 stats.min = Math.min(...numericValues)
                 stats.max = Math.max(...numericValues)
                 stats.sum = numericValues.reduce((sum, val) => sum + val, 0)
-                stats.average = stats.sum / numericValues.length
+                stats.average = stats.sum ?? 0 / numericValues.length
 
                 // Calculate median
                 const mid = Math.floor(sortedNumericValues.length / 2)
@@ -1006,22 +1006,22 @@ function StatisticsPanel({
                                                             )}
                                                             {stats.max !== null && (
                                                                 <div className="text-sm">
-                                                                    <span className="font-medium">Max:</span> {String(stats.max)}
+                                                                    <span className="font-medium">Max:</span> {String(stats?.max)}
                                                                 </div>
                                                             )}
                                                             {stats.sum !== null && (
                                                                 <div className="text-sm">
-                                                                    <span className="font-medium">Sum:</span> {stats.sum.toFixed(2)}
+                                                                    <span className="font-medium">Sum:</span> {stats?.sum?.toFixed(2)}
                                                                 </div>
                                                             )}
                                                             {stats.average !== null && (
                                                                 <div className="text-sm">
-                                                                    <span className="font-medium">Average:</span> {stats.average.toFixed(2)}
+                                                                    <span className="font-medium">Average:</span> {stats?.average?.toFixed(2)}
                                                                 </div>
                                                             )}
                                                             {stats.median !== null && (
                                                                 <div className="text-sm">
-                                                                    <span className="font-medium">Median:</span> {stats.median.toFixed(2)}
+                                                                    <span className="font-medium">Median:</span> {stats?.median?.toFixed(2)}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -2043,12 +2043,12 @@ export function DynamicTable({ headers, data }: CsvTableProps) {
                 size: 150, // Default column width
                 minSize: 50, // Minimum column width
                 maxSize: 500, // Maximum column width
-                filterFn: (row, id, filterValues) => {
+                filterFn: (row: any, id: string, filterValues: string[]) => {
                     if (!filterValues || filterValues.length === 0) return true
                     const value = String(row.getValue(id))
                     return filterValues.includes(value)
                 },
-                cell: ({ row, column, getValue }) => {
+                cell: ({ row, column, getValue }: { row: any; column: any; getValue: () => any }) => {
                     const value = getValue()
                     const formatting = applyCellFormatting(value, column.id, conditionalFormatRules)
 
