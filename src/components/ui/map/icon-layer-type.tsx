@@ -16,7 +16,9 @@ function IconLayerType({ layer, size = "13pt" }: { layer: Layer | null, size: st
                 <TextIcon size={size} className='opacity-25' />
             ) : layer?.map_service_vendor === MapServiceVendor.Icon ? (
                 <SmileIcon size={size} className='opacity-25' />
-            ) : layer?.map_service_vendor === MapServiceVendor.GeoJSON || layer?.map_service_vendor === MapServiceVendor.ArcGIS ? (
+            ) : layer?.map_service_vendor === MapServiceVendor.GeoJSON || layer?.map_service_url.includes("FeatureServer") ? (
+                <FaVectorSquare size={size} className='opacity-25' />
+            ) : layer?.map_service_vendor === MapServiceVendor.Geoserver || layer?.map_service_vendor === MapServiceVendor.ArcGIS ? (
                 <BiGlobe size={size} className='opacity-25' />
             ) : layer?.map_service_vendor === MapServiceVendor.XYZ ? (
                 <GridIcon size={size} className='opacity-25' />

@@ -1,14 +1,17 @@
 'use client'
 
-import { ChevronRight, ChevronDown, Folder, File } from 'lucide-react'
-import { useState } from 'react'
+import { ChevronRight, ChevronDown, Folder, File, LucideWaypoints, FolderOpen } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import FileGrid from './file-grid'
 import { cn } from "@/lib/utils"
 import { FaVectorSquare } from 'react-icons/fa6'
 import { BiGlobe } from 'react-icons/bi'
 import { Datasets } from '@/types/datasets.types'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from './resizable'
+import { MagnifyingGlassIcon } from '@radix-ui/react-icons'
 
-type TreeNode = {
+export type TreeNode = {
+    id: string
     name: string
     type: string
     children?: TreeNode[]
@@ -39,7 +42,7 @@ function TreeNode({ node, level, path, onSelect, selectedPath }: TreeNodeProps) 
         onSelect(node, path)
     }
 
-    const isSelected = selectedPath === path
+    const isSelected = node.id === selectedPath
 
     return (
         <div className="select-none">
@@ -55,23 +58,45 @@ function TreeNode({ node, level, path, onSelect, selectedPath }: TreeNodeProps) 
                     isOpen ? <ChevronDown className="w-4 h-4 mr-1" /> : <ChevronRight className="w-4 h-4 mr-1" />
                 )}
                 {node.type === 'folder' && (
-                    <Folder className="w-4 h-4 mr-2 text-blue-500" />
+                    isOpen ? <FolderOpen className="text-blue-500 w-4 h-4 mr-1" /> : <Folder className="text-blue-500 w-4 h-4 mr-1" />
                 )}
 
                 {node.type != 'folder' && (
-                    <div>
+                    <div className="flex items-center">
                         {node.type === 'VectorTileServer' ? (
-                            <FaVectorSquare className="w-4 h-4 mr-2 text-gray-500" />
+                            <>
+                                <FaVectorSquare className="w-4 h-4 mr-2 text-red-500" />
+                                <span className='capitalize text-red-500'>{node.name}</span>
+                                <span className="ml-2 text-xs border border-red-500 text-red-500 px-2 py-0.5 rounded-full">{node.type}</span>
+                            </>
                         ) : node.type === 'MapServer' ? (
-                            <BiGlobe className="w-4 h-4 mr-2 text-gray-500" />
+                            <>
+                                <BiGlobe className="w-4 h-4 mr-2 text-yellow-500" />
+                                <span className='capitalize text-yellow-500'>{node.name}</span>
+                                <span className="ml-2 text-xs border border-yellow-500 text-yellow-500 px-2 py-0.5 rounded-full">{node.type}</span>
+                            </>
                         ) : node.type === 'FeatureServer' ? (
-                            <FaVectorSquare className="w-4 h-4 mr-2 text-gray-500" />
+                            <>
+                                <LucideWaypoints className="w-4 h-4 mr-2 text-blue-500" />
+                                <span className='capitalize text-blue-500'>{node.name}</span>
+                                <span className="ml-2 text-xs border border-blue-500 text-blue-500 px-2 py-0.5 rounded-full">{node.type}</span>
+                            </>
                         ) : (
-                            <File className="w-4 h-4 mr-2 text-gray-500" />
+                            <>
+                                <File className="w-4 h-4 mr-2 text-gray-500" />
+                                <span className='capitalize text-gray-500'>{node.name}</span>
+                                <span className="ml-2 text-xs border border-gray-500 text-gray-500 px-2 py-0.5 rounded-full">{node.type}</span>
+                            </>
                         )}
                     </div>
                 )}
-                <span className='capitalize'>{node.name}</span>
+
+                {node.type === 'folder' && (
+                    <div className="flex items-center gap-2">
+                        <span className='capitalize'>{node.name}</span>
+                        <span className="text-foreground/50 text-xs">{node.children?.length} Items</span>
+                    </div>
+                )}
             </div>
             {isOpen && node.children && (
                 <div>
@@ -95,6 +120,33 @@ export default function TreeDirectory({ data, setSelectedDatasets, selectedDatas
     const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null)
     const [selectedPath, setSelectedPath] = useState<string | null>(null)
 
+    const searchNode = (node: TreeNode, searchTerm: string): boolean => {
+        // Check if current node name matches search
+        if (node.name.toLowerCase().includes(searchTerm)) {
+            return true;
+        }
+
+        // Recursively search children if they exist
+        if (node.children) {
+            return node.children.some(child => searchNode(child, searchTerm));
+        }
+
+        return false;
+    }
+
+    const [searchTerm, setSearchTerm] = useState<string>('');
+    const [filteredData, setFilteredData] = useState<TreeNode[]>(data);
+
+    useEffect(() => {
+        if (!searchTerm) {
+            setFilteredData(data);
+            return;
+        }
+
+        const filtered = data.filter(node => searchNode(node, searchTerm.toLowerCase()));
+        setFilteredData(filtered);
+    }, [searchTerm, data]);
+
     const handleSelect = (node: TreeNode, path: string) => {
         const layer = {
             id: node.id,
@@ -109,27 +161,53 @@ export default function TreeDirectory({ data, setSelectedDatasets, selectedDatas
             setSelectedDatasets([...selectedDatasets, { ...layer }]);
         }
         setSelectedNode(node)
-        setSelectedPath(path)
+        setSelectedPath(node.id)
     }
+
     return (
-        <div className="flex border-r-1 p-4 max-w-4xl w-full h-full">
-            <div className="h-full w-1/2 pr-4 border-r overflow-auto">
-                <h2 className="text-lg font-semibold mb-4">{activeDatasets.name} Directory Structure</h2>
-                {data.map((node, index) => (
-                    <TreeNode
-                        key={index}
-                        node={node}
-                        level={0}
-                        path={node.name}
-                        onSelect={handleSelect}
-                        selectedPath={selectedPath}
-                    />
-                ))}
+        <div className="sw-full h-full">
+            <div className="h-full pr-4 overflow-auto">
+                <ResizablePanelGroup direction="horizontal" className="h-full">
+                    <ResizablePanel>
+                        <div className="h-full p-5">
+                            <h2 className="text-lg font-semibold mb-4">{activeDatasets.name} Directory Structure</h2>
+                            <div className="mb-4">
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Search files and folders..."
+                                        className="w-full px-3 py-2 pl-10 border rounded-md border-input bg-background"
+                                        onChange={(e) => {
+                                            setSearchTerm(e.target.value);
+                                        }}
+                                    />
+                                    <MagnifyingGlassIcon className='absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400' />
+                                </div>
+                            </div>
+                            <div className="h-[calc(100%-120px)] overflow-auto">
+                                {filteredData.map((node, index) => (
+                                    <TreeNode
+                                        key={index}
+                                        node={node}
+                                        level={0}
+                                        path={node.name}
+                                        onSelect={handleSelect}
+                                        selectedPath={selectedPath}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </ResizablePanel>
+                    <ResizableHandle />
+                    <ResizablePanel>
+                        <div className="h-full p-5">
+                            <h2 className="text-lg font-semibold mb-4">File/Folder Details</h2>
+                            {selectedNode && <FileGrid node={selectedNode} path={selectedPath || ''} />}
+                        </div>
+                    </ResizablePanel>
+                </ResizablePanelGroup>
             </div>
-            <div className="w-1/2 pl-4 sticky">
-                <h2 className="text-lg font-semibold mb-4">File/Folder Details</h2>
-                {selectedNode && <FileGrid node={selectedNode} path={selectedPath || ''} />}
-            </div>
+
         </div>
     )
 }

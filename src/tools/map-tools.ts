@@ -112,6 +112,48 @@ const getBBOX = (lat: number, lng: number, z: number) => {
     return `${x - z},${y - z},${x + z},${y + z}`;
 };
 
+export const layerConfigs = [
+    {
+        types: ["Polygon", "MultiPolygon"],
+        layerType: "fill" as const,
+        nameSuffix: "Polygon",
+        layerProps: {
+            paint: {
+                "fill-opacity": 0.5,
+                "fill-color": "#627BC1"
+            }
+        }
+    },
+    {
+        types: ["LineString", "MultiLineString"],
+        layerType: "line" as const,
+        nameSuffix: "Linestring",
+        layerProps: {
+            paint: {
+                "line-color": "#627BC1",
+                "line-width": 2,
+                "line-opacity": 1
+            }
+        }
+    },
+    {
+        types: ["Point", "MultiPoint"],
+        layerType: "circle" as const,
+        nameSuffix: "Point",
+        layerProps: {
+            paint: {
+                "circle-radius": 5,
+                "circle-color": "#627BC1",
+                "circle-opacity": 1
+            }
+        }
+    }
+];
+
+const findLayerConfigByGeometryType = (type: string) => {
+    return layerConfigs.find(config => config.types.includes(type));
+}
+
 const addGeojsonToMap = async ({
     mapRef,
     layerName,
@@ -163,44 +205,6 @@ const addGeojsonToMap = async ({
         duration: 1000
     });
 
-    // Layer rendering configurations
-    const layerConfigs = [
-        {
-            types: ["Polygon", "MultiPolygon"],
-            layerType: "fill" as const,
-            nameSuffix: "Polygon",
-            layerProps: {
-                paint: {
-                    "fill-opacity": 0.5,
-                    "fill-color": "#627BC1"
-                }
-            }
-        },
-        {
-            types: ["LineString", "MultiLineString"],
-            layerType: "line" as const,
-            nameSuffix: "Linestring",
-            layerProps: {
-                paint: {
-                    "line-color": "#627BC1",
-                    "line-width": 2,
-                    "line-opacity": 1
-                }
-            }
-        },
-        {
-            types: ["Point", "MultiPoint"],
-            layerType: "circle" as const,
-            nameSuffix: "Point",
-            layerProps: {
-                paint: {
-                    "circle-radius": 5,
-                    "circle-color": "#627BC1",
-                    "circle-opacity": 1
-                }
-            }
-        }
-    ];
 
     layerConfigs.forEach(config => {
         if (config.types.some(type => geometryTypes.includes(type as "Point" | "MultiPoint" | "LineString" | "MultiLineString" | "Polygon" | "MultiPolygon" | "GeometryCollection"))) {
@@ -475,7 +479,7 @@ const elevationLayers = async (featureCollection: FeatureCollection, source: str
         if (source === "Map Toolkit") {
             const points = featureCollection.features.map(feature => {
                 const coords = feature.geometry.coordinates;
-                return Array.isArray(coords[0]) ? coords[0].map(c => `[${c}]`).join(',') : `[${coords}]`;
+                return Array.isArray(coords[0]) ? coords[0].map((c: any) => `[${c}]`).join(',') : `[${coords}]`;
             });
             const response = await fetch(`https://maptoolkit.p.rapidapi.com/elevation?points=[${points}]`, {
                 headers: {
@@ -599,6 +603,7 @@ export {
     removeDuplicatesLayers,
     searchAlternatives,
     searchPlaces,
-    simplifyLayers
+    simplifyLayers,
+    findLayerConfigByGeometryType
 };
 

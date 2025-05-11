@@ -61,8 +61,8 @@ import {
 } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { addBookmark, removeBookmark, updateBookmark } from "@/server/bookmark";
-import { convertWMSToVectorData, fetchLayerBbox, getAllFeaturesGeoserver, getFeatureInfo, getWMSServices, transfromEsriServicesToFolder, } from '@/services/map-services';
-import { addGeojsonToMap, aiCommand, calculateCoordinatesWithAspectRatio, searchAlternatives } from "@/tools/map-tools";
+import { convertWMSToVectorData, fetchLayerBbox, getAllFeaturesGeoserver, getFeatureInfo, getWMSServices } from '@/services/map-services';
+import { addGeojsonToMap, aiCommand, calculateCoordinatesWithAspectRatio, findLayerConfigByGeometryType, searchAlternatives } from "@/tools/map-tools";
 import { Bookmark } from "@/types/bookmark.types";
 import { Datasets } from "@/types/datasets.types";
 import {
@@ -102,8 +102,9 @@ import FlowDiagramWithDraggableNodes from '../flow/flow-components';
 import M3U8VideoPlayer from "../hls";
 import { Input } from '../input';
 import AnimatedLoadingScreen from '../loading-animation-screen';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../resizable";
 import { ScrollArea } from "../scroll-area";
-import TreeDirectory from '../tree-view';
+import TreeDirectory, { TreeNode } from '../tree-view';
 import BookmarkDropdown from "./bookmark-dropdown";
 import IconLayerType from './icon-layer-type';
 import LegendEsri from "./legend-esri";
@@ -111,7 +112,6 @@ import MapMenu from './map-menu';
 import OperationComponents from "./operation-page";
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "../resizable";
 
 export default function MapLayout({
     layersFetch,
@@ -256,7 +256,6 @@ export default function MapLayout({
         `;
 
         el.addEventListener('mouseenter', () => {
-            console.log(el.querySelector('.cursor-label'))
             el.querySelector('.cursor-label')?.classList.remove('hidden');
         });
         el.addEventListener('mouseleave', () => {
@@ -580,7 +579,6 @@ export default function MapLayout({
                 layer.id === layerId ? { ...layer, visible: !status } : layer
             )
         );
-        console.log(layers)
     }
 
     const isSourceUsed = (sourceId: string): boolean => {
@@ -1137,7 +1135,7 @@ export default function MapLayout({
             newDatasets.splice(existingIndex, 1);
             setSelectedDatasets(newDatasets);
         } else {
-            setSelectedDatasets([...selectedDatasets, { ...layer, index, map_service_vendor: datasetProperties.map_service_vendor as MapServiceVendor, url: datasetProperties.url }]);
+            setSelectedDatasets([...selectedDatasets, { ...layer, index }]);
         }
     }
 
@@ -1233,38 +1231,69 @@ export default function MapLayout({
         const map = mapRef.current?.getMap();
         if (map) {
             layers.forEach(layer => {
-                if (layer.map_service_vendor == "Geoserver" || layer.map_service_vendor == "ArcGIS") {
-                    let url = "";
-                    if (layer.map_service_vendor == "Geoserver") {
+                let url = "";
+                if (layer.map_service_vendor == MapServiceVendor.Geoserver || layer.map_service_vendor == MapServiceVendor.ArcGIS) {
+                    if (layer.map_service_vendor == MapServiceVendor.Geoserver) {
                         const GEOSERVER_WMS_PARAMETER = "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
                         url = layer.map_service_url + GEOSERVER_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
-                    } else if (layer.map_service_vendor == "ArcGIS") {
+                    } else if (layer.map_service_vendor == MapServiceVendor.ArcGIS) {
                         const ESRI_WMS_PARAMETER = "/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=250,250&format=png&transparent=true&f=image"
                         url = layer.map_service_url + ESRI_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
+                        if (layer.map_service_url.includes("FeatureServer")) {
+                            url = layer.map_service_url + "/0/query?where=1=1&outFields=*&f=geojson&geometryType=esriGeometryEnvelope&returnGeometry=true";
+                        }
                     }
                     if (!map.getLayer(layer.id)) {
-                        map.addLayer({
-                            id: layer.id,
-                            type: "raster",
-                            source: {
+                        if (layer.map_service_url.includes("FeatureServer")) {
+                            fetch(url)
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.features) {
+                                        const type = data.features[0].geometry.type;
+                                        const layerConfig = findLayerConfigByGeometryType(type);
+                                        map.addLayer({
+                                            id: layer.id,
+                                            type: layerConfig?.layerType as "fill" | "line" | "circle",
+                                            source: {
+                                                type: "geojson",
+                                                data: data,
+                                            },
+                                            minzoom: layer.min_zoom || 0,
+                                            maxzoom: layer.max_zoom || 24,
+                                            layout: {
+                                                "visibility": layer.visible ? "visible" : "none",
+                                            },
+                                            metadata: layer.metadata ?? {},
+                                            ...layerConfig?.layerProps
+                                        });
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error("Error fetching GeoJSON:", error);
+                                    toast.error("Failed to load GeoJSON data");
+                                });
+                        } else {
+                            map.addLayer({
+                                id: layer.id,
                                 type: "raster",
-                                tiles: [url],
-                                // minzoom: layer.min_zoom || 0,
-                                // maxzoom: layer.max_zoom || 24,
-                            },
-                            minzoom: layer.min_zoom || 0,
-                            maxzoom: layer.max_zoom || 24,
-                            layout: {
-                                "visibility": layer.visible ? "visible" : "none",
-                            },
-                            paint: {
-                                "raster-opacity": 1,
-                            },
-                            metadata: layer.metadata ?? {}
-                        });
+                                source: {
+                                    type: "raster",
+                                    tiles: [url],
+                                },
+                                minzoom: layer.min_zoom || 0,
+                                maxzoom: layer.max_zoom || 24,
+                                layout: {
+                                    "visibility": layer.visible ? "visible" : "none",
+                                },
+                                paint: {
+                                    "raster-opacity": 1,
+                                },
+                                metadata: layer.metadata ?? {}
+                            });
+                        }
                     }
                 } else {
-                    // WIP
+                    //    WIP FOR GEOJSON
                 }
             });
         }
@@ -1371,8 +1400,8 @@ export default function MapLayout({
 
     const handleFolderClick = async (data: Datasets) => {
         setActiveDatasets(data);
-        const transformedFolder = await transfromEsriServicesToFolder(data.url);
-        setDatasetResult(transformedFolder ?? []);
+        const layerDatasets = await getWMSServices(data.url, data.map_service_vendor as MapServiceVendor)
+        setDatasetResult(layerDatasets ?? []);
     }
 
     const handlePrint = async () => {
@@ -1794,20 +1823,19 @@ export default function MapLayout({
         const map = mapRef?.current?.getMap();
         const layerId = layers[index]?.id;
         const mapServiceVendor = layers[index]?.map_service_vendor;
-        const mapServiceLayerName= layers[index]?.map_service_layer_name;
-        const mapServiceUrl= layers[index]?.map_service_url;
+        const mapServiceLayerName = layers[index]?.map_service_layer_name;
+        const mapServiceUrl = layers[index]?.map_service_url;
         const layer = map?.getLayer(layerId);
         const sourceId = layer?.source;
         const metadata = (layer as LayerSpecification & { metadata?: any })?.metadata;
 
         let header: string[] = [];
         let rows: any[] = [];
-        console.log(metadata)
 
         setDisplayLayouts((prev) => ({ ...prev, table: true }));
 
 
-        if (mapServiceVendor === MapServiceVendor.GeoJSON) {
+        if (mapServiceVendor === MapServiceVendor.GeoJSON || mapServiceUrl?.includes("FeatureServer")) {
             const source = map?.getSource(sourceId ?? "");
             if (!source) return;
 
@@ -2380,7 +2408,7 @@ export default function MapLayout({
                 )}
                 {displayLayouts.addLayer && (
                     <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm z-10' >
-                        <div className='relative w-full xl:w-1/2 bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll'>
+                        <div className='relative w-full bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll'>
                             <div className='flex justify-between items-center'>
                                 <div>
                                     <p className='font-semibold'>Add Layer</p>
@@ -2406,7 +2434,7 @@ export default function MapLayout({
                                                 </CardHeader>
                                                 <CardContent className="space-y-2">
                                                     <div className='h-[55vh] w-full'>
-                                                        <div className="h-full flex gap-4 overflow-auto border rounded-lg">
+                                                        <div className="h-full flex overflow-auto border rounded-lg">
                                                             <ScrollArea className="h-full w-1/2 border-r">
                                                                 <div className="p-2 space-y-1 ">
                                                                     {datasets.map((dataset, index) => (
@@ -2430,12 +2458,12 @@ export default function MapLayout({
                                                                     </div>
                                                                 )}
                                                                 {activeDatasets?.map_service_vendor == "Geoserver" && (
-                                                                    <div className='grid grid-cols-4 gap-2'>
+                                                                    <div className='grid grid-cols-2 lg:grid-cols-4 gap-2 p-2'>
                                                                         {datasetResult?.map((item, index) => (
-                                                                            <div key={index} onClick={() => handleSelectedDatasets(index)} className={"bg-blue-200 rounded-lg"}>
-                                                                                <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video" width={200} height={100} />
-                                                                                <PlusCircleIcon className="absolute hidden top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl w-5 h-5 group-hover/dataset:block" />
-                                                                                <p className="text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                                                            <div key={index} onClick={() => handleSelectedDatasets(index)} className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''}`}>
+                                                                                <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video hover:scale-105 transition-all" width={200} height={100} />
+                                                                                <PlusCircleIcon size={'24'} className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'}`} />
+                                                                                <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
                                                                             </div>
                                                                         ))}
                                                                     </div>
@@ -2486,29 +2514,41 @@ export default function MapLayout({
                                                     </div>
                                                     <div className='h-[50vh] w-full'>
                                                         <div className='h-full w-full overflow-auto bg-white border p-5 mb-2 rounded-lg dark:bg-background'>
-                                                            {datasetResult?.length === 0 && (
-                                                                <div className="h-full flex flex-col justify-center items-center">
-                                                                    <LuDatabase size={"30pt"} />
-                                                                    <p className='font-bold'>Theres no data to show yet.</p>
-                                                                    <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
-                                                                </div>
-                                                            )}
-                                                            {datasetProperties?.map_service_vendor == "Geoserver" && (
-                                                                <div className='grid grid-cols-4 gap-2'>
-                                                                    {datasetResult?.map((item, index) => (
-                                                                        <div key={index} onClick={() => handleSelectedDatasets(index)} className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''}`}>
-                                                                            <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video hover:scale-105 transition-all" width={200} height={100} />
-                                                                            <PlusCircleIcon size={'24'} className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'}`} />
-                                                                            <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                            {datasetProperties?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
-                                                                <div>
-                                                                    <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
-                                                                </div>
-                                                            )}
+
+                                                            <ResizablePanelGroup direction="horizontal">
+                                                                <ResizablePanel>
+                                                                    <div>
+                                                                        {datasetResult?.length === 0 && (
+                                                                            <div className="h-full flex flex-col justify-center items-center">
+                                                                                <LuDatabase size={"30pt"} />
+                                                                                <p className='font-bold'>Theres no data to show yet.</p>
+                                                                                <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </ResizablePanel>
+                                                                <ResizableHandle />
+                                                                <ResizablePanel>
+                                                                    <div>
+                                                                        {datasetProperties?.map_service_vendor == "Geoserver" && (
+                                                                            <div className='grid grid-cols-4 gap-2'>
+                                                                                {datasetResult?.map((item, index) => (
+                                                                                    <div key={index} onClick={() => handleSelectedDatasets(index)} className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''}`}>
+                                                                                        <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video hover:scale-105 transition-all text-center" width={300} height={200} />
+                                                                                        <PlusCircleIcon size={'24'} className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'}`} />
+                                                                                        <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                        {datasetProperties?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
+                                                                            <div>
+                                                                                <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </ResizablePanel>
+                                                            </ResizablePanelGroup>
                                                         </div>
                                                     </div>
                                                 </CardContent>

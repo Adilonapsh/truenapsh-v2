@@ -42,7 +42,7 @@ const getFeatureInfo = async (e: mapboxgl.MapMouseEvent, layers: Layer | Layer[]
     if (!mapRef) return;
     for (const layer of layerList) {
         if (layer.visible) {
-            if (layer.map_service_vendor === "Geoserver" || layer.map_service_vendor === "ArcGIS") {
+            if (layer.map_service_vendor === "Geoserver" || (layer.map_service_vendor === "ArcGIS" && !layer.map_service_url.includes("FeatureServer"))) {
                 if (layer.map_service_vendor === "Geoserver") {
                     const url = generateFeatureInfoURL(lat, lng, layer);
                     const response = await fetch(url);
@@ -258,7 +258,7 @@ const getGeoserverServices = async (url: string) => {
                 const north = rawbbox?.querySelector("northBoundLatitude")?.textContent;
                 const bbox = `${west},${south},${east},${north}`;
                 const thumbnail = `${url}?service=WMS&version=1.1.0&request=GetMap&layers=${name}&bbox=${bbox}&width=300&height=150&srs=EPSG%3A4326&styles=&format=image%2Fjpeg`
-                layers.push({ name, title, legend, thumbnail });
+                layers.push({ name, title, legend, thumbnail, url, map_service_vendor: MapServiceVendor.Geoserver });
                 layers.push(...getAllLayers(layer));
             });
             return layers;
@@ -280,43 +280,63 @@ const getWMSServices = async (url: string, map_service_vendor: string) => {
     if (map_service_vendor == "Geoserver") {
         return getGeoserverServices(url);
     } else {
-        const transform = await transfromEsriServicesToFolder(url);
+        const transform = await transformEsriServicesToFolder(url);
         return transform;
         // return getEsriServices(url);
     }
 }
 
-const transfromEsriServicesToFolder = async (url: string) => {
+const transformEsriServicesToFolder  = async (url: string) => {
     const getFolder = await getEsriServices(url);
     const folder = getFolder.folders;
-    let generateFolder = await Promise.all(folder.map(async (name: string, i: number) => {
+
+    let generateFolder = await Promise.all(folder.map(async (name: string) => {
         const getServices = await getEsriServices(`${url}/${name}`);
         const services = getServices.services;
-        let generateservices;
+
         if (services) {
-            generateservices = services.map((service: any, j: number) => {
+            const generateServices = await Promise.all(services.map(async (service: any) => {
+                const serviceUrl = `${url}/${service.name}/${service.type}`;
+                const serviceJson = await getEsriServices(serviceUrl);
+                const children = serviceJson?.layers?.map((layer: any) => ({
+                    id: v4(),
+                    name: layer.name,
+                    type: "layer",
+                    children: null,
+                    metadata: {
+                        id: layer.id,
+                        url: `${serviceUrl}/${layer.id}?f=json`,
+                        path: `${serviceUrl}/${layer.id}`,
+
+                    },
+                })) || [];
+
                 return {
                     id: v4(),
                     name: service.name.replaceAll("_", " ").split("/")[1],
                     type: service.type,
-                    children: null,
+                    children,
                     metadata: {
                         type: service.type,
-                        url: `${url}${service.name}/${service.type}?f=json`
+                        url: `${serviceUrl}?f=json`,
+                        path: serviceUrl,
+                        ...serviceJson
                     }
                 };
-            });
+            }));
+
             return {
                 id: v4(),
                 name: name.replaceAll("_", " "),
                 type: "folder",
-                children: generateservices ? [...generateservices] : [],
+                children: generateServices,
             };
         }
     }));
+
     generateFolder = generateFolder.filter(folder => folder !== undefined);
     return generateFolder;
-}
+};
 
 const getAllFeaturesGeoserver = async (url: string, layerId: string) => {
     const workspace = layerId.split(":")[0];
@@ -342,7 +362,7 @@ export {
     convertWMSToVectorData,
     //     getEsriLayers,
     //     getEsriServices,
-    transfromEsriServicesToFolder,
+    transformEsriServicesToFolder,
     getWMSServices,
     getAllFeaturesGeoserver,
 }

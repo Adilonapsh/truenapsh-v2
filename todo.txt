@@ -36,6 +36,7 @@
 36. Add Statistic to the table
 37. Add AI Highlight syntax (Done)
 38. Fix Table Freeze
+39. Refactor FeatureServer (Data Table, On click Map, ) / Ganti ke GeoJson
 
 
 
