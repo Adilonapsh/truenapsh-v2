@@ -142,7 +142,8 @@ export default function MapLayout({
     const [isLoading, setIsLoading] = useState<MapIsLoading>({
         initLoading: true,
         zoomToMap: false,
-        featureInfo: false
+        featureInfo: false,
+        dataset: false
     });
 
     const [showLoading, setShowLoading] = useState<boolean>(true)
@@ -357,6 +358,9 @@ export default function MapLayout({
             drawRef.current.changeMode('draw_polygon');
         } else if (e.key === 'Escape') {
             drawRef.current.changeMode('simple_select');
+        } else if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            handleOnSave();
         } else if (e.key === 'Enter') {
             saveFeaturesToLayer()
         }
@@ -1077,8 +1081,9 @@ export default function MapLayout({
     }
 
     const handleDatasets = async () => {
+        setIsLoading({ ...isLoading, dataset: true });
+        const map = mapRef.current?.getMap();
         if (datasetProperties.map_service_vendor == MapServiceVendor.XYZ) {
-            const map = mapRef.current?.getMap();
             if (map) {
                 const layerId = v4();
                 const href = datasetProperties.url;
@@ -1121,13 +1126,82 @@ export default function MapLayout({
                     }
                 } as Layer]);
             }
+        } else if (datasetProperties.map_service_vendor == MapServiceVendor.GeoJSON) {
+            if (map) {
+                const layerId = v4();
+                const href = datasetProperties.url;
+                const url = new URL(datasetProperties.url);
+                const domain = url.hostname;
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        const normalizedGeojsonData = data?.type === 'FeatureCollection' && Array.isArray(data.features)
+                            ? data
+                            : {
+                                type: "FeatureCollection",
+                                features: data
+                            };
+
+                        if (data && normalizedGeojsonData.features?.length > 0) {
+                            const geometryType = normalizedGeojsonData.features[0].geometry.type;
+                            const layerConfig = findLayerConfigByGeometryType(geometryType);
+
+                            const layerOptions = {
+                                id: layerId,
+                                type: layerConfig?.layerType as "fill" | "line" | "circle",
+                                source: {
+                                    type: "geojson",
+                                    data: normalizedGeojsonData,
+                                },
+                                minzoom: 0,
+                                maxzoom: 24,
+                                layout: {
+                                    "visibility": "visible",
+                                },
+                                metadata: {
+                                    domain,
+                                    url: href,
+                                    map_service_vendor: MapServiceVendor.GeoJSON,
+                                },
+                                ...layerConfig?.layerProps
+                            };
+
+                            map.addLayer(layerOptions);
+                            toast.success("Successfully loaded GeoJSON layer");
+                        }
+
+                    })
+                    .catch(error => {
+                        console.error("Error fetching GeoJSON:", error);
+                        toast.error("Failed to load GeoJSON data");
+                    });
+                setLayers(prevLayers => [...prevLayers, {
+                    id: layerId,
+                    name: `Geojson Layer ${layers.length + 1}`,
+                    map_service_url: url.toString(),
+                    map_service_layer_name: '',
+                    map_service_vendor: MapServiceVendor.GeoJSON,
+                    type: '2D',
+                    visible: true,
+                    min_zoom: 0,
+                    max_zoom: 24,
+                    status: 'Local',
+                    rendered: 1,
+                    metadata: {
+                        domain: domain,
+                        url: href,
+                        map_service_vendor: MapServiceVendor.GeoJSON,
+                    }
+                } as Layer]);
+            }
         } else {
             const datasets = await getWMSServices(datasetProperties.url, datasetProperties.map_service_vendor);
             setDatasetResult(datasets ?? []);
         }
+        setIsLoading({ ...isLoading, dataset: false });
     }
 
-    const handleSelectedDatasets = (index: number) => {
+    const handleSelectedDatasets = async (index: number) => {
         const layer: ParsedLayer = datasetResult[index];
         const existingIndex = selectedDatasets.findIndex(dataset => dataset.index === index);
         if (existingIndex >= 0) {
@@ -1242,12 +1316,45 @@ export default function MapLayout({
                         if (layer.map_service_url.includes("FeatureServer")) {
                             url = layer.map_service_url + "/0/query?where=1=1&outFields=*&f=geojson&geometryType=esriGeometryEnvelope&returnGeometry=true";
                         }
+                    } else if (layer.map_service_vendor == MapServiceVendor.GeoJSON) {
+                        url = layer.map_service_url;
                     }
+
                     if (!map.getLayer(layer.id)) {
                         if (layer.map_service_url.includes("FeatureServer")) {
                             fetch(url)
                                 .then(response => response.json())
                                 .then(data => {
+                                    if (data.features) {
+                                        const type = data.features[0].geometry.type;
+                                        const layerConfig = findLayerConfigByGeometryType(type);
+                                        map.addLayer({
+                                            id: layer.id,
+                                            type: layerConfig?.layerType as "fill" | "line" | "circle",
+                                            source: {
+                                                type: "geojson",
+                                                data: data,
+                                            },
+                                            minzoom: layer.min_zoom || 0,
+                                            maxzoom: layer.max_zoom || 24,
+                                            layout: {
+                                                "visibility": layer.visible ? "visible" : "none",
+                                            },
+                                            metadata: layer.metadata ?? {},
+                                            ...layerConfig?.layerProps
+                                        });
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error("Error fetching GeoJSON:", error);
+                                    toast.error("Failed to load GeoJSON data");
+                                });
+                        } else if (layer.map_service_vendor == MapServiceVendor.GeoJSON && layer.map_service_url) {
+                            console.log("Ini URL", url)
+                            fetch(url)
+                                .then(response => response.json())
+                                .then(data => {
+                                    console.log(data);
                                     if (data.features) {
                                         const type = data.features[0].geometry.type;
                                         const layerConfig = findLayerConfigByGeometryType(type);
@@ -2342,11 +2449,10 @@ export default function MapLayout({
                             </div>
                         </div>
                     </div>
-                    <div className={`${displayLayouts.table ? "block" : "hidden"}`}>
-                        <ResizablePanelGroup direction="horizontal" >
-                            <ResizablePanel
-                                defaultSize={100}>
-                                <div className={`relative w-full bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll`}>
+                    <div className={`${displayLayouts.table ? "block" : "hidden"} w-screen`}>
+                        <ResizablePanelGroup direction="horizontal" className="h-full">
+                            <ResizablePanel defaultSize={75}>
+                                <div className={`relative w-full h-full bg-white rounded-lg p-5 dark:bg-background`}>
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className='text-md font-bold mb-2'>Table</h5>
                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
@@ -2355,12 +2461,14 @@ export default function MapLayout({
                                             <X className="h-4 w-4" />
                                         </Button>
                                     </div>
-                                    <DynamicTable headers={tableData.header} data={tableData.rows} />
+                                    <div className="h-[50vh] overflow-auto">
+                                        <DynamicTable headers={tableData.header} data={tableData.rows} />
+                                    </div>
                                 </div>
                             </ResizablePanel>
-                            <ResizableHandle />
-                            <ResizablePanel>
-                                <div className={`relative w-full h-full bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll`}>
+                            <ResizableHandle withHandle/>
+                            <ResizablePanel defaultSize={25}>
+                                <div className={`relative w-full h-full bg-white rounded-lg p-5 dark:bg-background`}>
                                     <div className="flex justify-between items-center">
                                     </div>
                                 </div>
@@ -2435,45 +2543,86 @@ export default function MapLayout({
                                                 <CardContent className="space-y-2">
                                                     <div className='h-[55vh] w-full'>
                                                         <div className="h-full flex overflow-auto border rounded-lg">
-                                                            <ScrollArea className="h-full w-1/2 border-r">
-                                                                <div className="p-2 space-y-1 ">
-                                                                    {datasets.map((dataset, index) => (
-                                                                        <Button
-                                                                            key={index}
-                                                                            variant="ghost"
-                                                                            className={cn("w-full justify-start font-normal", activeDatasets?.id === dataset.id ? "bg-accent" : "")}
-                                                                            onClick={() => handleFolderClick(dataset)}
-                                                                        >
-                                                                            {dataset.name}
-                                                                        </Button>
-                                                                    ))}
-                                                                </div>
-                                                            </ScrollArea>
-                                                            <div className='h-full w-full rounded-lg dark:bg-background'>
-                                                                {datasetResult?.length === 0 && (
-                                                                    <div className="h-full flex flex-col justify-center items-center">
-                                                                        <LuDatabase size={"30pt"} />
-                                                                        <p className='font-bold'>Theres no data to show yet.</p>
-                                                                        <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
-                                                                    </div>
-                                                                )}
-                                                                {activeDatasets?.map_service_vendor == "Geoserver" && (
-                                                                    <div className='grid grid-cols-2 lg:grid-cols-4 gap-2 p-2'>
-                                                                        {datasetResult?.map((item, index) => (
-                                                                            <div key={index} onClick={() => handleSelectedDatasets(index)} className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''}`}>
-                                                                                <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video hover:scale-105 transition-all" width={200} height={100} />
-                                                                                <PlusCircleIcon size={'24'} className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'}`} />
-                                                                                <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
-                                                                            </div>
+                                                            <ResizablePanelGroup direction="horizontal">
+                                                                <ResizablePanel>
+                                                                    <ScrollArea className="h-full w-full">
+                                                                        {datasets.map((dataset, index) => (
+                                                                            <Button
+                                                                                key={index}
+                                                                                variant="ghost"
+                                                                                className={cn("w-full justify-start font-normal", activeDatasets?.id === dataset.id ? "bg-accent" : "")}
+                                                                                onClick={() => handleFolderClick(dataset)}
+                                                                            >
+                                                                                {dataset.name}
+                                                                            </Button>
                                                                         ))}
+                                                                    </ScrollArea>
+                                                                </ResizablePanel>
+                                                                <ResizableHandle withHandle/>
+                                                                <ResizablePanel>
+                                                                    <div className='h-full w-full rounded-lg dark:bg-background'>
+                                                                        {isLoading.dataset && (
+                                                                            <div className="h-full w-full flex items-center justify-center">
+                                                                                <div className="flex flex-col items-center gap-2">
+                                                                                    <AiOutlineLoading3Quarters className="animate-spin" size={24} />
+                                                                                    <p className="text-sm">Loading dataset...</p>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {!isLoading.dataset && (
+                                                                            <>
+                                                                                {datasetResult?.length === 0 && (
+                                                                                    <div className="h-full flex flex-col justify-center items-center">
+                                                                                        <LuDatabase size={"30pt"} />
+                                                                                        <p className='font-bold'>Theres no data to show yet.</p>
+                                                                                        <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
+                                                                                    </div>
+                                                                                )}
+                                                                                {activeDatasets?.map_service_vendor === "Geoserver" && (
+                                                                                    <div className='grid grid-cols-2 lg:grid-cols-4 gap-2 p-2'>
+                                                                                        {datasetResult?.map((item, index) => (
+                                                                                            <div
+                                                                                                key={index}
+                                                                                                onClick={() => handleSelectedDatasets(index)}
+                                                                                                className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''
+                                                                                                    }`}
+                                                                                            >
+                                                                                                <div className="w-full h-48 relative">
+                                                                                                    <img
+                                                                                                        src={item?.thumbnail || ''}
+                                                                                                        alt="Dataset Preview"
+                                                                                                        className="w-full h-full object-cover hover:scale-105 transition-all"
+                                                                                                    />
+                                                                                                </div>
+                                                                                                <PlusCircleIcon
+                                                                                                    size={'24'}
+                                                                                                    className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'
+                                                                                                        }`}
+                                                                                                />
+                                                                                                <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">
+                                                                                                    {item.title}
+                                                                                                </p>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
+                                                                                {activeDatasets?.map_service_vendor === "ArcGIS" && datasetResult?.length > 0 && (
+                                                                                    <div className="relative h-full">
+                                                                                        <TreeDirectory
+                                                                                            data={datasetResult}
+                                                                                            setSelectedDatasets={setSelectedDatasets}
+                                                                                            selectedDatasets={selectedDatasets}
+                                                                                            activeDatasets={activeDatasets}
+                                                                                        />
+                                                                                    </div>
+                                                                                )}
+                                                                            </>
+                                                                        )}
                                                                     </div>
-                                                                )}
-                                                                {activeDatasets?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
-                                                                    <div className="relative h-full">
-                                                                        <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} activeDatasets={activeDatasets} />
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                                </ResizablePanel>
+                                                            </ResizablePanelGroup>
+
+
                                                         </div>
                                                     </div>
                                                 </CardContent>
@@ -2502,7 +2651,7 @@ export default function MapLayout({
                                                                 <SelectItem value={MapServiceVendor.Geoserver}>Geoserver</SelectItem>
                                                                 <SelectItem value={MapServiceVendor.ArcGIS}>ArcGIS</SelectItem>
                                                                 <SelectItem value={MapServiceVendor.XYZ}>XYZ</SelectItem>
-                                                                {/* <SelectItem value={MapServiceVendor.GeoJSON}>Geojson</SelectItem> */}
+                                                                <SelectItem value={MapServiceVendor.GeoJSON}>Geojson</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                         <Input type="url" placeholder={
@@ -2515,27 +2664,39 @@ export default function MapLayout({
                                                     <div className='h-[50vh] w-full'>
                                                         <div className='h-full w-full overflow-auto bg-white border p-5 mb-2 rounded-lg dark:bg-background'>
 
-                                                            <ResizablePanelGroup direction="horizontal">
-                                                                <ResizablePanel>
-                                                                    <div>
-                                                                        {datasetResult?.length === 0 && (
-                                                                            <div className="h-full flex flex-col justify-center items-center">
-                                                                                <LuDatabase size={"30pt"} />
-                                                                                <p className='font-bold'>Theres no data to show yet.</p>
-                                                                                <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
-                                                                            </div>
-                                                                        )}
+                                                            {isLoading.dataset && (
+                                                                <div className="h-full w-full flex items-center justify-center">
+                                                                    <div className="flex flex-col items-center gap-2">
+                                                                        <AiOutlineLoading3Quarters className="animate-spin" size={24} />
+                                                                        <p className="text-sm">Loading dataset...</p>
                                                                     </div>
-                                                                </ResizablePanel>
-                                                                <ResizableHandle />
-                                                                <ResizablePanel>
+                                                                </div>
+                                                            )}
+                                                            {!isLoading.dataset && (
+                                                                <>
+                                                                    {datasetResult?.length === 0 && (
+                                                                        <div className="h-full flex flex-col justify-center items-center">
+                                                                            <LuDatabase size={"30pt"} />
+                                                                            <p className='font-bold'>Theres no data to show yet.</p>
+                                                                            <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
+                                                                        </div>
+                                                                    )}
                                                                     <div>
                                                                         {datasetProperties?.map_service_vendor == "Geoserver" && (
                                                                             <div className='grid grid-cols-4 gap-2'>
                                                                                 {datasetResult?.map((item, index) => (
                                                                                     <div key={index} onClick={() => handleSelectedDatasets(index)} className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''}`}>
-                                                                                        <img src={item?.thumbnail || ''} alt="Dataset Preview" className="bg-cover aspect-video hover:scale-105 transition-all text-center" width={300} height={200} />
-                                                                                        <PlusCircleIcon size={'24'} className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'}`} />
+                                                                                        <div className="w-full h-48 relative">
+                                                                                            <img
+                                                                                                src={item?.thumbnail || ''}
+                                                                                                alt="Dataset Preview"
+                                                                                                className="w-full h-full object-cover hover:scale-105 transition-all"
+                                                                                            />
+                                                                                        </div>
+                                                                                        <PlusCircleIcon
+                                                                                            size={'24'}
+                                                                                            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'}`}
+                                                                                        />
                                                                                         <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
                                                                                     </div>
                                                                                 ))}
@@ -2547,8 +2708,8 @@ export default function MapLayout({
                                                                             </div>
                                                                         )}
                                                                     </div>
-                                                                </ResizablePanel>
-                                                            </ResizablePanelGroup>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </CardContent>
@@ -2579,7 +2740,6 @@ export default function MapLayout({
                     </div>
                 )}
             </div>
-
         </div >
     )
 }

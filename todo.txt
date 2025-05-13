@@ -26,7 +26,7 @@
 26. Add Landing Page (WIP)
 27. Add Collaboration (Ganti ID socket dengan user ID)
 28. Fix Re-render (Done)
-29. Add Elevation Integration (Done)
+29. Add Elevation Integration (WIP)
 30. Add Charts
 31. Add Filter Data Map
 32. Fix Tools Scroll Bar (Done)
@@ -37,6 +37,10 @@
 37. Add AI Highlight syntax (Done)
 38. Fix Table Freeze
 39. Refactor FeatureServer (Data Table, On click Map, ) / Ganti ke GeoJson
+40. Buat Customisable Properties
+41. Add Data Export 
+42. Add Geojson Import (Done)
+43. Fix Scroll Table Statistic(Done)
 
 
 

@@ -2087,9 +2087,9 @@ export function DynamicTable({ headers, data }: CsvTableProps) {
         })
 
         return [
-            selectionColumn, 
+            selectionColumn,
             // leftActionColumn, 
-            ...dataColumns, 
+            ...dataColumns,
             // rightActionColumn
         ]
     }, [headers, conditionalFormatRules, tableData])
@@ -2636,7 +2636,7 @@ export function DynamicTable({ headers, data }: CsvTableProps) {
 
     // Desktop layout with resizable panels
     return (
-        <div className="max-h-[500px] max-w-[96vw]">
+        <div className="h-full w-full">
             {showStats ? (
                 <ResizablePanelGroup
                     direction="horizontal"
@@ -2646,13 +2646,15 @@ export function DynamicTable({ headers, data }: CsvTableProps) {
                     }}
                 >
                     <ResizablePanel defaultSize={defaultLayout[0]} minSize={30}>
-                        <div className='p-5'>
-                            {renderTable()}
-                        </div>
+                        <ScrollArea className="w-full h-full">
+                            <div className='p-5'>
+                                {renderTable()}
+                            </div>
+                        </ScrollArea>
                     </ResizablePanel>
                     <ResizableHandle withHandle />
                     <ResizablePanel defaultSize={defaultLayout[1]} minSize={20} className="overflow-auto">
-                        <ScrollArea className="w-full">
+                        <ScrollArea className="w-full h-full">
                             <div className="p-4">
                                 <StatisticsPanel
                                     tableData={tableData}
@@ -2664,7 +2666,11 @@ export function DynamicTable({ headers, data }: CsvTableProps) {
                     </ResizablePanel>
                 </ResizablePanelGroup>
             ) : (
-                renderTable()
+                <ScrollArea className="w-full h-full">
+                    <div className='p-5'>
+                        {renderTable()}
+                    </div>
+                </ScrollArea>
             )}
         </div>
     )

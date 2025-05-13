@@ -97,6 +97,7 @@ type MapIsLoading = {
     initLoading: boolean;
     zoomToMap: boolean;
     featureInfo: boolean;
+    dataset: boolean;
 }
 
 type Coordinate = [number, number];
@@ -122,6 +123,7 @@ type ParsedLayer = {
     index?: number | undefined | null;
     id?: string | undefined | null;
     map_service_vendor: MapServiceVendor;
+    metadata: Record<string, any>;
 }
 type LayerNode = Element;
 

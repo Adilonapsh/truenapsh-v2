@@ -251,14 +251,31 @@ const getGeoserverServices = async (url: string) => {
                 const name = layer.querySelector("Name")?.textContent || "Unnamed Layer";
                 const title = layer.querySelector("Title")?.textContent?.replaceAll("_", " ") || "No Title";
                 const legend = layer.querySelector("Style")?.querySelector("LegendURL")?.querySelector("OnlineResource")?.getAttribute("xlink:href");
-                const rawbbox = layer.querySelector("EX_GeographicBoundingBox");
-                const west = rawbbox?.querySelector("westBoundLongitude")?.textContent;
-                const east = rawbbox?.querySelector("eastBoundLongitude")?.textContent;
-                const south = rawbbox?.querySelector("southBoundLatitude")?.textContent;
-                const north = rawbbox?.querySelector("northBoundLatitude")?.textContent;
-                const bbox = `${west},${south},${east},${north}`;
+                const crs = layer.querySelector("CRS")?.textContent;
+                let bbox;
+                if (crs === "EPSG:4326") {
+                    const boundingBox = layer.querySelector("BoundingBox[CRS='EPSG:4326']");
+                    if (boundingBox) {
+                        const minx = boundingBox.getAttribute("minx");
+                        const miny = boundingBox.getAttribute("miny");
+                        const maxx = boundingBox.getAttribute("maxx");
+                        const maxy = boundingBox.getAttribute("maxy");
+                        bbox = `${minx},${miny},${maxx},${maxy}`;
+                    }
+                }else{
+                    const rawbbox = layer.querySelector("EX_GeographicBoundingBox");
+                    const west = rawbbox?.querySelector("westBoundLongitude")?.textContent;
+                    const east = rawbbox?.querySelector("eastBoundLongitude")?.textContent;
+                    const south = rawbbox?.querySelector("southBoundLatitude")?.textContent;
+                    const north = rawbbox?.querySelector("northBoundLatitude")?.textContent;
+                    bbox = `${west},${south},${east},${north}`;
+                }
                 const thumbnail = `${url}?service=WMS&version=1.1.0&request=GetMap&layers=${name}&bbox=${bbox}&width=300&height=150&srs=EPSG%3A4326&styles=&format=image%2Fjpeg`
-                layers.push({ name, title, legend, thumbnail, url, map_service_vendor: MapServiceVendor.Geoserver });
+                const metadata = {
+                    bbox,
+                    crs
+                }
+                layers.push({ name, title, legend, thumbnail, url, map_service_vendor: MapServiceVendor.Geoserver, metadata });
                 layers.push(...getAllLayers(layer));
             });
             return layers;
@@ -286,7 +303,7 @@ const getWMSServices = async (url: string, map_service_vendor: string) => {
     }
 }
 
-const transformEsriServicesToFolder  = async (url: string) => {
+const transformEsriServicesToFolder = async (url: string) => {
     const getFolder = await getEsriServices(url);
     const folder = getFolder.folders;
 
