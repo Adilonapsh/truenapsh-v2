@@ -40,7 +40,8 @@
 40. Buat Customisable Properties
 41. Add Data Export 
 42. Add Geojson Import (Done)
-43. Fix Scroll Table Statistic(Done)
+43. Fix Scroll Table Statistic (Done)
+44. Add 3D Data
 
 
 
