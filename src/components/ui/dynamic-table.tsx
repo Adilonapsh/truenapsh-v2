@@ -120,7 +120,7 @@ function useDebounce<T>(value: T, delay: number): T {
     return debouncedValue
 }
 
-interface CsvTableProps {
+export interface TableProps {
     headers: string[]
     data: string[][]
 }
@@ -1872,7 +1872,7 @@ function Plus({ className }: { className?: string }) {
     )
 }
 
-export function DynamicTable({ headers, data }: CsvTableProps) {
+export function DynamicTable({ headers, data }: TableProps) {
     const [searchTerm, setSearchTerm] = useState("")
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
     const [sorting, setSorting] = useState<SortingState>([])

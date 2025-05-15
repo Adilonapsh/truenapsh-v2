@@ -97,7 +97,7 @@ import { v4 } from 'uuid';
 import * as wkt from "wkt";
 import { ChatWithAI } from '../chat-with-ai';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from "../dropdown-menu";
-import { DynamicTable } from "../dynamic-table";
+import { DynamicTable, TableProps } from "../dynamic-table";
 import FlowDiagramWithDraggableNodes from '../flow/flow-components';
 import M3U8VideoPlayer from "../hls";
 import { Input } from '../input';
@@ -223,9 +223,9 @@ export default function MapLayout({
     const [bookmarks, setBookmarks] = useState<Bookmark[]>(bookmarkFetch)
     const [selectedBookmark, setSelectedBookmark] = useState<Bookmark | null>(null)
 
-    const [tableData, setTableData] = useState({
-        header: [],
-        rows: [],
+    const [tableData, setTableData] = useState<TableProps>({
+        headers: [],
+        data: [],
     });
 
 
@@ -1963,8 +1963,8 @@ export default function MapLayout({
         }
 
         setTableData({
-            header,
-            rows
+            headers: header,
+            data: rows
         })
     }
 
@@ -2457,7 +2457,7 @@ export default function MapLayout({
                                         </Button>
                                     </div>
                                     <div className="h-[50vh] overflow-auto">
-                                        <DynamicTable headers={tableData.header} data={tableData.rows} />
+                                        <DynamicTable headers={tableData.headers} data={tableData.data} />
                                     </div>
                                 </div>
                             </ResizablePanel>
