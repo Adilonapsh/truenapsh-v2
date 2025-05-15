@@ -78,14 +78,15 @@ export default function Home() {
                         <div className="relative">
                             <div className="relative h-[500px] w-full">
                                 <div className="absolute top-0 -left-72 lg:left-0 w-[960px] h-[540px] rounded-xl overflow-hidden">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-gray-900/80 to-black/95 backdrop-blur-sm rounded-xl"></div>
-                                    <Image
-                                        src="/assets/thumbnail.png"
-                                        alt="Dashboard Preview"
-                                        width={1920}
-                                        height={1080}
-                                        className="opacity-90"
-                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-br from-gray-900/80 to-black/95 backdrop-blur-sm rounded-xl">
+                                        <Image
+                                            src="/assets/thumbnail.png"
+                                            alt="Dashboard Preview"
+                                            width={1920}
+                                            height={1080}
+                                            className="opacity-90"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>

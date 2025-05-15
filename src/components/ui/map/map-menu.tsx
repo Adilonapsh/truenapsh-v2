@@ -128,10 +128,13 @@ function MapMenu(
                         <MenubarSeparator />
                         <MenubarItem inset>Toggle Fullscreen</MenubarItem>
                         <MenubarSeparator />
+                        <MenubarCheckboxItem checked>
+                            Show Team Cursors
+                        </MenubarCheckboxItem>
                         <MenubarItem inset>Hide Sidebar</MenubarItem>
-                        <MenubarCheckboxItem 
-                            checked={displayLayouts?.tools ?? false} 
-                            onClick={() => { 
+                        <MenubarCheckboxItem
+                            checked={displayLayouts?.tools ?? false}
+                            onClick={() => {
                                 if (displayLayouts) {
                                     setDisplayLayouts({
                                         ...displayLayouts,

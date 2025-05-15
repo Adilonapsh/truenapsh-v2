@@ -41,7 +41,7 @@ function MapView({
                 onZoom={onZoom}
                 onClick={onClick}
                 onMouseMove={onMouseMove}
-                mapStyle="mapbox://styles/mapbox/streets-v9"
+                mapStyle="mapbox://styles/mapbox/streets-v12"
                 hash={true}
                 onLoad={onLoad}
                 onStyleData={onStyleData}

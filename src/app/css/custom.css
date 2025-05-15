@@ -94,6 +94,7 @@
   font-weight: 500;
   white-space: nowrap;
   transition: opacity 0.2s ease;
+  border: 1px solid #fff;
 }
 
 .cursor-label.hidden {

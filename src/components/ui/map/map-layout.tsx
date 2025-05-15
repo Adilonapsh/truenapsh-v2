@@ -253,7 +253,7 @@ export default function MapLayout({
             <svg class="cursor-marker-child" width="25px" height="25px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M7.92098 2.29951C6.93571 1.5331 5.5 2.23523 5.5 3.48349V20.4923C5.5 21.9145 7.2945 22.5382 8.17661 21.4226L12.3676 16.1224C12.6806 15.7267 13.1574 15.4958 13.6619 15.4958H20.5143C21.9425 15.4958 22.5626 13.6887 21.4353 12.8119L7.92098 2.29951Z" fill="${color}" stroke="white" stroke-width="1"/>
             </svg>
-            <div class="cursor-label">${name}</div>
+            <div class="cursor-label" style="background-color:${color}; background-opacity:20%; color:white;">${name}</div>
         `;
 
         el.addEventListener('mouseenter', () => {
@@ -541,28 +541,23 @@ export default function MapLayout({
                 if (bm.id.toLowerCase().includes("mapbox")) {
                     map.setStyle(bm?.url);
                 } else {
-                    map.setStyle({
-                        version: 8,
-                        sources: {
-                            "basemap": {
-                                type: "raster",
-                                tiles: [
-                                    bm?.url
-                                ],
-                                tileSize: 256,
-                            }
+                    if (map.getLayer("basemap-layer")) {
+                        map.removeLayer("basemap-layer");
+                    }
+                    map.addLayer({
+                        id: "basemap-layer",
+                        type: "raster",
+                        source: {
+                            type: "raster",
+                            tiles: [
+                                bm?.url
+                            ],
+                            tileSize: 256,
                         },
-                        layers: [
-                            {
-                                id: "basemap-layer",
-                                type: "raster",
-                                source: "basemap",
-                                minzoom: 0,
-                                maxzoom: 24,
-                                slot: "bottom"
-                            }
-                        ]
-                    });
+                        minzoom: 0,
+                        maxzoom: 24,
+                        slot: "bottom"
+                    }, "gl-draw-polygon-fill.cold")
                 }
                 setActiveBasemap(index);
                 setTimeout(() => {
@@ -2451,7 +2446,7 @@ export default function MapLayout({
                     </div>
                     <div className={`${displayLayouts.table ? "block" : "hidden"} w-screen`}>
                         <ResizablePanelGroup direction="horizontal" className="h-full">
-                            <ResizablePanel defaultSize={75}>
+                            <ResizablePanel defaultSize={100}>
                                 <div className={`relative w-full h-full bg-white rounded-lg p-5 dark:bg-background`}>
                                     <div className="flex justify-between items-center mb-2">
                                         <h5 className='text-md font-bold mb-2'>Table</h5>
@@ -2466,8 +2461,8 @@ export default function MapLayout({
                                     </div>
                                 </div>
                             </ResizablePanel>
-                            <ResizableHandle withHandle/>
-                            <ResizablePanel defaultSize={25}>
+                            <ResizableHandle withHandle />
+                            <ResizablePanel defaultSize={0}>
                                 <div className={`relative w-full h-full bg-white rounded-lg p-5 dark:bg-background`}>
                                     <div className="flex justify-between items-center">
                                     </div>
@@ -2544,7 +2539,7 @@ export default function MapLayout({
                                                     <div className='h-[55vh] w-full'>
                                                         <div className="h-full flex overflow-auto border rounded-lg">
                                                             <ResizablePanelGroup direction="horizontal">
-                                                                <ResizablePanel>
+                                                                <ResizablePanel >
                                                                     <ScrollArea className="h-full w-full">
                                                                         {datasets.map((dataset, index) => (
                                                                             <Button
@@ -2557,8 +2552,8 @@ export default function MapLayout({
                                                                             </Button>
                                                                         ))}
                                                                     </ScrollArea>
-                                                                </ResizablePanel>
-                                                                <ResizableHandle withHandle/>
+                                                                </ResizablePanel >
+                                                                <ResizableHandle withHandle />
                                                                 <ResizablePanel>
                                                                     <div className='h-full w-full rounded-lg dark:bg-background'>
                                                                         {isLoading.dataset && (
@@ -2621,8 +2616,6 @@ export default function MapLayout({
                                                                     </div>
                                                                 </ResizablePanel>
                                                             </ResizablePanelGroup>
-
-
                                                         </div>
                                                     </div>
                                                 </CardContent>
