@@ -2640,12 +2640,12 @@ export function DynamicTable({ headers, data }: CsvTableProps) {
             {showStats ? (
                 <ResizablePanelGroup
                     direction="horizontal"
-                    className="h-full border rounded-md overflow-hidden"
+                    className="h-full border rounded-md overflow-auto"
                     onLayout={(sizes) => {
                         setDefaultLayout(sizes)
                     }}
                 >
-                    <ResizablePanel defaultSize={defaultLayout[0]} minSize={30}>
+                    <ResizablePanel defaultSize={defaultLayout[0]} minSize={30} className="overflow-auto">
                         <ScrollArea className="w-full h-full">
                             <div className='p-5'>
                                 {renderTable()}

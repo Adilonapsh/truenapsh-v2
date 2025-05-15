@@ -21,8 +21,12 @@ const Search: React.FC<SearchMapProps> = ({ onSearch }) => {
 
     const handleSearch = async () => {
         setLoading(true);
-        const places = await searchPlaces(search)
-        setListsPlaces(places);
+        try {
+            const places = await searchPlaces(search)
+            setListsPlaces(places);
+        } catch (error) {
+            console.log(error)
+        }
         setLoading(false);
     }
 

@@ -253,23 +253,23 @@ const getGeoserverServices = async (url: string) => {
                 const legend = layer.querySelector("Style")?.querySelector("LegendURL")?.querySelector("OnlineResource")?.getAttribute("xlink:href");
                 const crs = layer.querySelector("CRS")?.textContent;
                 let bbox;
-                if (crs === "EPSG:4326") {
-                    const boundingBox = layer.querySelector("BoundingBox[CRS='EPSG:4326']");
-                    if (boundingBox) {
-                        const minx = boundingBox.getAttribute("minx");
-                        const miny = boundingBox.getAttribute("miny");
-                        const maxx = boundingBox.getAttribute("maxx");
-                        const maxy = boundingBox.getAttribute("maxy");
-                        bbox = `${minx},${miny},${maxx},${maxy}`;
-                    }
-                }else{
-                    const rawbbox = layer.querySelector("EX_GeographicBoundingBox");
-                    const west = rawbbox?.querySelector("westBoundLongitude")?.textContent;
-                    const east = rawbbox?.querySelector("eastBoundLongitude")?.textContent;
-                    const south = rawbbox?.querySelector("southBoundLatitude")?.textContent;
-                    const north = rawbbox?.querySelector("northBoundLatitude")?.textContent;
-                    bbox = `${west},${south},${east},${north}`;
-                }
+                // if (crs === "EPSG:4326") {
+                //     const boundingBox = layer.querySelector("BoundingBox[CRS='EPSG:4326']");
+                //     if (boundingBox) {
+                //         const minx = boundingBox.getAttribute("minx");
+                //         const miny = boundingBox.getAttribute("miny");
+                //         const maxx = boundingBox.getAttribute("maxx");
+                //         const maxy = boundingBox.getAttribute("maxy");
+                //         bbox = `${minx},${miny},${maxx},${maxy}`;
+                //     }
+                // }else{
+                const rawbbox = layer.querySelector("EX_GeographicBoundingBox");
+                const west = rawbbox?.querySelector("westBoundLongitude")?.textContent;
+                const east = rawbbox?.querySelector("eastBoundLongitude")?.textContent;
+                const south = rawbbox?.querySelector("southBoundLatitude")?.textContent;
+                const north = rawbbox?.querySelector("northBoundLatitude")?.textContent;
+                bbox = `${west},${south},${east},${north}`;
+                // }
                 const thumbnail = `${url}?service=WMS&version=1.1.0&request=GetMap&layers=${name}&bbox=${bbox}&width=300&height=150&srs=EPSG%3A4326&styles=&format=image%2Fjpeg`
                 const metadata = {
                     bbox,
