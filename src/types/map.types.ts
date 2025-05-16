@@ -48,7 +48,7 @@ type Layer = {
     description?: string;
     map_service_url: string;
     map_service_layer_name: string;
-    map_service_vendor: MapServiceVendor | "Geoserver" | "ArcGIS" | "GeoJSON" | "Image" | "Text" | "Icon";
+    map_service_vendor: MapServiceVendor;
     type: string;
     visible: boolean;
     min_zoom?: number;

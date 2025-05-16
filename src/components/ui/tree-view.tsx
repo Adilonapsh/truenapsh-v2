@@ -9,6 +9,7 @@ import { BiGlobe } from 'react-icons/bi'
 import { Datasets } from '@/types/datasets.types'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from './resizable'
 import { MagnifyingGlassIcon } from '@radix-ui/react-icons'
+import { MapServiceVendor } from '@/types/map.types'
 
 export type TreeNode = {
     id: string
@@ -154,7 +155,7 @@ export default function TreeDirectory({ data, setSelectedDatasets, selectedDatas
             title: node.name,
             legend: "",
             thumbnail: "",
-            map_service_vendor: "ArcGIS",
+            map_service_vendor: MapServiceVendor.ArcGIS,
             url: node?.metadata?.url?.replaceAll("?f=json", ""),
         };
         if (node.type != "folder") {

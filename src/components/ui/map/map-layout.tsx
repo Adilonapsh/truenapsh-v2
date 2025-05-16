@@ -324,7 +324,6 @@ export default function MapLayout({
                 }
             });
         }
-
     }
 
     useEffect(() => {
@@ -375,10 +374,10 @@ export default function MapLayout({
             // Load Layers
             layers.forEach(layer => {
                 let url = "";
-                if (layer.map_service_vendor == "Geoserver") {
+                if (layer.map_service_vendor == MapServiceVendor.Geoserver) {
                     const GEOSERVER_WMS_PARAMETER = "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
                     url = layer.map_service_url + GEOSERVER_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
-                } else if (layer.map_service_vendor == "ArcGIS") {
+                } else if (layer.map_service_vendor == MapServiceVendor.ArcGIS) {
                     const ESRI_WMS_PARAMETER = "/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image"
                     url = layer.map_service_url + ESRI_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
                 }
@@ -607,7 +606,7 @@ export default function MapLayout({
         const map = mapRef?.current?.getMap();
         const layer = layers[index];
         if (map) {
-            if (layer.map_service_vendor == "Geoserver") {
+            if (layer.map_service_vendor == MapServiceVendor.Geoserver) {
                 const fetch = await fetchLayerBbox(layer.map_service_url, layer.map_service_layer_name);
                 if (map && fetch) {
                     const { minLng, minLat, maxLng, maxLat } = fetch;
@@ -622,7 +621,7 @@ export default function MapLayout({
                 } else {
                     console.log("Map reference is not defined.");
                 }
-            } else if (layer.map_service_vendor == "ArcGIS") {
+            } else if (layer.map_service_vendor == MapServiceVendor.ArcGIS) {
                 const esriURL = `${layer.map_service_url.replace("/export", "")}?f=json`;
                 fetch(esriURL).then((response) => {
                     if (!response.ok) {
@@ -1141,7 +1140,7 @@ export default function MapLayout({
                             const geometryType = normalizedGeojsonData.features[0].geometry.type;
                             const layerConfig = findLayerConfigByGeometryType(geometryType);
 
-                            const layerOptions = {
+                            map.addLayer({
                                 id: layerId,
                                 type: layerConfig?.layerType as "fill" | "line" | "circle",
                                 source: {
@@ -1159,9 +1158,7 @@ export default function MapLayout({
                                     map_service_vendor: MapServiceVendor.GeoJSON,
                                 },
                                 ...layerConfig?.layerProps
-                            };
-
-                            map.addLayer(layerOptions);
+                            });
                             toast.success("Successfully loaded GeoJSON layer");
                         }
 
@@ -1344,7 +1341,7 @@ export default function MapLayout({
                                     console.error("Error fetching GeoJSON:", error);
                                     toast.error("Failed to load GeoJSON data");
                                 });
-                        } else if (layer.map_service_vendor == MapServiceVendor.GeoJSON && layer.map_service_url) {
+                        } else if (layer.map_service_vendor === MapServiceVendor.GeoJSON && layer.map_service_url) {
                             console.log("Ini URL", url)
                             fetch(url)
                                 .then(response => response.json())
@@ -1858,7 +1855,7 @@ export default function MapLayout({
         )
 
         const { data }: { data: Bookmark } = response;
-        setBookmarks([...bookmarks, data])
+        setBookmarks([...bookmarks, data]);
 
     }
 
@@ -2154,7 +2151,6 @@ export default function MapLayout({
 
 
                 {/* RIGHT SIDE */}
-
                 <div className='absolute top-0 right-0 p-5 font-bold'>
                     <BookmarkDropdown
                         bookmarks={bookmarks}
@@ -2487,10 +2483,10 @@ export default function MapLayout({
                                 </Button>
                             </div>
                             <div>
-                                {selectedLayer?.map_service_vendor == "Geoserver" && (
+                                {selectedLayer?.map_service_vendor == MapServiceVendor.Geoserver && (
                                     <img src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}`} alt="Legend" />
                                 )}
-                                {selectedLayer?.map_service_vendor == "ArcGIS" && (
+                                {selectedLayer?.map_service_vendor == MapServiceVendor.ArcGIS && (
                                     <LegendEsri url={`${selectedLayer?.map_service_url}/legend?f=json`} />
                                 )}
                             </div>
@@ -2573,7 +2569,7 @@ export default function MapLayout({
                                                                                         <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
                                                                                     </div>
                                                                                 )}
-                                                                                {activeDatasets?.map_service_vendor === "Geoserver" && (
+                                                                                {activeDatasets?.map_service_vendor === MapServiceVendor.Geoserver && (
                                                                                     <div className='grid grid-cols-2 lg:grid-cols-4 gap-2 p-2'>
                                                                                         {datasetResult?.map((item, index) => (
                                                                                             <div
@@ -2601,7 +2597,7 @@ export default function MapLayout({
                                                                                         ))}
                                                                                     </div>
                                                                                 )}
-                                                                                {activeDatasets?.map_service_vendor === "ArcGIS" && datasetResult?.length > 0 && (
+                                                                                {activeDatasets?.map_service_vendor === MapServiceVendor.ArcGIS && datasetResult?.length > 0 && (
                                                                                     <div className="relative h-full">
                                                                                         <TreeDirectory
                                                                                             data={datasetResult}
@@ -2638,7 +2634,7 @@ export default function MapLayout({
                                                     <div className="flex flex-col gap-2 lg:flex-row items-center mb-2">
                                                         <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
                                                             <SelectTrigger className="w-full lg:w-[180px]">
-                                                                <SelectValue defaultValue={"Geoserver"} placeholder="Select Map Vendor" />
+                                                                <SelectValue defaultValue={MapServiceVendor.Geoserver} placeholder="Select Map Vendor" />
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 <SelectItem value={MapServiceVendor.Geoserver}>Geoserver</SelectItem>
@@ -2695,7 +2691,7 @@ export default function MapLayout({
                                                                                 ))}
                                                                             </div>
                                                                         )}
-                                                                        {datasetProperties?.map_service_vendor == "ArcGIS" && datasetResult?.length != 0 && (
+                                                                        {datasetProperties?.map_service_vendor == MapServiceVendor.ArcGIS && datasetResult?.length != 0 && (
                                                                             <div>
                                                                                 <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
                                                                             </div>

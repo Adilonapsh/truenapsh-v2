@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Toggle } from "@/components/ui/toggle"
-import { Layer, LayoutDisplay, MapboxLayerStyle } from "@/types/map.types"
+import { Layer, LayoutDisplay, MapboxLayerStyle, MapServiceVendor } from "@/types/map.types"
 import { ImagesIcon, PenIcon, Table2Icon, TableIcon, X, XIcon } from 'lucide-react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../accordion"
 import IconLayerType from "./icon-layer-type"
@@ -334,13 +334,13 @@ export function StylePanel(
                         <AccordionItem value="item-1">
                             <AccordionTrigger>Legend</AccordionTrigger>
                             <AccordionContent>
-                                {selectedLayer?.map_service_vendor == "Geoserver" && (
+                                {selectedLayer?.map_service_vendor == MapServiceVendor.Geoserver && (
                                     <img src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}`} alt="Legend" />
                                 )}
-                                {selectedLayer?.map_service_vendor == "ArcGIS" && (
+                                {selectedLayer?.map_service_vendor == MapServiceVendor.ArcGIS && (
                                     <LegendEsri url={`${selectedLayer?.map_service_url}/legend?f=json`} />
                                 )}
-                                {selectedLayer?.map_service_vendor == "GeoJSON" && (
+                                {selectedLayer?.map_service_vendor == MapServiceVendor.GeoJSON && (
                                     <LegendMapbox selectedLayer={selectedLayer} mapRef={mapRef} />
                                 )}
                             </AccordionContent>

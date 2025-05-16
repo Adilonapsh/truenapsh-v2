@@ -42,8 +42,8 @@ const getFeatureInfo = async (e: mapboxgl.MapMouseEvent, layers: Layer | Layer[]
     if (!mapRef) return;
     for (const layer of layerList) {
         if (layer.visible) {
-            if (layer.map_service_vendor === "Geoserver" || (layer.map_service_vendor === "ArcGIS" && !layer.map_service_url.includes("FeatureServer"))) {
-                if (layer.map_service_vendor === "Geoserver") {
+            if (layer.map_service_vendor === MapServiceVendor.Geoserver || (layer.map_service_vendor === MapServiceVendor.ArcGIS && !layer.map_service_url.includes("FeatureServer"))) {
+                if (layer.map_service_vendor === MapServiceVendor.Geoserver) {
                     const url = generateFeatureInfoURL(lat, lng, layer);
                     const response = await fetch(url);
                     const data = await response.json();
@@ -53,7 +53,7 @@ const getFeatureInfo = async (e: mapboxgl.MapMouseEvent, layers: Layer | Layer[]
                             properties: data.features[0].properties,
                         });
                     }
-                } else if (layer.map_service_vendor === "ArcGIS") {
+                } else if (layer.map_service_vendor === MapServiceVendor.ArcGIS) {
                     const url = generateFeatureInfoURL(lat, lng, layer);
                     const response = await fetch(url);
                     const data = await response.json();
@@ -85,7 +85,7 @@ const generateFeatureInfoURL = (
     longitude: number,
     layer: Layer
 ) => {
-    if (layer.map_service_vendor === "Geoserver") {
+    if (layer.map_service_vendor === MapServiceVendor.Geoserver) {
         const params: WMSParams | Record<string, string> = {
             service: "wms",
             version: "1.3.0",
@@ -294,7 +294,7 @@ const getGeoserverServices = async (url: string) => {
 }
 
 const getWMSServices = async (url: string, map_service_vendor: string) => {
-    if (map_service_vendor == "Geoserver") {
+    if (map_service_vendor == MapServiceVendor.Geoserver) {
         return getGeoserverServices(url);
     } else {
         const transform = await transformEsriServicesToFolder(url);

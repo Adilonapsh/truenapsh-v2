@@ -33,7 +33,7 @@
 33. Add Layers variable To System Prompt
 34. Bookmark Save (Done)
 35. Add Hotkeys to Draw (Done)
-36. Add Statistic to the table
+36. Add Statistic to the table (Done)
 37. Add AI Highlight syntax (Done)
 38. Fix Table Freeze
 39. Refactor FeatureServer (Data Table, On click Map, ) / Ganti ke GeoJson
@@ -45,6 +45,8 @@
 45. Add Arcgis Tables
 46. Find Another Basemaps
 47. Show Team Cursors
+48. Add Auto Scrap data from website in AI
+49. 
 
 
 
