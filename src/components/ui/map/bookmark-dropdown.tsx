@@ -105,11 +105,11 @@ export default function BookmarkDropdown({
             <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="w-[200px] justify-between">
-                        {selectedBookmark ? selectedBookmark.name : "Bookmarks"}
+                        {selectedBookmark ? selectedBookmark.name : "Select a bookmark"}
                         <ChevronDown className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-[300px]" ref={dropdownRef}>
+                <DropdownMenuContent className="w-[300px]" ref={dropdownRef} align="start">
                     <div className="flex items-center justify-between px-2 py-1.5">
                         <span className="text-sm font-medium">Bookmarks</span>
                         <div className="flex gap-1">
@@ -124,12 +124,12 @@ export default function BookmarkDropdown({
                             >
                                 <Plus className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            {/* <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <Settings className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            </Button> */}
+                            {/* <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <Trash2 className="h-4 w-4" />
-                            </Button>
+                            </Button> */}
                         </div>
                     </div>
                     <DropdownMenuSeparator />

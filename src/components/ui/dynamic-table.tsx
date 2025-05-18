@@ -96,6 +96,7 @@ import { Slider } from "@/components/ui/slider"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import dynamic from "next/dynamic"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { AiOutlineLoading3Quarters } from "react-icons/ai"
 
 // Import the StatisticsDialog component from the new file
 // import { StatisticsDialog } from "./csv-statistics"
@@ -122,7 +123,8 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export interface TableProps {
     headers: string[]
-    data: string[][]
+    data: string[][],
+    isLoading?: boolean
 }
 
 // Conditional formatting rule interface
@@ -1872,7 +1874,7 @@ function Plus({ className }: { className?: string }) {
     )
 }
 
-export function DynamicTable({ headers, data }: TableProps) {
+export function DynamicTable({ headers, data, isLoading = false }: TableProps) {
     const [searchTerm, setSearchTerm] = useState("")
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
     const [sorting, setSorting] = useState<SortingState>([])
@@ -2257,8 +2259,8 @@ export function DynamicTable({ headers, data }: TableProps) {
 
     // Render the table component
     const renderTable = () => (
-        <div className="space-y-4 h-full flex flex-col">
-            <div className="flex flex-col sm:flex-row gap-4 justify-between">
+        <div className="max-w-[97vw] w-full space-y-4 h-full flex flex-col">
+            <div className="w-full flex flex-col sm:flex-row gap-4 justify-between">
                 <div className="relative flex-1">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -2441,7 +2443,7 @@ export function DynamicTable({ headers, data }: TableProps) {
                 </div>
             )}
 
-            <div className="rounded-md border flex-grow overflow-hidden">
+            <div className="w-full rounded-md border flex-grow overflow-hidden">
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -2449,8 +2451,8 @@ export function DynamicTable({ headers, data }: TableProps) {
                     modifiers={[restrictToHorizontalAxis]}
                 >
                     <SortableContext items={columnOrder} strategy={horizontalListSortingStrategy}>
-                        <div ref={tableContainerRef} className="overflow-auto h-full">
-                            <Table className="relative">
+                        <div ref={tableContainerRef} className="w-full h-full">
+                            <Table className="relative table-auto">
                                 <TableHeader>
                                     {table.getHeaderGroups().map((headerGroup) => (
                                         <TableRow key={headerGroup.id}>
@@ -2461,7 +2463,18 @@ export function DynamicTable({ headers, data }: TableProps) {
                                     ))}
                                 </TableHeader>
                                 <TableBody>
-                                    {rows.length > 0 ? (
+                                    {isLoading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={columns.length || 1} className="h-24">
+                                                <div className="h-full w-full flex items-center justify-center">
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <AiOutlineLoading3Quarters className="animate-spin" size={24} />
+                                                        <p className="text-sm">Loading table...</p>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : rows.length > 0 ? (
                                         <>
                                             {/* Add padding to top based on virtual items */}
                                             {hasVirtualItems && <tr style={{ height: `${virtualItems[0]?.start || 0}px` }} />}
@@ -2559,8 +2572,10 @@ export function DynamicTable({ headers, data }: TableProps) {
                                 disabled={!table.getCanPreviousPage()}
                             >
                                 <span className="sr-only">Go to first page</span>
-                                <ChevronLeft className="h-4 w-4" />
-                                <ChevronLeft className="h-4 w-4" />
+                                <div className="relative flex">
+                                    <ChevronLeft className="" />
+                                    <ChevronLeft className="-ml-3" />
+                                </div>
                             </Button>
                             <Button
                                 variant="outline"
@@ -2587,8 +2602,10 @@ export function DynamicTable({ headers, data }: TableProps) {
                                 disabled={!table.getCanNextPage()}
                             >
                                 <span className="sr-only">Go to last page</span>
-                                <ChevronRight className="h-4 w-4" />
-                                <ChevronRight className="h-4 w-4" />
+                                <div className="relative flex">
+                                    <ChevronRight className="" />
+                                    <ChevronRight className="-ml-3" />
+                                </div>
                             </Button>
                         </div>
                     </div>
@@ -2636,25 +2653,25 @@ export function DynamicTable({ headers, data }: TableProps) {
 
     // Desktop layout with resizable panels
     return (
-        <div className="h-full w-full">
+        <div className="w-full h-full overflow-auto">
             {showStats ? (
                 <ResizablePanelGroup
                     direction="horizontal"
-                    className="h-full border rounded-md overflow-auto"
+                    className="w-full h-full border rounded-md"
                     onLayout={(sizes) => {
                         setDefaultLayout(sizes)
                     }}
                 >
                     <ResizablePanel defaultSize={defaultLayout[0]} minSize={30} className="overflow-auto">
-                        <ScrollArea className="w-full h-full">
-                            <div className='p-5'>
+                        <ScrollArea className="h-full">
+                            <div className="p-5">
                                 {renderTable()}
                             </div>
                         </ScrollArea>
                     </ResizablePanel>
                     <ResizableHandle withHandle />
-                    <ResizablePanel defaultSize={defaultLayout[1]} minSize={20} className="overflow-auto">
-                        <ScrollArea className="w-full h-full">
+                    <ResizablePanel defaultSize={defaultLayout[1]} minSize={10} className="overflow-auto">
+                        <ScrollArea className="h-full">
                             <div className="p-4">
                                 <StatisticsPanel
                                     tableData={tableData}
@@ -2666,10 +2683,8 @@ export function DynamicTable({ headers, data }: TableProps) {
                     </ResizablePanel>
                 </ResizablePanelGroup>
             ) : (
-                <ScrollArea className="w-full h-full">
-                    <div className='p-5'>
-                        {renderTable()}
-                    </div>
+                <ScrollArea className="w-full h-full overflow-auto">
+                    {renderTable()}
                 </ScrollArea>
             )}
         </div>

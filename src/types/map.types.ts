@@ -98,6 +98,7 @@ type MapIsLoading = {
     zoomToMap: boolean;
     featureInfo: boolean;
     dataset: boolean;
+    layerTable: boolean;
 }
 
 type Coordinate = [number, number];

@@ -25,7 +25,7 @@ function MapView({
         <div
             onDragOver={handleDragOver}
             onDrop={handleDrop}
-            className="w-full h-full"
+            className="w-full h-screen"
         >
             <Map
                 mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
@@ -41,7 +41,7 @@ function MapView({
                 onZoom={onZoom}
                 onClick={onClick}
                 onMouseMove={onMouseMove}
-                mapStyle="mapbox://styles/mapbox/streets-v12"
+                mapStyle="mapbox://styles/mapbox/streets-v9"
                 hash={true}
                 onLoad={onLoad}
                 onStyleData={onStyleData}

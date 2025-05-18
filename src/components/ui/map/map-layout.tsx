@@ -143,7 +143,8 @@ export default function MapLayout({
         initLoading: true,
         zoomToMap: false,
         featureInfo: false,
-        dataset: false
+        dataset: false,
+        layerTable: false,
     });
 
     const [showLoading, setShowLoading] = useState<boolean>(true)
@@ -371,35 +372,9 @@ export default function MapLayout({
             initWebsocket()
 
             setZoom(parseFloat(map.getZoom().toFixed(1)));
-            // Load Layers
-            layers.forEach(layer => {
-                let url = "";
-                if (layer.map_service_vendor == MapServiceVendor.Geoserver) {
-                    const GEOSERVER_WMS_PARAMETER = "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
-                    url = layer.map_service_url + GEOSERVER_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
-                } else if (layer.map_service_vendor == MapServiceVendor.ArcGIS) {
-                    const ESRI_WMS_PARAMETER = "/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image"
-                    url = layer.map_service_url + ESRI_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
-                }
-                map.addLayer({
-                    id: layer.id,
-                    type: "raster",
-                    source: {
-                        type: "raster",
-                        tiles: [url],
-                        // minzoom: layer.min_zoom || 0,
-                        // maxzoom: layer.max_zoom || 24,
-                    },
-                    minzoom: layer.min_zoom || 0,
-                    maxzoom: layer.max_zoom || 24,
-                    paint: {
-                        "raster-opacity": layer.visible ? 1 : 0,
-                    },
-                    metadata: layer.metadata ?? {}
-                });
-            });
 
-            // Load Draw Styles
+
+
             const drawStyles = [
                 {
                     id: 'gl-draw-polygon-fill',
@@ -457,6 +432,35 @@ export default function MapLayout({
             drawRef.current = draw;
             map.addControl(draw, 'bottom-right');
 
+            // Load Layers
+            layers.forEach(layer => {
+                let url = "";
+                if (layer.map_service_vendor == MapServiceVendor.Geoserver) {
+                    const GEOSERVER_WMS_PARAMETER = "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
+                    url = layer.map_service_url + GEOSERVER_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
+                } else if (layer.map_service_vendor == MapServiceVendor.ArcGIS) {
+                    const ESRI_WMS_PARAMETER = "/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=256,256&format=png&transparent=true&f=image"
+                    url = layer.map_service_url + ESRI_WMS_PARAMETER.replace("{layer}", layer.map_service_layer_name)
+                }
+                map.addLayer({
+                    id: layer.id,
+                    type: "raster",
+                    source: {
+                        type: "raster",
+                        tiles: [url],
+                        // minzoom: layer.min_zoom || 0,
+                        // maxzoom: layer.max_zoom || 24,
+                    },
+                    minzoom: layer.min_zoom || 0,
+                    maxzoom: layer.max_zoom || 24,
+                    paint: {
+                        "raster-opacity": layer.visible ? 1 : 0,
+                    },
+                    metadata: layer.metadata ?? {}
+                });
+            });
+
+            // Load Draw Styles
             map.on('draw.create', (e: { features: GeoJSON.Feature[] }) => {
                 console.log('Feature created:', e.features[0]);
                 setIsDrawDone(false);
@@ -539,9 +543,13 @@ export default function MapLayout({
             if (bm) {
                 if (bm.id.toLowerCase().includes("mapbox")) {
                     map.setStyle(bm?.url);
+                    setTimeout(() => {
+                        setLayers(layers.map((layer, i) => i === 0 ? { ...layer, rendered: layer.rendered ? 0 + 1 : 1 } : layer));
+                    }, 500);
                 } else {
                     if (map.getLayer("basemap-layer")) {
                         map.removeLayer("basemap-layer");
+                        map.removeSource("basemap-layer");
                     }
                     map.addLayer({
                         id: "basemap-layer",
@@ -555,13 +563,9 @@ export default function MapLayout({
                         },
                         minzoom: 0,
                         maxzoom: 24,
-                        slot: "bottom"
                     }, "gl-draw-polygon-fill.cold")
                 }
                 setActiveBasemap(index);
-                setTimeout(() => {
-                    setLayers(layers.map((layer, i) => i === 0 ? { ...layer, rendered: layer.rendered ? 0 + 1 : 1 } : layer));
-                }, 500);
             }
         }
     }
@@ -1499,8 +1503,12 @@ export default function MapLayout({
 
     const handleFolderClick = async (data: Datasets) => {
         setActiveDatasets(data);
+        setIsLoading({ ...isLoading, dataset: true })
+
         const layerDatasets = await getWMSServices(data.url, data.map_service_vendor as MapServiceVendor)
         setDatasetResult(layerDatasets ?? []);
+        setIsLoading({ ...isLoading, dataset: false })
+
     }
 
     const handlePrint = async () => {
@@ -1798,6 +1806,12 @@ export default function MapLayout({
             lng: event.lngLat.lng,
             lat: event.lngLat.lat,
         });
+        console.log({
+            x: event.originalEvent.clientX,
+            y: event.originalEvent.clientY,
+            lng: event.lngLat.lng,
+            lat: event.lngLat.lat,
+        })
     }
 
     const handleCopyCoordinates = () => {
@@ -1932,6 +1946,7 @@ export default function MapLayout({
         let rows: any[] = [];
 
         setDisplayLayouts((prev) => ({ ...prev, table: true }));
+        setIsLoading({ ...isLoading, layerTable: true })
 
 
         if (mapServiceVendor === MapServiceVendor.GeoJSON || mapServiceUrl?.includes("FeatureServer")) {
@@ -1963,6 +1978,9 @@ export default function MapLayout({
             headers: header,
             data: rows
         })
+
+        setIsLoading({ ...isLoading, layerTable: false })
+
     }
 
     const handleDraw = (drawMode: string) => {
@@ -1998,160 +2016,153 @@ export default function MapLayout({
 
     return (
         <div className='relative w-screen h-screen bg-gray-200'>
-            <div>
-                <ContextMenu>
-                    <ContextMenuTrigger asChild>
-                        <div className="h-screen">
-                            <MapView
-                                mapRef={mapRef}
-                                onRotate={onRotate}
-                                onMouseMove={onMouseMove}
-                                onClick={(event) => handleMapClick(event as MapMouseEvent)}
-                                onLoad={onMapLoad}
-                                onStyleData={onStyleData}
-                                onZoomEnd={onZoomEnd}
-                                handleDragOver={handleDragOver}
-                                handleDrop={handleDrop}
-                                onContextMenu={handleContextMenu}
-                            />
-                        </div>
-                    </ContextMenuTrigger>
-                    {menuPosition && (
-                        <ContextMenuContent
-                            className="absolute text-xs"
-                            style={{ top: menuPosition.y, left: menuPosition.x }}
-                        >
-                            <ContextMenuItem className="text-xs" onClick={() => { handleCopyCoordinates() }}>Copy Coordinates</ContextMenuItem>
-                            <ContextMenuItem className="text-xs" onClick={() => { handleRouteOrigin() }}>Route From Here</ContextMenuItem>
-                            <ContextMenuItem className="text-xs" onClick={() => { handleRouteDestination() }}>Route To Here</ContextMenuItem>
-                            {/* <ContextMenuItem className="text-xs" onClick={() => { handleMapIntegration() }}>Building</ContextMenuItem> */}
-                        </ContextMenuContent>
-                    )}
-                </ContextMenu>
-                {showLoading && (
-                    <div className={`absolute top-0 h-screen w-screen flex justify-center items-center z-10 ${isLoading.initLoading ? "" : "opacity-0"} transition-all duration-500`}>
-                        <AnimatedLoadingScreen />
-                    </div>
+            <ContextMenu>
+                <ContextMenuTrigger asChild>
+                    <MapView
+                        mapRef={mapRef}
+                        onRotate={onRotate}
+                        onMouseMove={onMouseMove}
+                        onClick={(event) => handleMapClick(event as MapMouseEvent)}
+                        onLoad={onMapLoad}
+                        onStyleData={onStyleData}
+                        onZoomEnd={onZoomEnd}
+                        handleDragOver={handleDragOver}
+                        handleDrop={handleDrop}
+                        onContextMenu={handleContextMenu}
+                    />
+                </ContextMenuTrigger>
+                {menuPosition && (
+                    <ContextMenuContent
+                        className="absolute text-xs"
+                        style={{ top: menuPosition.y, left: menuPosition.x }}
+                    >
+                        <ContextMenuItem className="text-xs" onClick={() => { handleCopyCoordinates() }}>Copy Coordinates</ContextMenuItem>
+                        <ContextMenuItem className="text-xs" onClick={() => { handleRouteOrigin() }}>Route From Here</ContextMenuItem>
+                        <ContextMenuItem className="text-xs" onClick={() => { handleRouteDestination() }}>Route To Here</ContextMenuItem>
+                        {/* <ContextMenuItem className="text-xs" onClick={() => { handleMapIntegration() }}>Building</ContextMenuItem> */}
+                    </ContextMenuContent>
                 )}
+            </ContextMenu>
+            {showLoading && (
+                <div className={`absolute top-0 h-screen w-screen flex justify-center items-center z-10 ${isLoading.initLoading ? "" : "opacity-0"} transition-all duration-500`}>
+                    <AnimatedLoadingScreen />
+                </div>
+            )}
 
-                {/* TOP ELEMENT */}
-                <div className='absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto'>
-                    <div className='bg-white px-5 py-2 rounded w-80 text-sm dark:bg-background'>
-                        <div className='flex justify-between items-center sticky top-0 py-2 bg-white dark:bg-background'>
-                            <h5 className='text-md font-bold'>Workspaces</h5>
-                            <div className='flex gap-3 items-center'>
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger onClick={() => signOut()}>
-                                            <BiLogOutCircle size={"13pt"} />
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Logout</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger onClick={() => setDisplayLayouts({ ...displayLayouts, aiChat: true })}>
-                                            <WiStars size={"13pt"} />
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>AI Chat</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger>
-                                            <BiCollapse size={"13pt"} onClick={collapseAll} />
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Collapse All</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger onClick={() => setDisplayLayouts({ ...displayLayouts, node_workspace: true })}>
-                                            <AiOutlineSisternode size={"13pt"} />
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Node Workspaces</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger onClick={() => setDisplayLayouts({ ...displayLayouts, addLayer: true })}>
-                                            <PlusIcon size={"13pt"} />
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Add Layer</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            </div>
+            {/* TOP ELEMENT */}
+            <div className='absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto'>
+                <div className='bg-white px-5 py-2 rounded w-80 text-sm dark:bg-background'>
+                    <div className='flex justify-between items-center sticky top-0 py-2 bg-white dark:bg-background'>
+                        <h5 className='text-md font-bold'>Workspaces</h5>
+                        <div className='flex gap-3 items-center'>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger onClick={() => signOut()}>
+                                        <BiLogOutCircle size={"13pt"} />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Logout</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger onClick={() => setDisplayLayouts({ ...displayLayouts, aiChat: true })}>
+                                        <WiStars size={"13pt"} />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>AI Chat</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger>
+                                        <BiCollapse size={"13pt"} onClick={collapseAll} />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Collapse All</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger onClick={() => setDisplayLayouts({ ...displayLayouts, node_workspace: true })}>
+                                        <AiOutlineSisternode size={"13pt"} />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Node Workspaces</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger onClick={() => setDisplayLayouts({ ...displayLayouts, addLayer: true })}>
+                                        <PlusIcon size={"13pt"} />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Add Layer</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
-                        {layers.length === 0 && (
-                            <div className='flex flex-col justify-center items-center h-32'>
-                                <LayersIcon className='mb-1' size={"20pt"} />
-                                <p className='font-semibold'>You havent added any layers yet.</p>
-                                <p className='text-xs'>Start adding layers to your map.</p>
-                            </div>
-                        )}
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCorners}
-                            onDragEnd={handleDragEnd}
-                            modifiers={[restrictToVerticalAxis]}
-                        >
-                            <SortableContext items={layers.map((layer) => layer.id)} strategy={verticalListSortingStrategy}>
-                                <Accordion
-                                    type="multiple"
-                                    value={openItems}
-                                    onValueChange={(values) => setOpenItems(values)}
-                                >
-                                    {layers.map((layer, index) => (
-                                        <SortableItem key={layer.id} id={layer.id}>
-                                            <AccordionItem className='border-none' value={layer.id}>
-                                                <div className='flex items-center gap-2'>
-                                                    <IconLayerType size='13pt' layer={layer} />
-                                                    <AccordionTrigger className='hover:no-underline text-sm py-2 w-64 capitalize'>
-                                                        <input
-                                                            value={layer.name}
-                                                            onChange={(e) => handleChangeLayerName(e, index)}
-                                                            className="font-medium bg-transparent border-none focus:outline-none focus:ring-0"
-                                                        />
-                                                    </AccordionTrigger>
-                                                </div>
-                                                <AccordionContent className='text-xs border-none'>
-                                                    <div className='flex justify-center gap-1 px-1'>
-                                                        <Button variant={"ghost"} size="sm" onClick={() => setLayerVisible(index, layer.visible)}>{layer.visible ? <Eye size={"12pt"} /> : <EyeClosed size={"12pt"} />}</Button>
-                                                        <Button variant={"ghost"} size="sm" onClick={() => { handleConvertToVector(layer) }}><HiCubeTransparent size={"12pt"} /></Button>
-                                                        <Button variant={"ghost"} size="sm" onClick={() => handleZoomToLayer(index)}> <TbZoomInAreaFilled size={"12pt"} /></Button>
-                                                        <Button variant={"ghost"} size="sm" onClick={() => handleTableMapbox(index)}><FiFilter size={"12pt"} /></Button>
-                                                        <Button variant={"ghost"} size="sm" onClick={() => handleStyleLayer(index)}><MdOutlineStyle size={"12pt"} /></Button>
-                                                        <Button variant={"ghost"} size="sm" className='text-red-700' onClick={() => handleRemoveLayer(index)}><BiTrash size={"12pt"} /></Button>
-                                                    </div>
-                                                </AccordionContent>
-                                            </AccordionItem>
-                                        </SortableItem>
-                                    ))}
-                                </Accordion>
-                            </SortableContext>
-                        </DndContext>
                     </div>
-                </div >
-                <div className='absolute top-0 mt-5 ml-5' id='search'>
-                    <Search onSearch={handleSearch} />
+                    {layers.length === 0 && (
+                        <div className='flex flex-col justify-center items-center h-32'>
+                            <LayersIcon className='mb-1' size={"20pt"} />
+                            <p className='font-semibold'>You havent added any layers yet.</p>
+                            <p className='text-xs'>Start adding layers to your map.</p>
+                        </div>
+                    )}
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCorners}
+                        onDragEnd={handleDragEnd}
+                        modifiers={[restrictToVerticalAxis]}
+                    >
+                        <SortableContext items={layers.map((layer) => layer.id)} strategy={verticalListSortingStrategy}>
+                            <Accordion
+                                type="multiple"
+                                value={openItems}
+                                onValueChange={(values) => setOpenItems(values)}
+                            >
+                                {layers.map((layer, index) => (
+                                    <SortableItem key={layer.id} id={layer.id}>
+                                        <AccordionItem className='border-none' value={layer.id}>
+                                            <div className='flex items-center gap-2'>
+                                                <IconLayerType size='13pt' layer={layer} />
+                                                <AccordionTrigger className='hover:no-underline text-sm py-2 w-64 capitalize'>
+                                                    <input
+                                                        value={layer.name}
+                                                        onChange={(e) => handleChangeLayerName(e, index)}
+                                                        className="font-medium bg-transparent border-none focus:outline-none focus:ring-0"
+                                                    />
+                                                </AccordionTrigger>
+                                            </div>
+                                            <AccordionContent className='text-xs border-none'>
+                                                <div className='flex justify-center gap-1 px-1'>
+                                                    <Button variant={"ghost"} size="sm" onClick={() => setLayerVisible(index, layer.visible)}>{layer.visible ? <Eye size={"12pt"} /> : <EyeClosed size={"12pt"} />}</Button>
+                                                    <Button variant={"ghost"} size="sm" onClick={() => { handleConvertToVector(layer) }}><HiCubeTransparent size={"12pt"} /></Button>
+                                                    <Button variant={"ghost"} size="sm" onClick={() => handleZoomToLayer(index)}> <TbZoomInAreaFilled size={"12pt"} /></Button>
+                                                    <Button variant={"ghost"} size="sm" onClick={() => handleTableMapbox(index)}><FiFilter size={"12pt"} /></Button>
+                                                    <Button variant={"ghost"} size="sm" onClick={() => handleStyleLayer(index)}><MdOutlineStyle size={"12pt"} /></Button>
+                                                    <Button variant={"ghost"} size="sm" className='text-red-700' onClick={() => handleRemoveLayer(index)}><BiTrash size={"12pt"} /></Button>
+                                                </div>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    </SortableItem>
+                                ))}
+                            </Accordion>
+                        </SortableContext>
+                    </DndContext>
                 </div>
-                <div className='absolute top-0 mt-5 ml-[22rem] font-bold'>
-                    <MapMenu onSave={handleOnSave} onExit={handleOnExit} setDisplayLayouts={setDisplayLayouts} displayLayouts={displayLayouts}></MapMenu>
-                </div>
-
-
-                {/* RIGHT SIDE */}
-                <div className='absolute top-0 right-0 p-5 font-bold'>
+            </div >
+            <div className='absolute top-0 mt-5 ml-5' id='search'>
+                <Search onSearch={handleSearch} />
+            </div>
+            <div className='absolute top-0 mt-5 ml-[22rem] font-bold'>
+                <MapMenu onSave={handleOnSave} onExit={handleOnExit} setDisplayLayouts={setDisplayLayouts} displayLayouts={displayLayouts}></MapMenu>
+                <div className="absolute mt-2">
                     <BookmarkDropdown
                         bookmarks={bookmarks}
                         selectedBookmark={selectedBookmark}
@@ -2161,574 +2172,574 @@ export default function MapLayout({
                         onSelectBookmark={handleSelectBookmark}
                     />
                 </div>
-                <div className='absolute top-0 right-0 p-5 text-xs min-w-96'>
-                    {displayLayouts.layerInfo ?
-                        <div className='bg-white rounded-lg max-h-[calc(100vh-15rem)] max-w-xl overflow-auto dark:bg-background'>
-                            <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white dark:bg-background'>
-                                <div>
-                                    <p className='font-semibold mb-2 text-sm'>Layer Information</p>
-                                    <p className='font-semibold'>
-                                        Long : {currentMapClick?.lng.toFixed(9)},
-                                        Lat {currentMapClick?.lat.toFixed(9)}</p>
-                                </div>
-                                <Button variant={"link"} onClick={() => setDisplayLayouts({ ...displayLayouts, layerInfo: false })}>
-                                    <IoClose size={"13pt"} />
-                                </Button>
-                            </div>
-                            <div className='text-xs px-5'>
-                                {infoFeatures.map((layer, index) => (
-                                    <Accordion key={index} type="single" collapsible>
-                                        <AccordionItem value={`item-${index}`} className='border-none'>
-                                            <AccordionTrigger className='hover:no-underline capitalize'>{layer?.layer_name}</AccordionTrigger>
-                                            <AccordionContent className='text-xs'>
-                                                <table className='w-full border'>
-                                                    <tbody>
-                                                        {Object.keys(layer.properties).map((body, i) =>
-                                                            body.includes("video") ? (
-                                                                <tr key={i}>
-                                                                    <th className='border border-accent text-start text-wrap w-[100px] capitalize px-2 py-1'>
-                                                                        {body.replaceAll("_", " ")}
-                                                                    </th>
-                                                                    <td className='border border-accent text-wrap px-2'>
-                                                                        {typeof layer.properties[body as keyof typeof layer.properties] === 'string' && (layer.properties[body as keyof typeof layer.properties] as string).startsWith("http") ? (
-                                                                            <M3U8VideoPlayer src={layer.properties[body as keyof typeof layer.properties]} placeholderImage="/assets/placeholder.svg" />
-                                                                        ) : (
-                                                                            <span>{layer.properties[body as keyof typeof layer.properties]}</span>
-                                                                        )}
-                                                                    </td>
-                                                                </tr>
-                                                            ) : (
-                                                                <tr key={i}>
-                                                                    <th className='border border-accent text-start text-wrap w-[100px] capitalize px-2 py-1'>
-                                                                        {body.replaceAll("_", " ")}
-                                                                    </th>
-                                                                    <td className='border border-accent text-wrap px-2'>
-                                                                        {layer.properties[body as keyof typeof layer.properties]}
-                                                                    </td>
-                                                                </tr>
-                                                            )
-                                                        )}
-                                                    </tbody>
-                                                </table>
-                                            </AccordionContent>
-                                        </AccordionItem>
-                                    </Accordion>
-                                ))}
-                                {isLoading.featureInfo ? (
-                                    <div className='flex justify-center items-center mb-5'>
-                                        <AiOutlineLoading3Quarters size={"20"} className='animate-spin' />
-                                    </div>
-                                ) : ""}
-                                {/* <VideoPlayer url="https://restreamer.kotabogor.go.id/memfs/2e691d1f-3e29-48b5-bfb4-2eb6cbc3ee66.m3u8" source_type="application/x-mpegURL" /> */}
-                            </div>
-                        </div> :
-                        ""
-                    }
-                </div>
-                <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
-                    {displayLayouts.style && (
-                        <StylePanel
-                            mapRef={mapRef}
-                            selectedLayer={selectedLayer}
-                            values={mapboxLayerStyle}
-                            setValues={setMapboxLayerStyle}
-                            onFillChange={setFill}
-                            onStrokeChange={setStroke}
-                            onStrokeWidthChange={setStrokeWidth}
-                            onContrastChange={setContrast}
-                            onSaturationChange={setSaturation}
-                            onBrightnessChange={setBrightness}
-                            onZoomChange={handleZoomChange}
-                            onOpacityChange={(e) => setOpacity(e)}
-                            setDisplayLayouts={setDisplayLayouts}
-                            setSelectedLayer={setSelectedLayer}
-                            handleEditFeatures={handleEditFeatures}
-                            resetFill={resetFill}
-                            resetStroke={resetStroke}
-                        />
-                    )}
-                </div>
-                <div className='absolute top-0 right-0 p-5 text-xs min-w-96 z-10'>
-                    {displayLayouts.aiChat && (
-                        <div className='bg-white rounded-lg max-h-[calc(100vh-9rem)] overflow-y-auto dark:bg-background'>
-                            <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white dark:bg-background'>
-                                <div>
-                                    <p className='font-semibold mb-2 text-sm'>AI Helper</p>
-                                </div>
-                                <Button variant={"link"} onClick={() => {
-                                    setDisplayLayouts({ ...displayLayouts, aiChat: false })
-                                }}>
-                                    <IoClose size={"13pt"} />
-                                </Button>
-                            </div>
+            </div>
+
+            {/* RIGHT SIDE */}
+            <div className='absolute top-0 right-0 p-5 text-xs min-w-96'>
+                {displayLayouts.layerInfo ?
+                    <div className='bg-white rounded-lg max-h-[calc(100vh-15rem)] max-w-xl overflow-auto dark:bg-background'>
+                        <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white dark:bg-background'>
                             <div>
-                                <ChatWithAI onCommandReceived={handleMapboxCommand} />
+                                <p className='font-semibold mb-2 text-sm'>Layer Information</p>
+                                <p className='font-semibold'>
+                                    Long : {currentMapClick?.lng.toFixed(9)},
+                                    Lat {currentMapClick?.lat.toFixed(9)}</p>
                             </div>
+                            <Button variant={"link"} onClick={() => setDisplayLayouts({ ...displayLayouts, layerInfo: false })}>
+                                <IoClose size={"13pt"} />
+                            </Button>
                         </div>
-                    )}
-                </div>
-                <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
-                    {displayLayouts.routes && (
-                        <Card className="w-[320px] shadow-lg text-sm overflow-hidden">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="relative font-medium">
-                                    <div>
-                                        <p className="text-lg font-medium">Routes</p>
-                                    </div>
-                                </CardTitle>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                                    setRouteCoordinates(null);
-                                    setDisplayLayouts((prev) => ({ ...prev, routes: false }));
-                                    removeRoutes()
-                                }}>
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </CardHeader>
-                            <CardContent className="max-h-[70vh] overflow-y-scroll">
-                                <table className="w-full">
-                                    <tbody>
-                                        <tr className="border-b">
-                                            <td className="py-2 font-semibold">Route Name</td>
-                                            <td className="text-end">{activeRoutes?.properties?.routeName}</td>
-                                        </tr>
-                                        <tr className="border-b">
-                                            <td className="py-2 font-semibold">Toll</td>
-                                            <td className="text-end">{activeRoutes?.properties?.isToll ? "True" : "False"}</td>
-                                        </tr>
-                                        <tr className="border-b">
-                                            <td className="py-2 font-semibold">Origin</td>
-                                            <td className="text-end">
-                                                <div>
-                                                    <p>{activeRoutes?.origin?.[0]?.toFixed(7)}</p>
-                                                    <p>{activeRoutes?.origin?.[1]?.toFixed(7)}</p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr className="border-b">
-                                            <td className="py-2 font-semibold">Destination</td>
-                                            <td className="text-end">
-                                                <div>
-                                                    <p>{activeRoutes?.destination?.[0]?.toFixed(7)}</p>
-                                                    <p>{activeRoutes?.destination?.[1]?.toFixed(7)}</p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr className="border-b">
-                                            <td className="py-2 font-semibold">Distance</td>
-                                            <td className="text-end">
-                                                {activeRoutes?.properties?.totalLength ?
-                                                    (activeRoutes.properties.totalLength >= 1000 ?
-                                                        `${(activeRoutes.properties.totalLength / 1000).toFixed(2)} km` :
-                                                        `${activeRoutes.properties.totalLength.toFixed(0)} m`)
-                                                    : '-'}
-                                            </td>
-                                        </tr>
-                                        <tr className="border-b">
-                                            <td className="py-2 font-semibold">Duration</td>
-                                            <td className="text-end">
-                                                {activeRoutes?.properties?.totalSeconds ?
-                                                    (activeRoutes.properties.totalSeconds >= 3600 ?
-                                                        `${Math.floor(activeRoutes.properties.totalSeconds / 3600)}h ${Math.floor((activeRoutes.properties.totalSeconds % 3600) / 60)}m` :
-                                                        `${Math.floor(activeRoutes.properties.totalSeconds / 60)} minutes `)
-                                                    : "-"}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </CardContent>
-                        </Card>
-                    )}
-                </div>
-                <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
-                    {displayLayouts.tools && (
-                        <Card className="w-[320px] shadow-lg text-sm">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="relative font-medium">
-                                    <div>
-                                        <p className="text-lg font-medium">Tools</p>
-                                    </div>
-                                </CardTitle>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                                    setRouteCoordinates(null);
-                                    setDisplayLayouts((prev) => ({ ...prev, tools: false }));
-                                    removeRoutes()
-                                }}>
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </CardHeader>
-                            <CardContent className="max-h-[70vh] p-0 overflow-y-auto">
-                                <OperationComponents layers={layers} mapRef={mapRef} setLayers={setLayers} />
-                            </CardContent>
-                        </Card>
-                    )}
-                </div>
-
-                {/* BOTTOM EL */}
-                <div className="absolute bottom-0">
-                    <div className="relative w-screen">
-                        <div className='absolute bottom-5 right-10 ml-28 z-[1]'>
-                            <div className='bg-white p-2 text-xs rounded-lg min-w-52 text-center dark:bg-background'>
-                                {mousePosition ? (
-                                    <>
-                                        {mousePosition.lng.toFixed(9)}, {mousePosition.lat.toFixed(9)}
-                                    </>
-                                ) : (
-                                    "Coordinates not available"
-                                )}
-                            </div>
-                        </div>
-                        <div className='absolute bottom-14 right-10 ml-28 z-[1]'>
-                            <div className='bg-white w-14 h-14 rounded-lg dark:bg-background'>
-                                <Popover>
-                                    <PopoverTrigger>
-                                        <div className='flex justify-center items-center h-full p-1'>
-                                            <Image src={basemap[activeBasemap].thumbnail} width={100} height={100} className='rounded' alt={basemap[activeBasemap].name} />
-                                        </div>
-                                    </PopoverTrigger>
-                                    <PopoverContent className='w-fit p-2'>
-                                        <div className='flex gap-2 justify-center items-center text-sm'>
-                                            {basemap.map((item, index) => (
-                                                <div key={item.id} className='rounded-lg border h-14 w-14 p-1' onClick={() => handleChangeBasemap(index)}>
-                                                    <Image src={item.thumbnail} width={100} height={100} alt={item.name} className='rounded' />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                        </div>
-                        <div className='absolute bottom-5 left-1/2 -translate-x-1/2 z-[1]'>
-                            <div className="flex justify-center items-center gap-1 bg-white dark:bg-background p-1 rounded-lg">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant={"ghost"} size="sm"><TbTriangleSquareCircle /></Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent className="w-56" >
-                                        <DropdownMenuGroup>
-                                            <DropdownMenuItem onClick={() => handleDraw("point")}>
-                                                Point
-                                                <DropdownMenuShortcut>P</DropdownMenuShortcut>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDraw("line")}>
-                                                Linestring
-                                                <DropdownMenuShortcut>L</DropdownMenuShortcut>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDraw("polygon")}>
-                                                Polygon
-                                                <DropdownMenuShortcut>G</DropdownMenuShortcut>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDraw("single_delete")}>
-                                                Delete last feature
-                                                <DropdownMenuShortcut>Del</DropdownMenuShortcut>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDraw("clear")}>
-                                                Delete all
-                                                <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuGroup>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                                <Button variant={"ghost"} size="sm" onClick={() => handleNorth()}><ArrowUp style={{ transform: `rotate(${-compass.rotate}deg)` }} /></Button>
-                                <Button variant={"ghost"} size="sm" onClick={() => handleZoomOut()}><MinusIcon /></Button>
-                                <label htmlFor="" className="text-xs w-5 text-center">{zoom}</label>
-                                <Button variant={"ghost"} size="sm" onClick={() => handleZoomIn()}><PlusIcon /></Button>
-                                {/* <Button variant={"ghost"} size="sm" onClick={() => handleMaxLayersBbox()}><Fullscreen /></Button> */}
-                                <Button variant={"ghost"} size="sm" onClick={() => handleMaxLayersBbox()}><Fullscreen /></Button>
-                                <Button variant={"ghost"} size="sm" onClick={() => handleDraw("find_my_location")}><MdGpsFixed /></Button>
-                                {!isDrawDone && (<Button variant={"ghost"} size="sm" onClick={() => saveFeaturesToLayer()}><SaveAll /></Button>)}
-                                {routeCoordinates?.destination && (<Button variant={"ghost"} size="sm" onClick={() => handleRoutes()}><TbRouteSquare /></Button>)}
-                            </div>
-                        </div>
-                    </div>
-                    <div className={`${displayLayouts.table ? "block" : "hidden"} w-screen`}>
-                        <ResizablePanelGroup direction="horizontal" className="h-full">
-                            <ResizablePanel defaultSize={100}>
-                                <div className={`relative w-full h-full bg-white rounded-lg p-5 dark:bg-background`}>
-                                    <div className="flex justify-between items-center mb-2">
-                                        <h5 className='text-md font-bold mb-2'>Table</h5>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                                            setDisplayLayouts({ ...displayLayouts, table: false })
-                                        }}>
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                    <div className="h-[50vh] overflow-auto">
-                                        <DynamicTable headers={tableData.headers} data={tableData.data} />
-                                    </div>
-                                </div>
-                            </ResizablePanel>
-                            <ResizableHandle withHandle />
-                            <ResizablePanel defaultSize={0}>
-                                <div className={`relative w-full h-full bg-white rounded-lg p-5 dark:bg-background`}>
-                                    <div className="flex justify-between items-center">
-                                    </div>
-                                </div>
-                            </ResizablePanel>
-                        </ResizablePanelGroup>
-                    </div>
-                </div>
-
-
-
-                {/* MODAL EL */}
-                {displayLayouts.legend && (
-                    <div className='absolute bottom-14 right-32 mb-5 ml-60'>
-                        <div className='bg-white rounded-lg dark:bg-background p-2'>
-                            <div className="flex justify-between items-center gap-5">
-                                <h5 className='text-md font-bold'>Legend {selectedLayer?.name}</h5>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                                    setDisplayLayouts((prev) => ({ ...prev, legend: false }));
-                                }}>
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                            <div>
-                                {selectedLayer?.map_service_vendor == MapServiceVendor.Geoserver && (
-                                    <img src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}`} alt="Legend" />
-                                )}
-                                {selectedLayer?.map_service_vendor == MapServiceVendor.ArcGIS && (
-                                    <LegendEsri url={`${selectedLayer?.map_service_url}/legend?f=json`} />
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-                {displayLayouts.node_workspace && (
-                    <div className='absolute top-0 h-screen w-screen left-0 rounded p-5 z-10'>
-                        <div className='bg-white w-full h-full p-5 dark:bg-background'>
-                            <div className='absolute flex top-0 right-0'>
-                                <Button variant={"ghost"} className='rounded-full p-3' onClick={() => { setDisplayLayouts({ ...displayLayouts, node_workspace: false }) }}>
-                                    <X size={20} />
-                                </Button>
-                            </div>
-                            <FlowDiagramWithDraggableNodes />
-                        </div>
-                    </div>
-                )}
-                {displayLayouts.addLayer && (
-                    <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm z-10' >
-                        <div className='relative w-full bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll'>
-                            <div className='flex justify-between items-center'>
-                                <div>
-                                    <p className='font-semibold'>Add Layer</p>
-                                    <p className='font-normal'>Add a Personalized Layer</p>
-                                </div>
-                                <Button variant={"link"} onClick={() => setDisplayLayouts({ ...displayLayouts, addLayer: false })}>
-                                    <IoClose size={"13pt"} />
-                                </Button>
-                            </div>
-                            <div className='h-full px-2 py-5 overflow-auto'>
-                                <Tabs defaultValue="datasets">
-                                    <TabsList className="grid w-full grid-cols-3">
-                                        <TabsTrigger value="datasets">Datasets</TabsTrigger>
-                                        <TabsTrigger value="wms">WMS</TabsTrigger>
-                                        <TabsTrigger value="integration">Integrations</TabsTrigger>
-                                    </TabsList>
-                                    <div className='h-full px-2 py-5'>
-                                        <TabsContent value="datasets">
-                                            <Card>
-                                                <CardHeader>
-                                                    <CardTitle>Datasets</CardTitle>
-                                                    <CardDescription>Select Your Layer</CardDescription>
-                                                </CardHeader>
-                                                <CardContent className="space-y-2">
-                                                    <div className='h-[55vh] w-full'>
-                                                        <div className="h-full flex overflow-auto border rounded-lg">
-                                                            <ResizablePanelGroup direction="horizontal">
-                                                                <ResizablePanel >
-                                                                    <ScrollArea className="h-full w-full">
-                                                                        {datasets.map((dataset, index) => (
-                                                                            <Button
-                                                                                key={index}
-                                                                                variant="ghost"
-                                                                                className={cn("w-full justify-start font-normal", activeDatasets?.id === dataset.id ? "bg-accent" : "")}
-                                                                                onClick={() => handleFolderClick(dataset)}
-                                                                            >
-                                                                                {dataset.name}
-                                                                            </Button>
-                                                                        ))}
-                                                                    </ScrollArea>
-                                                                </ResizablePanel >
-                                                                <ResizableHandle withHandle />
-                                                                <ResizablePanel>
-                                                                    <div className='h-full w-full rounded-lg dark:bg-background'>
-                                                                        {isLoading.dataset && (
-                                                                            <div className="h-full w-full flex items-center justify-center">
-                                                                                <div className="flex flex-col items-center gap-2">
-                                                                                    <AiOutlineLoading3Quarters className="animate-spin" size={24} />
-                                                                                    <p className="text-sm">Loading dataset...</p>
-                                                                                </div>
-                                                                            </div>
-                                                                        )}
-                                                                        {!isLoading.dataset && (
-                                                                            <>
-                                                                                {datasetResult?.length === 0 && (
-                                                                                    <div className="h-full flex flex-col justify-center items-center">
-                                                                                        <LuDatabase size={"30pt"} />
-                                                                                        <p className='font-bold'>Theres no data to show yet.</p>
-                                                                                        <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
-                                                                                    </div>
-                                                                                )}
-                                                                                {activeDatasets?.map_service_vendor === MapServiceVendor.Geoserver && (
-                                                                                    <div className='grid grid-cols-2 lg:grid-cols-4 gap-2 p-2'>
-                                                                                        {datasetResult?.map((item, index) => (
-                                                                                            <div
-                                                                                                key={index}
-                                                                                                onClick={() => handleSelectedDatasets(index)}
-                                                                                                className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''
-                                                                                                    }`}
-                                                                                            >
-                                                                                                <div className="w-full h-48 relative">
-                                                                                                    <img
-                                                                                                        src={item?.thumbnail || ''}
-                                                                                                        alt="Dataset Preview"
-                                                                                                        className="w-full h-full object-cover hover:scale-105 transition-all"
-                                                                                                    />
-                                                                                                </div>
-                                                                                                <PlusCircleIcon
-                                                                                                    size={'24'}
-                                                                                                    className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'
-                                                                                                        }`}
-                                                                                                />
-                                                                                                <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">
-                                                                                                    {item.title}
-                                                                                                </p>
-                                                                                            </div>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                )}
-                                                                                {activeDatasets?.map_service_vendor === MapServiceVendor.ArcGIS && datasetResult?.length > 0 && (
-                                                                                    <div className="relative h-full">
-                                                                                        <TreeDirectory
-                                                                                            data={datasetResult}
-                                                                                            setSelectedDatasets={setSelectedDatasets}
-                                                                                            selectedDatasets={selectedDatasets}
-                                                                                            activeDatasets={activeDatasets}
-                                                                                        />
-                                                                                    </div>
-                                                                                )}
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                </ResizablePanel>
-                                                            </ResizablePanelGroup>
-                                                        </div>
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        </TabsContent>
-                                        <TabsContent value="wms">
-                                            <Card>
-                                                <CardHeader>
-                                                    <div className="flex items-center justify-between">
-                                                        <div>
-                                                            <CardTitle>WMS</CardTitle>
-                                                            <CardDescription>
-                                                                Use your WMS to this map
-                                                            </CardDescription>
-                                                        </div>
-                                                        {selectedDatasets.length > 0 && (<p className="text-xs">{selectedDatasets.length} Layer Selected</p>)}
-                                                    </div>
-                                                </CardHeader>
-                                                <CardContent className="space-y-2">
-                                                    <div className="flex flex-col gap-2 lg:flex-row items-center mb-2">
-                                                        <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
-                                                            <SelectTrigger className="w-full lg:w-[180px]">
-                                                                <SelectValue defaultValue={MapServiceVendor.Geoserver} placeholder="Select Map Vendor" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value={MapServiceVendor.Geoserver}>Geoserver</SelectItem>
-                                                                <SelectItem value={MapServiceVendor.ArcGIS}>ArcGIS</SelectItem>
-                                                                <SelectItem value={MapServiceVendor.XYZ}>XYZ</SelectItem>
-                                                                <SelectItem value={MapServiceVendor.GeoJSON}>Geojson</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <Input type="url" placeholder={
-                                                            (datasetProperties.map_service_vendor == MapServiceVendor.Geoserver) ? "http(s)://(domain)/(path)/(to)/(wms)/wms"
-                                                                : (datasetProperties.map_service_vendor == MapServiceVendor.ArcGIS) ? "http(s)://(domain)/(path)/(to)/(services)"
-                                                                    : "http(s)://(domain)/(path)/(to)/(tiles)/x/y/z"
-                                                        } className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
-                                                        <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
-                                                    </div>
-                                                    <div className='h-[50vh] w-full'>
-                                                        <div className='h-full w-full overflow-auto bg-white border p-5 mb-2 rounded-lg dark:bg-background'>
-
-                                                            {isLoading.dataset && (
-                                                                <div className="h-full w-full flex items-center justify-center">
-                                                                    <div className="flex flex-col items-center gap-2">
-                                                                        <AiOutlineLoading3Quarters className="animate-spin" size={24} />
-                                                                        <p className="text-sm">Loading dataset...</p>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                            {!isLoading.dataset && (
-                                                                <>
-                                                                    {datasetResult?.length === 0 && (
-                                                                        <div className="h-full flex flex-col justify-center items-center">
-                                                                            <LuDatabase size={"30pt"} />
-                                                                            <p className='font-bold'>Theres no data to show yet.</p>
-                                                                            <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
-                                                                        </div>
+                        <div className='text-xs px-5'>
+                            {infoFeatures.map((layer, index) => (
+                                <Accordion key={index} type="single" collapsible>
+                                    <AccordionItem value={`item-${index}`} className='border-none'>
+                                        <AccordionTrigger className='hover:no-underline capitalize'>{layer?.layer_name}</AccordionTrigger>
+                                        <AccordionContent className='text-xs'>
+                                            <table className='w-full border'>
+                                                <tbody>
+                                                    {Object.keys(layer.properties).map((body, i) =>
+                                                        body.includes("video") ? (
+                                                            <tr key={i}>
+                                                                <th className='border border-accent text-start text-wrap w-[100px] capitalize px-2 py-1'>
+                                                                    {body.replaceAll("_", " ")}
+                                                                </th>
+                                                                <td className='border border-accent text-wrap px-2'>
+                                                                    {typeof layer.properties[body as keyof typeof layer.properties] === 'string' && (layer.properties[body as keyof typeof layer.properties] as string).startsWith("http") ? (
+                                                                        <M3U8VideoPlayer src={layer.properties[body as keyof typeof layer.properties]} placeholderImage="/assets/placeholder.svg" />
+                                                                    ) : (
+                                                                        <span>{layer.properties[body as keyof typeof layer.properties]}</span>
                                                                     )}
-                                                                    <div>
-                                                                        {datasetProperties?.map_service_vendor == "Geoserver" && (
-                                                                            <div className='grid grid-cols-4 gap-2'>
-                                                                                {datasetResult?.map((item, index) => (
-                                                                                    <div key={index} onClick={() => handleSelectedDatasets(index)} className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''}`}>
-                                                                                        <div className="w-full h-48 relative">
-                                                                                            <img
-                                                                                                src={item?.thumbnail || ''}
-                                                                                                alt="Dataset Preview"
-                                                                                                className="w-full h-full object-cover hover:scale-105 transition-all"
-                                                                                            />
-                                                                                        </div>
-                                                                                        <PlusCircleIcon
-                                                                                            size={'24'}
-                                                                                            className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'}`}
-                                                                                        />
-                                                                                        <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        )}
-                                                                        {datasetProperties?.map_service_vendor == MapServiceVendor.ArcGIS && datasetResult?.length != 0 && (
-                                                                            <div>
-                                                                                <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        </TabsContent>
-                                        <TabsContent value="integration">
-                                            <Card>
-                                                <CardHeader>
-                                                    <CardTitle>Integrations</CardTitle>
-                                                    <CardDescription>
-                                                        Integrate your map with other services
-                                                    </CardDescription>
-                                                </CardHeader>
-                                                <CardContent className="space-y-2">
-                                                    <div className='h-[50vh] w-full'>
-                                                        Testing
-                                                    </div>
-                                                </CardContent>
-                                            </Card>
-                                        </TabsContent>
-                                        <div className='flex justify-end mt-2'>
-                                            <Button className='' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
-                                        </div>
-                                    </div>
-                                </Tabs>
+                                                                </td>
+                                                            </tr>
+                                                        ) : (
+                                                            <tr key={i}>
+                                                                <th className='border border-accent text-start text-wrap w-[100px] capitalize px-2 py-1'>
+                                                                    {body.replaceAll("_", " ")}
+                                                                </th>
+                                                                <td className='border border-accent text-wrap px-2'>
+                                                                    {layer.properties[body as keyof typeof layer.properties]}
+                                                                </td>
+                                                            </tr>
+                                                        )
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                </Accordion>
+                            ))}
+                            {isLoading.featureInfo ? (
+                                <div className='flex justify-center items-center mb-5'>
+                                    <AiOutlineLoading3Quarters size={"20"} className='animate-spin' />
+                                </div>
+                            ) : ""}
+                            {/* <VideoPlayer url="https://restreamer.kotabogor.go.id/memfs/2e691d1f-3e29-48b5-bfb4-2eb6cbc3ee66.m3u8" source_type="application/x-mpegURL" /> */}
+                        </div>
+                    </div> :
+                    ""
+                }
+            </div>
+            <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
+                {displayLayouts.style && (
+                    <StylePanel
+                        mapRef={mapRef}
+                        selectedLayer={selectedLayer}
+                        values={mapboxLayerStyle}
+                        setValues={setMapboxLayerStyle}
+                        onFillChange={setFill}
+                        onStrokeChange={setStroke}
+                        onStrokeWidthChange={setStrokeWidth}
+                        onContrastChange={setContrast}
+                        onSaturationChange={setSaturation}
+                        onBrightnessChange={setBrightness}
+                        onZoomChange={handleZoomChange}
+                        onOpacityChange={(e) => setOpacity(e)}
+                        setDisplayLayouts={setDisplayLayouts}
+                        setSelectedLayer={setSelectedLayer}
+                        handleEditFeatures={handleEditFeatures}
+                        resetFill={resetFill}
+                        resetStroke={resetStroke}
+                    />
+                )}
+            </div>
+            <div className='absolute top-0 right-0 p-5 text-xs min-w-96 z-10'>
+                {displayLayouts.aiChat && (
+                    <div className='bg-white rounded-lg max-h-[calc(100vh-9rem)] overflow-y-auto dark:bg-background'>
+                        <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white dark:bg-background'>
+                            <div>
+                                <p className='font-semibold mb-2 text-sm'>AI Helper</p>
                             </div>
+                            <Button variant={"link"} onClick={() => {
+                                setDisplayLayouts({ ...displayLayouts, aiChat: false })
+                            }}>
+                                <IoClose size={"13pt"} />
+                            </Button>
+                        </div>
+                        <div>
+                            <ChatWithAI onCommandReceived={handleMapboxCommand} />
                         </div>
                     </div>
                 )}
             </div>
+            <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
+                {displayLayouts.routes && (
+                    <Card className="w-[320px] shadow-lg text-sm overflow-hidden">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="relative font-medium">
+                                <div>
+                                    <p className="text-lg font-medium">Routes</p>
+                                </div>
+                            </CardTitle>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                setRouteCoordinates(null);
+                                setDisplayLayouts((prev) => ({ ...prev, routes: false }));
+                                removeRoutes()
+                            }}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="max-h-[70vh] overflow-y-scroll">
+                            <table className="w-full">
+                                <tbody>
+                                    <tr className="border-b">
+                                        <td className="py-2 font-semibold">Route Name</td>
+                                        <td className="text-end">{activeRoutes?.properties?.routeName}</td>
+                                    </tr>
+                                    <tr className="border-b">
+                                        <td className="py-2 font-semibold">Toll</td>
+                                        <td className="text-end">{activeRoutes?.properties?.isToll ? "True" : "False"}</td>
+                                    </tr>
+                                    <tr className="border-b">
+                                        <td className="py-2 font-semibold">Origin</td>
+                                        <td className="text-end">
+                                            <div>
+                                                <p>{activeRoutes?.origin?.[0]?.toFixed(7)}</p>
+                                                <p>{activeRoutes?.origin?.[1]?.toFixed(7)}</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr className="border-b">
+                                        <td className="py-2 font-semibold">Destination</td>
+                                        <td className="text-end">
+                                            <div>
+                                                <p>{activeRoutes?.destination?.[0]?.toFixed(7)}</p>
+                                                <p>{activeRoutes?.destination?.[1]?.toFixed(7)}</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr className="border-b">
+                                        <td className="py-2 font-semibold">Distance</td>
+                                        <td className="text-end">
+                                            {activeRoutes?.properties?.totalLength ?
+                                                (activeRoutes.properties.totalLength >= 1000 ?
+                                                    `${(activeRoutes.properties.totalLength / 1000).toFixed(2)} km` :
+                                                    `${activeRoutes.properties.totalLength.toFixed(0)} m`)
+                                                : '-'}
+                                        </td>
+                                    </tr>
+                                    <tr className="border-b">
+                                        <td className="py-2 font-semibold">Duration</td>
+                                        <td className="text-end">
+                                            {activeRoutes?.properties?.totalSeconds ?
+                                                (activeRoutes.properties.totalSeconds >= 3600 ?
+                                                    `${Math.floor(activeRoutes.properties.totalSeconds / 3600)}h ${Math.floor((activeRoutes.properties.totalSeconds % 3600) / 60)}m` :
+                                                    `${Math.floor(activeRoutes.properties.totalSeconds / 60)} minutes `)
+                                                : "-"}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+            <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
+                {displayLayouts.tools && (
+                    <Card className="w-[320px] shadow-lg text-sm">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="relative font-medium">
+                                <div>
+                                    <p className="text-lg font-medium">Tools</p>
+                                </div>
+                            </CardTitle>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                setRouteCoordinates(null);
+                                setDisplayLayouts((prev) => ({ ...prev, tools: false }));
+                                removeRoutes()
+                            }}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="max-h-[70vh] p-0 overflow-y-auto">
+                            <OperationComponents layers={layers} mapRef={mapRef} setLayers={setLayers} />
+                        </CardContent>
+                    </Card>
+                )}
+            </div>
+
+            {/* BOTTOM EL */}
+            <div className="absolute bottom-0">
+                <div className="relative w-screen">
+                    <div className='absolute bottom-5 right-10 ml-28 z-[1]'>
+                        <div className='bg-white p-2 text-xs rounded-lg min-w-52 text-center dark:bg-background'>
+                            {mousePosition ? (
+                                <>
+                                    {mousePosition.lng.toFixed(9)}, {mousePosition.lat.toFixed(9)}
+                                </>
+                            ) : (
+                                "Coordinates not available"
+                            )}
+                        </div>
+                    </div>
+                    <div className='absolute bottom-14 right-10 ml-28 z-[1]'>
+                        <div className='bg-white w-14 h-14 rounded-lg dark:bg-background'>
+                            <Popover>
+                                <PopoverTrigger>
+                                    <div className='flex justify-center items-center h-full p-1'>
+                                        <Image src={basemap[activeBasemap].thumbnail} width={100} height={100} className='rounded' alt={basemap[activeBasemap].name} />
+                                    </div>
+                                </PopoverTrigger>
+                                <PopoverContent className='w-fit p-2'>
+                                    <div className='flex gap-2 justify-center items-center text-sm'>
+                                        {basemap.map((item, index) => (
+                                            <div key={item.id} className='rounded-lg border h-14 w-14 p-1' onClick={() => handleChangeBasemap(index)}>
+                                                <Image src={item.thumbnail} width={100} height={100} alt={item.name} className='rounded' />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                    </div>
+                    <div className='absolute bottom-5 left-1/2 -translate-x-1/2 z-[1]'>
+                        <div className="flex justify-center items-center gap-1 bg-white dark:bg-background p-1 rounded-lg">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant={"ghost"} size="sm"><TbTriangleSquareCircle /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent className="w-56" >
+                                    <DropdownMenuGroup>
+                                        <DropdownMenuItem onClick={() => handleDraw("point")}>
+                                            Point
+                                            <DropdownMenuShortcut>P</DropdownMenuShortcut>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleDraw("line")}>
+                                            Linestring
+                                            <DropdownMenuShortcut>L</DropdownMenuShortcut>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleDraw("polygon")}>
+                                            Polygon
+                                            <DropdownMenuShortcut>G</DropdownMenuShortcut>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleDraw("single_delete")}>
+                                            Delete last feature
+                                            <DropdownMenuShortcut>Del</DropdownMenuShortcut>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleDraw("clear")}>
+                                            Delete all
+                                            <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuGroup>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            <Button variant={"ghost"} size="sm" onClick={() => handleNorth()}><ArrowUp style={{ transform: `rotate(${-compass.rotate}deg)` }} /></Button>
+                            <Button variant={"ghost"} size="sm" onClick={() => handleZoomOut()}><MinusIcon /></Button>
+                            <label htmlFor="" className="text-xs w-5 text-center">{zoom}</label>
+                            <Button variant={"ghost"} size="sm" onClick={() => handleZoomIn()}><PlusIcon /></Button>
+                            {/* <Button variant={"ghost"} size="sm" onClick={() => handleMaxLayersBbox()}><Fullscreen /></Button> */}
+                            <Button variant={"ghost"} size="sm" onClick={() => handleMaxLayersBbox()}><Fullscreen /></Button>
+                            <Button variant={"ghost"} size="sm" onClick={() => handleDraw("find_my_location")}><MdGpsFixed /></Button>
+                            {!isDrawDone && (<Button variant={"ghost"} size="sm" onClick={() => saveFeaturesToLayer()}><SaveAll /></Button>)}
+                            {routeCoordinates?.destination && (<Button variant={"ghost"} size="sm" onClick={() => handleRoutes()}><TbRouteSquare /></Button>)}
+                        </div>
+                    </div>
+                </div>
+                <div className={`${displayLayouts.table ? "block" : "hidden"} w-screen`}>
+                    <ResizablePanelGroup direction="horizontal" className="h-full">
+                        <ResizablePanel defaultSize={100}>
+                            <div className={`relative w-full h-full bg-white rounded-lg p-5 dark:bg-background`}>
+                                <div className="flex justify-between items-center mb-2">
+                                    <h5 className='text-md font-bold mb-2'>Table</h5>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                        setDisplayLayouts({ ...displayLayouts, table: false })
+                                    }}>
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                <div className="h-[50vh] w-full overflow-auto">
+                                    <DynamicTable headers={tableData.headers} data={tableData.data} isLoading={isLoading.layerTable} />
+                                </div>
+                            </div>
+                        </ResizablePanel>
+                        <ResizableHandle withHandle />
+                        <ResizablePanel defaultSize={0}>
+                            <div className={`relative w-full h-full bg-white rounded-lg p-5 dark:bg-background`}>
+                                <div className="flex justify-between items-center">
+                                </div>
+                            </div>
+                        </ResizablePanel>
+                    </ResizablePanelGroup>
+                </div>
+            </div>
+
+            {/* MODAL EL */}
+            {displayLayouts.legend && (
+                <div className='absolute bottom-14 right-32 mb-5 ml-60'>
+                    <div className='bg-white rounded-lg dark:bg-background p-2'>
+                        <div className="flex justify-between items-center gap-5">
+                            <h5 className='text-md font-bold'>Legend {selectedLayer?.name}</h5>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                setDisplayLayouts((prev) => ({ ...prev, legend: false }));
+                            }}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div>
+                            {selectedLayer?.map_service_vendor == MapServiceVendor.Geoserver && (
+                                <img src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}`} alt="Legend" />
+                            )}
+                            {selectedLayer?.map_service_vendor == MapServiceVendor.ArcGIS && (
+                                <LegendEsri url={`${selectedLayer?.map_service_url}/legend?f=json`} />
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {displayLayouts.node_workspace && (
+                <div className='absolute top-0 h-screen w-screen left-0 rounded p-5 z-10'>
+                    <div className='bg-white w-full h-full p-5 dark:bg-background'>
+                        <div className='absolute flex top-0 right-0'>
+                            <Button variant={"ghost"} className='rounded-full p-3' onClick={() => { setDisplayLayouts({ ...displayLayouts, node_workspace: false }) }}>
+                                <X size={20} />
+                            </Button>
+                        </div>
+                        <FlowDiagramWithDraggableNodes />
+                    </div>
+                </div>
+            )}
+            {displayLayouts.addLayer && (
+                <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm z-10' >
+                    <div className='relative w-full bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll'>
+                        <div className='flex justify-between items-center'>
+                            <div>
+                                <p className='font-semibold'>Add Layer</p>
+                                <p className='font-normal'>Add a Personalized Layer</p>
+                            </div>
+                            <Button variant={"link"} onClick={() => setDisplayLayouts({ ...displayLayouts, addLayer: false })}>
+                                <IoClose size={"13pt"} />
+                            </Button>
+                        </div>
+                        <div className='h-full px-2 py-5 overflow-auto'>
+                            <Tabs defaultValue="datasets">
+                                <TabsList className="grid w-full grid-cols-3">
+                                    <TabsTrigger value="datasets">Datasets</TabsTrigger>
+                                    <TabsTrigger value="wms">WMS</TabsTrigger>
+                                    <TabsTrigger value="integration">Integrations</TabsTrigger>
+                                </TabsList>
+                                <div className='h-full px-2 py-5'>
+                                    <TabsContent value="datasets">
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle>Datasets</CardTitle>
+                                                <CardDescription>Select Your Layer</CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="space-y-2">
+                                                <div className='h-[55vh] w-full'>
+                                                    <div className="h-full flex overflow-auto border rounded-lg">
+                                                        <ResizablePanelGroup direction="horizontal">
+                                                            <ResizablePanel >
+                                                                <ScrollArea className="h-full w-full">
+                                                                    {datasets.map((dataset, index) => (
+                                                                        <Button
+                                                                            key={index}
+                                                                            variant="ghost"
+                                                                            className={cn("w-full justify-start font-normal", activeDatasets?.id === dataset.id ? "bg-accent" : "")}
+                                                                            onClick={() => handleFolderClick(dataset)}
+                                                                        >
+                                                                            {dataset.name}
+                                                                        </Button>
+                                                                    ))}
+                                                                </ScrollArea>
+                                                            </ResizablePanel >
+                                                            <ResizableHandle withHandle />
+                                                            <ResizablePanel>
+                                                                <div className='h-full w-full rounded-lg dark:bg-background'>
+                                                                    {isLoading.dataset && (
+                                                                        <div className="h-full w-full flex items-center justify-center">
+                                                                            <div className="flex flex-col items-center gap-2">
+                                                                                <AiOutlineLoading3Quarters className="animate-spin" size={24} />
+                                                                                <p className="text-sm">Loading dataset...</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                    {!isLoading.dataset && (
+                                                                        <>
+                                                                            {datasetResult?.length === 0 && (
+                                                                                <div className="h-full flex flex-col justify-center items-center">
+                                                                                    <LuDatabase size={"30pt"} />
+                                                                                    <p className='font-bold'>Theres no data to show yet.</p>
+                                                                                    <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
+                                                                                </div>
+                                                                            )}
+                                                                            {activeDatasets?.map_service_vendor === MapServiceVendor.Geoserver && (
+                                                                                <div className='grid grid-cols-2 lg:grid-cols-4 gap-2 p-2'>
+                                                                                    {datasetResult?.map((item, index) => (
+                                                                                        <div
+                                                                                            key={index}
+                                                                                            onClick={() => handleSelectedDatasets(index)}
+                                                                                            className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''
+                                                                                                }`}
+                                                                                        >
+                                                                                            <div className="w-full h-48 relative">
+                                                                                                <img
+                                                                                                    src={item?.thumbnail || ''}
+                                                                                                    alt="Dataset Preview"
+                                                                                                    className="w-full h-full object-cover hover:scale-105 transition-all"
+                                                                                                />
+                                                                                            </div>
+                                                                                            <PlusCircleIcon
+                                                                                                size={'24'}
+                                                                                                className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'
+                                                                                                    }`}
+                                                                                            />
+                                                                                            <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">
+                                                                                                {item.title}
+                                                                                            </p>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                            {activeDatasets?.map_service_vendor === MapServiceVendor.ArcGIS && datasetResult?.length > 0 && (
+                                                                                <div className="relative h-full">
+                                                                                    <TreeDirectory
+                                                                                        data={datasetResult}
+                                                                                        setSelectedDatasets={setSelectedDatasets}
+                                                                                        selectedDatasets={selectedDatasets}
+                                                                                        activeDatasets={activeDatasets}
+                                                                                    />
+                                                                                </div>
+                                                                            )}
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            </ResizablePanel>
+                                                        </ResizablePanelGroup>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </TabsContent>
+                                    <TabsContent value="wms">
+                                        <Card>
+                                            <CardHeader>
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <CardTitle>WMS</CardTitle>
+                                                        <CardDescription>
+                                                            Use your WMS to this map
+                                                        </CardDescription>
+                                                    </div>
+                                                    {selectedDatasets.length > 0 && (<p className="text-xs">{selectedDatasets.length} Layer Selected</p>)}
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent className="space-y-2">
+                                                <div className="flex flex-col gap-2 lg:flex-row items-center mb-2">
+                                                    <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
+                                                        <SelectTrigger className="w-full lg:w-[180px]">
+                                                            <SelectValue defaultValue={MapServiceVendor.Geoserver} placeholder="Select Map Vendor" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value={MapServiceVendor.Geoserver}>Geoserver</SelectItem>
+                                                            <SelectItem value={MapServiceVendor.ArcGIS}>ArcGIS</SelectItem>
+                                                            <SelectItem value={MapServiceVendor.XYZ}>XYZ</SelectItem>
+                                                            <SelectItem value={MapServiceVendor.GeoJSON}>Geojson</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Input type="url" placeholder={
+                                                        (datasetProperties.map_service_vendor == MapServiceVendor.Geoserver) ? "http(s)://(domain)/(path)/(to)/(wms)/wms"
+                                                            : (datasetProperties.map_service_vendor == MapServiceVendor.ArcGIS) ? "http(s)://(domain)/(path)/(to)/(services)"
+                                                                : "http(s)://(domain)/(path)/(to)/(tiles)/x/y/z"
+                                                    } className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
+                                                    <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
+                                                </div>
+                                                <div className='h-[50vh] w-full'>
+                                                    <div className='h-full w-full overflow-auto bg-white border p-5 mb-2 rounded-lg dark:bg-background'>
+
+                                                        {isLoading.dataset && (
+                                                            <div className="h-full w-full flex items-center justify-center">
+                                                                <div className="flex flex-col items-center gap-2">
+                                                                    <AiOutlineLoading3Quarters className="animate-spin" size={24} />
+                                                                    <p className="text-sm">Loading dataset...</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {!isLoading.dataset && (
+                                                            <>
+                                                                {datasetResult?.length === 0 && (
+                                                                    <div className="h-full flex flex-col justify-center items-center">
+                                                                        <LuDatabase size={"30pt"} />
+                                                                        <p className='font-bold'>Theres no data to show yet.</p>
+                                                                        <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
+                                                                    </div>
+                                                                )}
+                                                                <div>
+                                                                    {datasetProperties?.map_service_vendor == "Geoserver" && (
+                                                                        <div className='grid grid-cols-4 gap-2'>
+                                                                            {datasetResult?.map((item, index) => (
+                                                                                <div key={index} onClick={() => handleSelectedDatasets(index)} className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''}`}>
+                                                                                    <div className="w-full h-48 relative">
+                                                                                        <img
+                                                                                            src={item?.thumbnail || ''}
+                                                                                            alt="Dataset Preview"
+                                                                                            className="w-full h-full object-cover hover:scale-105 transition-all"
+                                                                                        />
+                                                                                    </div>
+                                                                                    <PlusCircleIcon
+                                                                                        size={'24'}
+                                                                                        className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'}`}
+                                                                                    />
+                                                                                    <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                    {datasetProperties?.map_service_vendor == MapServiceVendor.ArcGIS && datasetResult?.length != 0 && (
+                                                                        <div>
+                                                                            <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </TabsContent>
+                                    <TabsContent value="integration">
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle>Integrations</CardTitle>
+                                                <CardDescription>
+                                                    Integrate your map with other services
+                                                </CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="space-y-2">
+                                                <div className='h-[50vh] w-full'>
+                                                    Testing
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </TabsContent>
+                                    <div className='flex justify-end mt-2'>
+                                        <Button className='' onClick={() => handleAddLayerToMap()}>Add To Map</Button>
+                                    </div>
+                                </div>
+                            </Tabs>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     )
 }
