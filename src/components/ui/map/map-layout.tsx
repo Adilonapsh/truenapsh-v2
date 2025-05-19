@@ -373,8 +373,6 @@ export default function MapLayout({
 
             setZoom(parseFloat(map.getZoom().toFixed(1)));
 
-
-
             const drawStyles = [
                 {
                     id: 'gl-draw-polygon-fill',
@@ -1345,8 +1343,7 @@ export default function MapLayout({
                                     console.error("Error fetching GeoJSON:", error);
                                     toast.error("Failed to load GeoJSON data");
                                 });
-                        } else if (layer.map_service_vendor === MapServiceVendor.GeoJSON && layer.map_service_url) {
-                            console.log("Ini URL", url)
+                        } else if (layer.map_service_vendor == MapServiceVendor.GeoJSON && layer.map_service_url) {
                             fetch(url)
                                 .then(response => response.json())
                                 .then(data => {
@@ -2013,7 +2010,6 @@ export default function MapLayout({
         }
     }
 
-
     return (
         <div className='relative w-screen h-screen bg-gray-200'>
             <ContextMenu>
@@ -2039,7 +2035,6 @@ export default function MapLayout({
                         <ContextMenuItem className="text-xs" onClick={() => { handleCopyCoordinates() }}>Copy Coordinates</ContextMenuItem>
                         <ContextMenuItem className="text-xs" onClick={() => { handleRouteOrigin() }}>Route From Here</ContextMenuItem>
                         <ContextMenuItem className="text-xs" onClick={() => { handleRouteDestination() }}>Route To Here</ContextMenuItem>
-                        {/* <ContextMenuItem className="text-xs" onClick={() => { handleMapIntegration() }}>Building</ContextMenuItem> */}
                     </ContextMenuContent>
                 )}
             </ContextMenu>

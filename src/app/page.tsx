@@ -59,14 +59,12 @@ export default function Home() {
                                         <div className="relative p-2 group transition-all duration-1000">
                                             <div
                                                 className="absolute inset-0 rounded-md overflow-hidden bg-gradient-to-r from-blue-500/30 to-blue-500/30"
-                                                style={{ filter: "blur(10px)" }}
-                                            >
+                                                style={{ filter: "blur(10px)" }}>
                                                 <div className="absolute inset-0 bg-background group-hover:bg-gradient-to-br from-cyan-600/80 to-blue-600/90" />
                                             </div>
                                             <a
                                                 href="/auth/login"
-                                                className="relative z-10 inline-flex items-center justify-center rounded-md text-sm font-medium w-full h-10 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-                                            >
+                                                className="relative z-10 inline-flex items-center justify-center rounded-md text-sm font-medium w-full h-10 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
                                                 <span className="font-semibold">Start building</span>
                                             </a>
                                         </div>
@@ -294,7 +292,7 @@ export default function Home() {
             </section>
             <footer className="container">
                 <Footer
-                    logo={<Hexagon className="h-10 w-10" />}
+                    logo={<img src="/assets/logo.png" alt="Logo" className="h-7 w-7" />}
                     brandName="Truemaps"
                     socialLinks={[
                         {

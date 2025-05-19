@@ -29,7 +29,7 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ty
     const { messages, input, handleInputChange, isLoading, append, stop, status } = useChat({
         api: '/api/ai-chat',
         initialMessages: [
-            { id: '1', role: 'assistant', content: "Hello! How can I help you today?" }
+            // { id: '1', role: 'assistant', content: "Hello! How can I help you today?" }
         ],
         onFinish: (message) => {
             if (message?.role === 'assistant' && message.content) {
@@ -85,7 +85,80 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ty
     return (
         <Card className={`w-full max-w-xl ${className}`}>
             <CardContent className='mb-2'>
-                <div className="max-h-[70vh] overflow-auto pr-4">
+                <div className="max-h-[70vh] min-h-96 overflow-auto">
+                    {messages.length == 0 && (
+                        <div className="h-96 flex items-center">
+                            <div className="relative flex flex-1 flex-col items-center justify-center gap-8 self-stretch overflow-hidden py-4">
+                                <div className="flex flex-col items-center justify-start gap-3">
+                                    <img
+                                        src="/assets/logo-dark.png"
+                                        alt="Logo"
+                                        className="h-10 w-10 block dark:hidden"
+                                    />
+                                    <img
+                                        src="/assets/logo-light.png"
+                                        alt="Logo"
+                                        className="h-10 w-10 hidden dark:block"
+                                    />
+                                    <div className="text-base-gray-950 justify-start text-sm leading-none">
+                                        Ask anything about your map
+                                    </div>
+                                    <div className="justify-start text-sm font-normal leading-none text-[#929292]">
+                                        Ask to do or show anything using natural language
+                                    </div>
+                                </div>
+                                <div className="relative inline-flex w-96 flex-col items-start justify-center gap-2">
+                                    <div className="no-scrollbar relative flex w-full justify-center">
+                                        <div className="flex items-center justify-start gap-2 whitespace-nowrap">
+                                            <div className="flex h-7 flex-shrink-0 items-center justify-start gap-1.5 overflow-hidden rounded-md bg-background shadow-md border border-foreground/5 px-2 py-1.5">
+                                                <div className="flex items-center justify-start gap-1 px-0.5">
+                                                    <div className="justify-start text-sm leading-none text-[#8B8B8B]">
+                                                        Show recent design feedback
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex h-7 flex-shrink-0 items-center justify-start gap-1.5 overflow-hidden rounded-md bg-background shadow-md border border-foreground/5 px-2 py-1.5">
+                                                <div className="flex items-center justify-start gap-1 px-0.5">
+                                                    <div className="justify-start text-sm leading-none text-[#8B8B8B]">
+                                                        Reply to Nick
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex h-7 flex-shrink-0 items-center justify-start gap-1.5 overflow-hidden rounded-md bg-background shadow-md border border-foreground/5 px-2 py-1.5">
+                                                <div className="flex items-center justify-start gap-1 px-0.5">
+                                                    <div className="justify-start text-sm leading-none text-[#8B8B8B]">
+                                                        Find invoice from Stripe
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="absolute left-0 top-0 h-7 w-12 bg-gradient-to-l from-neutral-800/0 to-neutral-50 dark:to-neutral-800"></div>
+                                        <div className="absolute right-0 top-0 h-7 w-12 bg-gradient-to-l from-neutral-50 dark:from-neutral-800 to-neutral-800/0"></div>
+                                    </div>
+                                    <div className="no-scrollbar relative flex w-full justify-center">
+                                        <div className="flex items-center justify-start gap-2 whitespace-nowrap">
+                                            <div className="flex h-7 flex-shrink-0 items-center justify-start gap-1.5 overflow-hidden rounded-md bg-background shadow-md border border-foreground/5 px-2 py-1.5">
+                                                <div className="flex items-center justify-start gap-1 px-0.5">
+                                                    <div className="justify-start text-sm leading-none text-[#8B8B8B]">
+                                                        Schedule meeting with Sarah
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex h-7 flex-shrink-0 items-center justify-start gap-1.5 overflow-hidden rounded-md bg-background shadow-md border border-foreground/5 px-2 py-1.5">
+                                                <div className="flex items-center justify-start gap-1 px-0.5">
+                                                    <div className="justify-start text-sm leading-none text-[#8B8B8B]">
+                                                        What did alex say about the design
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="absolute left-0 top-0 h-7 w-12 bg-gradient-to-l from-neutral-800/0 to-neutral-50 dark:to-neutral-800"></div>
+                                        <div className="absolute right-0 top-0 h-7 w-12 bg-gradient-to-l from-neutral-50 dark:from-neutral-800 to-neutral-800/0"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {messages.map(m => (
                         <div key={m.id} className={`mb-4 w-96 mt-5 ${m.role === 'user' ? 'text-right' : 'text-left'}`}>
                             <div className={`inline-block p-2 max-w-96 rounded-lg ${m.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-800'}`}>
