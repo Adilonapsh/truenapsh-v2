@@ -1992,7 +1992,7 @@ export default function MapLayout({
             const allFeatures = drawRef.current?.getAll().features;
             const lastFeature = allFeatures?.[allFeatures.length - 1];
             if (lastFeature) {
-                drawRef.current?.delete(lastFeature.id);
+                drawRef.current?.delete(lastFeature.id as string);
             }
         } else if (drawMode === "find_my_location") {
             navigator.geolocation.getCurrentPosition(
