@@ -5,9 +5,8 @@ import { Testimonials } from "@/components/layouts/testimonials";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import HeroPill from "@/components/ui/hero-pill";
 import { TwitterLogoIcon } from "@radix-ui/react-icons";
-import { Hexagon, HexagonIcon, Map, MapIcon, Sparkles, SparklesIcon } from "lucide-react";
+import { Code, Map, MapIcon, Shield, Sparkles, SparklesIcon } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { FaGithub } from "react-icons/fa6";
 
 export default function Home() {
@@ -142,9 +141,9 @@ export default function Home() {
                         </div>
                         <div className="flex flex-col gap-3">
                             <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center gap-3">
-                                <HexagonIcon size={24} className="text-background" />
+                                <Shield size={24} className="text-background" />
                             </div>
-                            <h5 className="text-xl font-semibold"></h5>
+                            <h5 className="text-xl font-semibold">Security</h5>
                             <p className="text-sm">Keep your data safe with our enterprise-grade security and compliance features.</p>
                         </div>
                     </div>
@@ -166,7 +165,7 @@ export default function Home() {
                         </div>
                         <div className="flex flex-col gap-3">
                             <div className="h-12 w-12 rounded-lg bg-foreground flex items-center justify-center gap-3">
-                                <SparklesIcon size={24} className="text-background" />
+                                <Code size={24} className="text-background" />
                             </div>
                             <h5 className="text-xl font-semibold">Custom Integrations</h5>
                             <p className="text-sm">Connect TrueMaps with your existing tools through our extensive API ecosystem.</p>

@@ -1,10 +1,4 @@
-type HttpRequest = {
-    url: string;
-    method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-    headers?: { [key: string]: string };
-    body?: any;
-};
-
+import { HttpRequest } from "@/types/actions.types";
 
 const httpRequestsAction = async (params: HttpRequest) => {
     const result = fetch(params.url, {

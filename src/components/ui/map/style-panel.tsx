@@ -335,7 +335,10 @@ export function StylePanel(
                             <AccordionTrigger>Legend</AccordionTrigger>
                             <AccordionContent>
                                 {selectedLayer?.map_service_vendor == MapServiceVendor.Geoserver && (
-                                    <img src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}`} alt="Legend" />
+                                    <>
+                                        <img src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}&LEGEND_OPTIONS=bgColor:0x232838;fontColor:0xffffff;fontAntiAliasing:true;dpi:200;layout:vertical;columnheigh:1000;countMatched:true;hideEmptyRules:false;fontStyle:bold`} className="hidden dark:block" alt="Legend Dark" />
+                                        <img src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}&LEGEND_OPTIONS=bgColor:0xffffff;fontColor:0x000000;fontAntiAliasing:true;dpi:200;layout:vertical;columnheigh:1000;countMatched:true;hideEmptyRules:false;fontStyle:bold`} className="block dark:hidden" alt="Legend Light" />
+                                    </>
                                 )}
                                 {selectedLayer?.map_service_vendor == MapServiceVendor.ArcGIS && (
                                     <LegendEsri url={`${selectedLayer?.map_service_url}/legend?f=json`} />

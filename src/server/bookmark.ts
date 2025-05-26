@@ -54,6 +54,8 @@ export const updateBookmark = async (bookmark_id: string, properties: Bookmark):
         },
         body: JSON.stringify(properties)
     });
+    const json = await data.json();
+    return json;
 }
 
 export const removeBookmark = async (bookmark_id: string): Promise<BookmarkResponse> => {
@@ -69,6 +71,6 @@ export const removeBookmark = async (bookmark_id: string): Promise<BookmarkRespo
         }
     })
     const json = await data.json();
-    console.log(json);
+   
     return json;
 }
