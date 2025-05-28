@@ -85,7 +85,7 @@ export default function Navbar() {
                         </Button>
 
                         {/* Join button */}
-                        <Button className="rounded-full">Gabung</Button>
+                        <a href="/auth/login" className="rounded-full bg-black dark:bg-white text-white dark:text-black px-10 py-2 ">Gabung</a>
                     </div>
                 </div>
             </div>

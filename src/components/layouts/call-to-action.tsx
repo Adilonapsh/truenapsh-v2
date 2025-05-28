@@ -73,7 +73,7 @@ export const CtaSection = () => {
                                             control={form.control}
                                             name="email"
                                             render={({ field }) => (
-                                                <FormItem className="relative flex-grow py-3 px-4 bg-background border border-gray-700 rounded-l-lg focus:outline-none focus:border-cyan-500 transition-colors">
+                                                <FormItem className="relative flex-grow py-3 px-4 bg-background border border-background rounded-l-lg focus:outline-none focus:border-cyan-500 transition-colors">
                                                     <FormControl>
                                                         <input
                                                             {...field}
