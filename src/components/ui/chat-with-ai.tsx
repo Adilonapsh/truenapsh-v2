@@ -113,47 +113,47 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ty
                                             <div className="flex h-7 flex-shrink-0 items-center justify-start gap-1.5 overflow-hidden rounded-md bg-background shadow-md border border-foreground/5 px-2 py-1.5">
                                                 <div className="flex items-center justify-start gap-1 px-0.5">
                                                     <div className="justify-start text-sm leading-none text-[#8B8B8B]">
-                                                        Show recent design feedback
+                                                        Show points of interest nearby
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="flex h-7 flex-shrink-0 items-center justify-start gap-1.5 overflow-hidden rounded-md bg-background shadow-md border border-foreground/5 px-2 py-1.5">
                                                 <div className="flex items-center justify-start gap-1 px-0.5">
                                                     <div className="justify-start text-sm leading-none text-[#8B8B8B]">
-                                                        Reply to Nick
+                                                        Analysis this map
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="flex h-7 flex-shrink-0 items-center justify-start gap-1.5 overflow-hidden rounded-md bg-background shadow-md border border-foreground/5 px-2 py-1.5">
                                                 <div className="flex items-center justify-start gap-1 px-0.5">
                                                     <div className="justify-start text-sm leading-none text-[#8B8B8B]">
-                                                        Find invoice from Stripe
+                                                        Calculate route to airport
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="absolute left-0 top-0 h-7 w-12 bg-gradient-to-l from-neutral-800/0 to-neutral-50 dark:to-neutral-800"></div>
-                                        <div className="absolute right-0 top-0 h-7 w-12 bg-gradient-to-l from-neutral-50 dark:from-neutral-800 to-neutral-800/0"></div>
+                                        <div className="absolute left-0 top-0 h-7 w-12 bg-gradient-to-l from-neutral-800/0 to-neutral-50 dark:to-neutral-950"></div>
+                                        <div className="absolute right-0 top-0 h-7 w-12 bg-gradient-to-l from-neutral-50 dark:from-neutral-950 to-neutral-900/0"></div>
                                     </div>
                                     <div className="no-scrollbar relative flex w-full justify-center">
                                         <div className="flex items-center justify-start gap-2 whitespace-nowrap">
-                                            <div className="flex h-7 flex-shrink-0 items-center justify-start gap-1.5 overflow-hidden rounded-md bg-background shadow-md border border-foreground/5 px-2 py-1.5">
+                                            {/* <div className="flex h-7 flex-shrink-0 items-center justify-start gap-1.5 overflow-hidden rounded-md bg-background shadow-md border border-foreground/5 px-2 py-1.5">
                                                 <div className="flex items-center justify-start gap-1 px-0.5">
                                                     <div className="justify-start text-sm leading-none text-[#8B8B8B]">
-                                                        Schedule meeting with Sarah
+                                                        Zoom to area
                                                     </div>
                                                 </div>
-                                            </div>
+                                            </div> */}
                                             <div className="flex h-7 flex-shrink-0 items-center justify-start gap-1.5 overflow-hidden rounded-md bg-background shadow-md border border-foreground/5 px-2 py-1.5">
                                                 <div className="flex items-center justify-start gap-1 px-0.5">
                                                     <div className="justify-start text-sm leading-none text-[#8B8B8B]">
-                                                        What did alex say about the design
+                                                        Show me all the interesting places and attractions in this area
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="absolute left-0 top-0 h-7 w-12 bg-gradient-to-l from-neutral-800/0 to-neutral-50 dark:to-neutral-800"></div>
-                                        <div className="absolute right-0 top-0 h-7 w-12 bg-gradient-to-l from-neutral-50 dark:from-neutral-800 to-neutral-800/0"></div>
+                                        <div className="absolute left-0 top-0 h-7 w-12 bg-gradient-to-l from-neutral-800/0 to-neutral-50 dark:to-neutral-950"></div>
+                                        <div className="absolute right-0 top-0 h-7 w-12 bg-gradient-to-l from-neutral-50 dark:from-neutral-950 to-neutral-800/0"></div>
                                     </div>
                                 </div>
                             </div>

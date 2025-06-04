@@ -180,36 +180,37 @@ export default function Home() {
                     testimonials={[
                         {
                             id: 1,
-                            name: "Alex Johnson",
-                            role: "Full Stack Developer",
-                            company: "TechFlow",
+                            name: "Budi Santoso",
+                            role: "GIS Analyst",
+                            company: "MapTech Indonesia",
                             content:
-                                "This starter template saved me weeks of setup time. The Supabase integration is flawless, and the UI components are beautiful and easy to customize. Worth every penny!",
+                                "TrueMaps memudahkan tim kami berkolaborasi dalam pembuatan dan pengeditan peta secara real-time. Fitur visualisasi data geografis yang interaktif sangat membantu dalam menganalisis dan membagikan wawasan spasial. Platform yang luar biasa untuk pemetaan kolaboratif!",
                             rating: 5,
                             avatar: "https://randomuser.me/api/portraits/men/32.jpg",
                         },
                         {
                             id: 2,
-                            name: "Sarah Miller",
-                            role: "Frontend Engineer",
-                            company: "DesignHub",
+                            name: "Dewi Putri",
+                            role: "Urban Planner",
+                            company: "CityPlan Solutions",
                             content:
-                                "I've used many starter templates, but this one stands out for its clean architecture and attention to detail. The TypeScript support is excellent, and the documentation is comprehensive.",
+                                "Sebagai perencana kota, TrueMaps sangat membantu dalam visualisasi dan analisis data spasial. Kemampuan untuk berkolaborasi secara real-time dengan tim membuat proses perencanaan menjadi lebih efisien. Interface yang intuitif dan fitur yang lengkap!",
                             rating: 5,
                             avatar: "https://randomuser.me/api/portraits/women/44.jpg",
                         },
                         {
                             id: 3,
-                            name: "Michael Chen",
-                            role: "Product Manager",
-                            company: "InnovateLabs",
+                            name: "Raden Wijaya",
+                            role: "Environmental Researcher",
+                            company: "EcoMap Research",
                             content:
-                                "Our team was able to launch our MVP in record time thanks to this template. The authentication flow and user management features worked right out of the box. Highly recommended!",
+                                "Platform GIS browser-based yang sempurna untuk penelitian lingkungan. Kemampuan untuk memvisualisasikan dan menganalisis data geografis secara kolaboratif membuat penelitian kami lebih efektif. Sangat merekomendasikan TrueMaps!",
                             rating: 5,
                             avatar: "https://randomuser.me/api/portraits/men/46.jpg",
                         },
                     ]}
-                    trustedCompaniesTitle="Trusted by innovative teams worldwide" />
+                    trustedCompaniesTitle="Trusted by innovative teams worldwide"
+                    subtitle="Discover what our users say about their experience with TrueMaps" />
             </section>
             <section className="min-h-screen flex items-center">
                 <div className="container grid grid-cols-1 lg:grid-cols-2 gap-10">

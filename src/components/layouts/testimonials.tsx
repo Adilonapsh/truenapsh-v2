@@ -136,7 +136,7 @@ export function Testimonials({
                         </div>
 
                         {/* Testimonial cards */}
-                        <div className="relative h-[320px] md:h-[280px]">
+                        <div className="relative h-[420px] md:h-[380px]">
                             {testimonials.map((testimonial, index) => (
                                 <Card
                                     key={testimonial.id}

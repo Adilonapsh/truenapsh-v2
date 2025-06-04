@@ -1514,6 +1514,7 @@ export default function MapLayout({
         const mapCanvas = map?.getCanvas();
         const dataUrl = mapCanvas?.toDataURL('image/png');
 
+
         const link = document.createElement('a');
         link.download = 'map.png';
         link.href = dataUrl || '';
@@ -2564,7 +2565,7 @@ export default function MapLayout({
                                                                 </ScrollArea>
                                                             </ResizablePanel >
                                                             <ResizableHandle withHandle />
-                                                            <ResizablePanel  defaultSize={75}>
+                                                            <ResizablePanel defaultSize={75}>
                                                                 <div className='h-full w-full rounded-lg dark:bg-background'>
                                                                     {isLoading.dataset && (
                                                                         <div className="h-full w-full flex items-center justify-center">
