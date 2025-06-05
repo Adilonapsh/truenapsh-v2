@@ -1,9 +1,9 @@
-import { Link, ListOrdered, Radio } from "lucide-react";
+import { Building2, Combine, Hexagon, LineChart, Link, ListOrdered, Pentagon, PenTool, Radio, Scissors, Settings, Square, SquareDashedBottom, SquareStack, Trash2 } from "lucide-react";
 import { Input } from "../input";
 import { ChartBar, Database, FileInputIcon, FileOutput, Filter, MapIcon } from 'lucide-react'
 
 import { HiOutlineCursorClick, HiSwitchHorizontal } from "react-icons/hi";
-import { MdJoinFull, MdLoop } from "react-icons/md";
+import { MdJoinFull, MdLoop, MdTerrain } from "react-icons/md";
 import { IoSwapVerticalOutline } from "react-icons/io5";
 import { Position } from "@xyflow/react";
 import { FaObjectGroup } from "react-icons/fa6";
@@ -40,6 +40,28 @@ export const widgets = {
         { id: "join", type: 'join', label: 'Join', icon: MdJoinFull, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'join' },
         { id: "group-by", type: 'group-by', label: 'Group', icon: FaObjectGroup, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'group-by' },
         { id: "count", type: 'count', label: 'Count', icon: TbNumber123, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'count' },
+    ],
+    "Geoprocessing": [
+        { id: "boundary", type: 'boundary', label: 'Boundary', icon: Square, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'boundary' },
+        { id: "buffer", type: 'buffer', label: 'Buffer', icon: Settings, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'buffer' },
+        { id: "clip", type: 'clip', label: 'Clip', icon: Scissors, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'clip' },
+        { id: "difference", type: 'difference', label: 'Difference', icon: Link, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'difference' },
+        { id: "intersection", type: 'intersection', label: 'Intersection', icon: Combine, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'intersection' },
+    ],
+    "Geometry": [
+        { id: "centroid", type: 'centroid', label: 'Centroid', icon: Pentagon, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'centroid' },
+        { id: "lines-to-polygon", type: 'lines-to-polygon', label: 'Lines to Polygon', icon: SquareStack, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'lines-to-polygon' },
+        { id: "polygon-to-lines", type: 'polygon-to-lines', label: 'Polygon to Lines', icon: SquareDashedBottom, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'polygon-to-lines' },
+        { id: "remove-duplicates", type: 'remove-duplicates', label: 'Remove duplicates', icon: Trash2, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'remove-duplicates' },
+        { id: "generate-points", type: 'generate-points', label: 'Generate Points Along Line', icon: LineChart, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'generate-points' },
+        { id: "simplify", type: 'simplify', label: 'Simplify', icon: PenTool, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'simplify' },
+    ],
+    "Analysis": [
+        { id: "hexagon-grid", type: 'hexagon-grid', label: 'Hexagon Grid', icon: Hexagon, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'hexagon-grid' },
+    ],
+    "Integration": [
+        { id: "building", type: 'building', label: 'Building', icon: Building2, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'building' },
+        { id: "elevation", type: 'elevation', label: 'Elevation', icon: MdTerrain, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'elevation' },
     ]
 }
 
@@ -47,41 +69,43 @@ export function WidgetNode({ onDragStart }: { onDragStart: (event: React.DragEve
     const [search, setSearch] = useState('');
 
     return (
-        <div>
-            <div className="mb-5">
+        <div className="relative h-[70vh] overflow-y-auto pt-5">
+            <div className="sticky top-0 bg-background z-10 mb-5">
                 <Input type="text" placeholder="Search Components" className="text-xs" onChange={(e) => setSearch(e.target.value)} />
             </div>
-            <div className="h-full overflow-y-auto overflow-x-hidden">
-                {Object.entries(widgets).map(([category, widgetList]) => {
-                    const filteredWidgets = widgetList.filter((widget) =>
-                        widget.label.toLowerCase().includes(search.toLowerCase())
-                    );
+            <div className="">
+                <div className="space-y-4">
+                    {Object.entries(widgets).map(([category, widgetList]) => {
+                        const filteredWidgets = widgetList.filter((widget) =>
+                            widget.label.toLowerCase().includes(search.toLowerCase())
+                        );
 
-                    if (filteredWidgets.length === 0) return null;
+                        if (filteredWidgets.length === 0) return null;
 
-                    return (
-                        <div key={category} className="mb-4">
-                            <div className="flex gap-1 items-center">
-                                <h3 className="text-xs font-semibold mb-2">{category}</h3>
-                                <h3 className="text-xs font-semibold text-foreground mb-2">({filteredWidgets.length})</h3>
-                            </div>
-                            <div className="grid grid-cols-5 gap-2">
-                                {filteredWidgets.map((widget) => (
-                                    <div key={widget.id} className="flex flex-col items-center justify-center">
-                                        <div
-                                            className="bg-gray-50 cursor-move h-10 w-10 border flex flex-col items-center justify-center rounded-lg"
-                                            onDragStart={(event) => onDragStart(event, widget.type, widget)}
-                                            draggable
-                                        >
-                                            <widget.icon className={`text-${widget.color}-500`} size={20} />
+                        return (
+                            <div key={category}>
+                                <div className="flex gap-1 items-center">
+                                    <h3 className="text-xs font-semibold mb-2">{category}</h3>
+                                    <h3 className="text-xs font-semibold text-foreground mb-2">({filteredWidgets.length})</h3>
+                                </div>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {filteredWidgets.map((widget) => (
+                                        <div key={widget.id} className="flex flex-col items-center justify-start">
+                                            <div
+                                                className="bg-gray-50 cursor-move h-10 w-10 border flex flex-col items-center justify-center rounded-lg"
+                                                onDragStart={(event) => onDragStart(event, widget.type, widget)}
+                                                draggable
+                                            >
+                                                <widget.icon className={`text-${widget.color}-500`} size={20} />
+                                            </div>
+                                            <span className="text-[8pt] text-center mt-1 text-foreground">{widget.label}</span>
                                         </div>
-                                        <span className="text-[8pt] text-center mt-1 text-foreground">{widget.label}</span>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )
-                })}
+                        )
+                    })}
+                </div>
             </div>
         </div>
     );

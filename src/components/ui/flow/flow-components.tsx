@@ -380,19 +380,19 @@ function FlowDiagram() {
             </div>
             <div className='absolute'>
                 <div className="w-80 p-4">
-                    <Tabs defaultValue="account" className="w-full">
+                    <Tabs defaultValue="component" className="w-full">
                         <TabsList className="grid w-full grid-cols-2 border border-gray-200">
-                            <TabsTrigger value="account">Component</TabsTrigger>
-                            <TabsTrigger value="password">Node Info</TabsTrigger>
+                            <TabsTrigger value="component">Component</TabsTrigger>
+                            <TabsTrigger value="node_info">Node Info</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="account">
+                        <TabsContent value="component">
                             <Card>
-                                <CardContent className="mt-5">
+                                <CardContent className="">
                                     <WidgetNode onDragStart={onDragStart} />
                                 </CardContent>
                             </Card>
                         </TabsContent>
-                        <TabsContent value="password">
+                        <TabsContent value="node_info">
                             <Card>
                                 <CardContent className="mt-5">
                                     {selectedNode && (

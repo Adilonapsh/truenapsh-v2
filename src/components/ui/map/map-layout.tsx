@@ -329,16 +329,16 @@ export default function MapLayout({
     }
 
     useEffect(() => {
-        const socket = socketRef.current
+        const socket = socketRef.current;
+        if (socket) {
+            const handleUnload = () => socket.disconnect();
+            window.addEventListener('beforeunload', handleUnload);
 
-        // Disconnect waktu user keluar
-        const handleUnload = () => socket.disconnect();
-        window.addEventListener('beforeunload', handleUnload);
-
-        return () => {
-            socket.disconnect();
-            window.removeEventListener('beforeunload', handleUnload);
-        };
+            return () => {
+                socket.disconnect();
+                window.removeEventListener('beforeunload', handleUnload);
+            };
+        }
     }, [mapRef]);
 
     //   END WIP WEBSOCKET 
@@ -1298,6 +1298,7 @@ export default function MapLayout({
 
     useEffect(() => {
         const map = mapRef.current?.getMap();
+        console.log(layers)
         if (map) {
             layers.forEach(layer => {
                 let url = "";
@@ -1512,9 +1513,8 @@ export default function MapLayout({
     const handlePrint = async () => {
         const map = mapRef.current;
         const mapCanvas = map?.getCanvas();
-        const dataUrl = mapCanvas?.toDataURL('image/png');
-
-
+        const dataUrl = mapCanvas?.toDataURL('image/png')
+        
         const link = document.createElement('a');
         link.download = 'map.png';
         link.href = dataUrl || '';
@@ -2367,7 +2367,7 @@ export default function MapLayout({
                                 <X className="h-4 w-4" />
                             </Button>
                         </CardHeader>
-                        <CardContent className="max-h-[70vh] p-0 overflow-y-auto">
+                        <CardContent className="">
                             <OperationComponents layers={layers} mapRef={mapRef} setLayers={setLayers} />
                         </CardContent>
                     </Card>
