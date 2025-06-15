@@ -506,11 +506,20 @@ export default function MapLayout({
         if (marker) {
             marker.setLngLat([longitude, latitude]);
         } else {
+            const el = document.createElement('div');
+            el.className = 'relative';
+            const pulseDiv = document.createElement('div');
+            pulseDiv.className = 'w-4 h-4 bg-blue-500 border border-2 border-background rounded-full animate-pulse';
+            const pingDiv = document.createElement('div');
+            pingDiv.className = 'absolute inset-0 w-4 h-4 bg-blue-500 rounded-full animate-ping opacity-75';
+            el.appendChild(pulseDiv);
+            el.appendChild(pingDiv);
             if (mapRef.current) {
                 const map = mapRef.current.getMap();
                 const newMarker = new mapboxgl.Marker({
-                    color: "#000",
-                    clickTolerance: 20
+                    // color: "#000",
+                    clickTolerance: 20,
+                    element : el
                 })
                     .setLngLat([longitude, latitude])
                     .addTo(map);
@@ -2534,9 +2543,10 @@ export default function MapLayout({
                         </div>
                         <div className='h-full px-2 py-5 overflow-auto'>
                             <Tabs defaultValue="datasets">
-                                <TabsList className="grid w-full grid-cols-3">
+                                <TabsList className="grid w-full grid-cols-4">
                                     <TabsTrigger value="datasets">Datasets</TabsTrigger>
                                     <TabsTrigger value="wms">WMS</TabsTrigger>
+                                    <TabsTrigger value="upload">Upload</TabsTrigger>
                                     <TabsTrigger value="integration">Integrations</TabsTrigger>
                                 </TabsList>
                                 <div className='h-full px-2 py-5'>
@@ -2733,6 +2743,8 @@ export default function MapLayout({
                                                 </div>
                                             </CardContent>
                                         </Card>
+                                    </TabsContent>
+                                    <TabsContent value="upload">
                                     </TabsContent>
                                     <div className='flex justify-end mt-2'>
                                         <Button className='' onClick={() => handleAddLayerToMap()}>Add To Map</Button>

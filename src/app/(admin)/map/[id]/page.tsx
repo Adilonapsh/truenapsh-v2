@@ -41,7 +41,7 @@ export default async function MapPage(context: { params: { id: string } }) {
         )
     } catch (error) {
         console.error(error);
-        redirect("/dashboard");
+        redirect("/admin/dashboard");
     }
 
 
