@@ -13,9 +13,15 @@ export default async function MapPage(context: { params: { id: string } }) {
     const { id } = await context.params;
 
     try {
-        const fetchedProject: Project = await project(id);
-        const fetchedDatasets = await get();
-        const fetchedBookmarks = await bookmark(id);
+        const [fetchedProject, fetchedDatasets, fetchedBookmarks] = (
+            await Promise.allSettled([
+                project(id),
+                get(),
+                bookmark(id)
+            ])
+        ).map((result) => ((result.status === "fulfilled") ? result.value : null))
+
+
         return (
             <div>
                 <Toaster

@@ -30,7 +30,7 @@ import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import { ArrowUp, Eye, EyeClosed, Fullscreen, LayersIcon, MinusIcon, PlusCircleIcon, PlusIcon, SaveAll, X } from 'lucide-react';
 import mapboxgl, { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification, LngLat, LngLatBoundsLike, MapMouseEvent } from 'mapbox-gl';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BiCollapse, BiLogOutCircle, BiTrash } from 'react-icons/bi';
 import { FiFilter } from 'react-icons/fi';
 import { HiCubeTransparent } from 'react-icons/hi';
@@ -63,7 +63,7 @@ import { cn } from "@/lib/utils";
 import { addBookmark, removeBookmark, updateBookmark } from "@/server/bookmark";
 import { convertWMSToVectorData, fetchLayerBbox, getAllFeaturesGeoserver, getFeatureInfo, getWMSServices } from '@/services/map-services';
 import { addGeojsonToMap, aiCommand, calculateCoordinatesWithAspectRatio, findLayerConfigByGeometryType, searchAlternatives } from "@/tools/map-tools";
-import { Bookmark } from "@/types/bookmark.types";
+import { Bookmark, BookmarkResponse } from "@/types/bookmark.types";
 import { Datasets } from "@/types/datasets.types";
 import {
     closestCorners,
@@ -127,7 +127,14 @@ export default function MapLayout({
     const mapRef = useRef<MapRef>(null);
     const drawRef = useRef<MapboxDraw | null>(null); // Ref untuk MapboxDraw
     const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
+
     const [mousePosition, setMousePosition] = useState<mapboxgl.LngLat | null>(null);
+    const [isMapMoving, setIsMapMoving] = useState(false);
+    const throttleRef = useRef<NodeJS.Timeout | null>(null);
+    const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+
+
     const [currentMapClick, setCurrentMapClick] = useState<Location | null>(null);
     const [displayLayouts, setDisplayLayouts] = useState<LayoutDisplay>({
         layerInfo: false,
@@ -241,10 +248,39 @@ export default function MapLayout({
         addOrUpdateMarker(place_result.location.lng, place_result.location.lat)
     }
 
-    const onMouseMove = (e: MapMouseEvent) => {
-        const { lngLat } = e;
-        setMousePosition(lngLat);
-    };
+    const onMoveStart = useCallback(() => {
+        setIsMapMoving(true);
+        // Clear timeout jika ada
+        if (moveTimeoutRef.current) {
+            clearTimeout(moveTimeoutRef.current);
+        }
+    }, []);
+
+    const onMoveEnd = useCallback(() => {
+        // Delay sedikit setelah move end untuk memastikan inertia benar-benar berhenti
+        moveTimeoutRef.current = setTimeout(() => {
+            setIsMapMoving(false);
+        }, 100);
+    }, []);
+
+    const onMouseMove = useCallback((e: MapMouseEvent) => {
+        if (isMapMoving) return;
+
+        if (throttleRef.current) return;
+
+        throttleRef.current = setTimeout(() => {
+            setMousePosition(e.lngLat);
+            throttleRef.current = null;
+        }, 10);
+    }, [isMapMoving]);
+
+    // Cleanup
+    useEffect(() => {
+        return () => {
+            if (throttleRef.current) clearTimeout(throttleRef.current);
+            if (moveTimeoutRef.current) clearTimeout(moveTimeoutRef.current);
+        };
+    }, []);
 
 
     // WIP WEBSOCKET
@@ -509,9 +545,9 @@ export default function MapLayout({
             const el = document.createElement('div');
             el.className = 'relative';
             const pulseDiv = document.createElement('div');
-            pulseDiv.className = 'w-4 h-4 bg-blue-500 border border-2 border-background rounded-full animate-pulse';
+            pulseDiv.className = 'w-4 h-4 bg-blue-500 rounded-full border-2 border animate-pulse border-background';
             const pingDiv = document.createElement('div');
-            pingDiv.className = 'absolute inset-0 w-4 h-4 bg-blue-500 rounded-full animate-ping opacity-75';
+            pingDiv.className = 'absolute inset-0 w-4 h-4 bg-blue-500 rounded-full opacity-75 animate-ping';
             el.appendChild(pulseDiv);
             el.appendChild(pingDiv);
             if (mapRef.current) {
@@ -519,7 +555,7 @@ export default function MapLayout({
                 const newMarker = new mapboxgl.Marker({
                     // color: "#000",
                     clickTolerance: 20,
-                    element : el
+                    element: el
                 })
                     .setLngLat([longitude, latitude])
                     .addTo(map);
@@ -1305,9 +1341,8 @@ export default function MapLayout({
         window.location.assign('/admin/dashboard');
     }
 
-    useEffect(() => {
+     useEffect(() => {
         const map = mapRef.current?.getMap();
-        console.log(layers)
         if (map) {
             layers.forEach(layer => {
                 let url = "";
@@ -1326,7 +1361,7 @@ export default function MapLayout({
                     }
 
                     if (!map.getLayer(layer.id)) {
-                        if (layer.map_service_url.includes("FeatureServer")) {
+                        if ((layer.map_service_vendor as MapServiceVendor) === MapServiceVendor.GeoJSON && layer.map_service_url) {
                             fetch(url)
                                 .then(response => response.json())
                                 .then(data => {
@@ -1354,11 +1389,10 @@ export default function MapLayout({
                                     console.error("Error fetching GeoJSON:", error);
                                     toast.error("Failed to load GeoJSON data");
                                 });
-                        } else if (layer.map_service_vendor == MapServiceVendor.GeoJSON && layer.map_service_url) {
+                        } else if (layer.map_service_url.includes("FeatureServer")) {
                             fetch(url)
                                 .then(response => response.json())
                                 .then(data => {
-                                    console.log(data);
                                     if (data.features) {
                                         const type = data.features[0].geometry.type;
                                         const layerConfig = findLayerConfigByGeometryType(type);
@@ -1523,7 +1557,7 @@ export default function MapLayout({
         const map = mapRef.current;
         const mapCanvas = map?.getCanvas();
         const dataUrl = mapCanvas?.toDataURL('image/png')
-        
+
         const link = document.createElement('a');
         link.download = 'map.png';
         link.href = dataUrl || '';
@@ -1867,7 +1901,7 @@ export default function MapLayout({
             properties
         }
 
-        const response = await toast.promise(
+        const response: BookmarkResponse = await toast.promise(
             addBookmark(newBookmark),
             {
                 loading: 'Saving bookmark...',
@@ -1876,8 +1910,10 @@ export default function MapLayout({
             }
         )
 
-        const { data }: { data: Bookmark } = response;
-        setBookmarks([...bookmarks, data]);
+        const { data } = response;
+        if (data) {
+            setBookmarks([...bookmarks, data as Bookmark]);
+        }
 
     }
 
@@ -2036,6 +2072,8 @@ export default function MapLayout({
                         handleDragOver={handleDragOver}
                         handleDrop={handleDrop}
                         onContextMenu={handleContextMenu}
+                        onMoveStart={onMoveStart}
+                        onMoveEnd={onMoveEnd}
                     />
                 </ContextMenuTrigger>
                 {menuPosition && (
@@ -2057,9 +2095,9 @@ export default function MapLayout({
 
             {/* TOP ELEMENT */}
             <div className='absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto'>
-                <div className='bg-white px-5 py-2 rounded w-80 text-sm dark:bg-background'>
-                    <div className='flex justify-between items-center sticky top-0 py-2 bg-white dark:bg-background'>
-                        <h5 className='text-md font-bold'>Workspaces</h5>
+                <div className='px-5 py-2 w-80 text-sm bg-white rounded dark:bg-background'>
+                    <div className='flex sticky top-0 justify-between items-center py-2 bg-white dark:bg-background'>
+                        <h5 className='font-bold text-md'>Workspaces</h5>
                         <div className='flex gap-3 items-center'>
                             <TooltipProvider>
                                 <Tooltip>
@@ -2135,9 +2173,9 @@ export default function MapLayout({
                                 {layers.map((layer, index) => (
                                     <SortableItem key={layer.id} id={layer.id}>
                                         <AccordionItem className='border-none' value={layer.id}>
-                                            <div className='flex items-center gap-2'>
+                                            <div className='flex gap-2 items-center'>
                                                 <IconLayerType size='13pt' layer={layer} />
-                                                <AccordionTrigger className='hover:no-underline text-sm py-2 w-64 capitalize'>
+                                                <AccordionTrigger className='py-2 w-64 text-sm capitalize hover:no-underline'>
                                                     <input
                                                         value={layer.name}
                                                         onChange={(e) => handleChangeLayerName(e, index)}
@@ -2146,7 +2184,7 @@ export default function MapLayout({
                                                 </AccordionTrigger>
                                             </div>
                                             <AccordionContent className='text-xs border-none'>
-                                                <div className='flex justify-center gap-1 px-1'>
+                                                <div className='flex gap-1 justify-center px-1'>
                                                     <Button variant={"ghost"} size="sm" onClick={() => setLayerVisible(index, layer.visible)}>{layer.visible ? <Eye size={"12pt"} /> : <EyeClosed size={"12pt"} />}</Button>
                                                     <Button variant={"ghost"} size="sm" onClick={() => { handleConvertToVector(layer) }}><HiCubeTransparent size={"12pt"} /></Button>
                                                     <Button variant={"ghost"} size="sm" onClick={() => handleZoomToLayer(index)}> <TbZoomInAreaFilled size={"12pt"} /></Button>
@@ -2184,9 +2222,9 @@ export default function MapLayout({
             <div className='absolute top-0 right-0 p-5 text-xs min-w-96'>
                 {displayLayouts.layerInfo ?
                     <div className='bg-white rounded-lg max-h-[calc(100vh-15rem)] max-w-xl overflow-auto dark:bg-background'>
-                        <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white dark:bg-background'>
+                        <div id='header' className='flex sticky top-0 justify-between items-center px-5 pt-5 pb-3 bg-white dark:bg-background'>
                             <div>
-                                <p className='font-semibold mb-2 text-sm'>Layer Information</p>
+                                <p className='mb-2 text-sm font-semibold'>Layer Information</p>
                                 <p className='font-semibold'>
                                     Long : {currentMapClick?.lng.toFixed(9)},
                                     Lat {currentMapClick?.lat.toFixed(9)}</p>
@@ -2195,11 +2233,11 @@ export default function MapLayout({
                                 <IoClose size={"13pt"} />
                             </Button>
                         </div>
-                        <div className='text-xs px-5'>
+                        <div className='px-5 text-xs'>
                             {infoFeatures.map((layer, index) => (
                                 <Accordion key={index} type="single" collapsible>
                                     <AccordionItem value={`item-${index}`} className='border-none'>
-                                        <AccordionTrigger className='hover:no-underline capitalize'>{layer?.layer_name}</AccordionTrigger>
+                                        <AccordionTrigger className='capitalize hover:no-underline'>{layer?.layer_name}</AccordionTrigger>
                                         <AccordionContent className='text-xs'>
                                             <table className='w-full border'>
                                                 <tbody>
@@ -2209,7 +2247,7 @@ export default function MapLayout({
                                                                 <th className='border border-accent text-start text-wrap w-[100px] capitalize px-2 py-1'>
                                                                     {body.replaceAll("_", " ")}
                                                                 </th>
-                                                                <td className='border border-accent text-wrap px-2'>
+                                                                <td className='px-2 border border-accent text-wrap'>
                                                                     {typeof layer.properties[body as keyof typeof layer.properties] === 'string' && (layer.properties[body as keyof typeof layer.properties] as string).startsWith("http") ? (
                                                                         <M3U8VideoPlayer src={layer.properties[body as keyof typeof layer.properties]} placeholderImage="/assets/placeholder.svg" />
                                                                     ) : (
@@ -2222,7 +2260,7 @@ export default function MapLayout({
                                                                 <th className='border border-accent text-start text-wrap w-[100px] capitalize px-2 py-1'>
                                                                     {body.replaceAll("_", " ")}
                                                                 </th>
-                                                                <td className='border border-accent text-wrap px-2'>
+                                                                <td className='px-2 border border-accent text-wrap'>
                                                                     {layer.properties[body as keyof typeof layer.properties]}
                                                                 </td>
                                                             </tr>
@@ -2245,7 +2283,7 @@ export default function MapLayout({
                     ""
                 }
             </div>
-            <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
+            <div className='absolute top-0 right-0 z-10 mt-5 mr-5 text-xs'>
                 {displayLayouts.style && (
                     <StylePanel
                         mapRef={mapRef}
@@ -2268,12 +2306,12 @@ export default function MapLayout({
                     />
                 )}
             </div>
-            <div className='absolute top-0 right-0 p-5 text-xs min-w-96 z-10'>
+            <div className='absolute top-0 right-0 z-10 p-5 text-xs min-w-96'>
                 {displayLayouts.aiChat && (
                     <div className='bg-white rounded-lg max-h-[calc(100vh-9rem)] overflow-y-auto dark:bg-background'>
-                        <div id='header' className='flex justify-between items-center sticky top-0 px-5 pt-5 pb-3 bg-white dark:bg-background'>
+                        <div id='header' className='flex sticky top-0 justify-between items-center px-5 pt-5 pb-3 bg-white dark:bg-background'>
                             <div>
-                                <p className='font-semibold mb-2 text-sm'>AI Helper</p>
+                                <p className='mb-2 text-sm font-semibold'>AI Helper</p>
                             </div>
                             <Button variant={"link"} onClick={() => {
                                 setDisplayLayouts({ ...displayLayouts, aiChat: false })
@@ -2287,21 +2325,21 @@ export default function MapLayout({
                     </div>
                 )}
             </div>
-            <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
+            <div className='absolute top-0 right-0 z-10 mt-5 mr-5 text-xs'>
                 {displayLayouts.routes && (
                     <Card className="w-[320px] shadow-lg text-sm overflow-hidden">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardHeader className="flex flex-row justify-between items-center pb-2 space-y-0">
                             <CardTitle className="relative font-medium">
                                 <div>
                                     <p className="text-lg font-medium">Routes</p>
                                 </div>
                             </CardTitle>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                            <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => {
                                 setRouteCoordinates(null);
                                 setDisplayLayouts((prev) => ({ ...prev, routes: false }));
                                 removeRoutes()
                             }}>
-                                <X className="h-4 w-4" />
+                                <X className="w-4 h-4" />
                             </Button>
                         </CardHeader>
                         <CardContent className="max-h-[70vh] overflow-y-scroll">
@@ -2359,21 +2397,21 @@ export default function MapLayout({
                     </Card>
                 )}
             </div>
-            <div className='absolute top-0 right-0 text-xs mt-5 mr-5 z-10'>
+            <div className='absolute top-0 right-0 z-10 mt-5 mr-5 text-xs'>
                 {displayLayouts.tools && (
                     <Card className="w-[320px] shadow-lg text-sm">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardHeader className="flex flex-row justify-between items-center pb-2 space-y-0">
                             <CardTitle className="relative font-medium">
                                 <div>
                                     <p className="text-lg font-medium">Tools</p>
                                 </div>
                             </CardTitle>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                            <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => {
                                 setRouteCoordinates(null);
                                 setDisplayLayouts((prev) => ({ ...prev, tools: false }));
                                 removeRoutes()
                             }}>
-                                <X className="h-4 w-4" />
+                                <X className="w-4 h-4" />
                             </Button>
                         </CardHeader>
                         <CardContent className="">
@@ -2387,7 +2425,7 @@ export default function MapLayout({
             <div className="absolute bottom-0">
                 <div className="relative w-screen">
                     <div className='absolute bottom-5 right-10 ml-28 z-[1]'>
-                        <div className='bg-white p-2 text-xs rounded-lg min-w-52 text-center dark:bg-background'>
+                        <div className='p-2 text-xs text-center bg-white rounded-lg min-w-52 dark:bg-background'>
                             {mousePosition ? (
                                 <>
                                     {mousePosition.lng.toFixed(9)}, {mousePosition.lat.toFixed(9)}
@@ -2398,17 +2436,17 @@ export default function MapLayout({
                         </div>
                     </div>
                     <div className='absolute bottom-14 right-10 ml-28 z-[1]'>
-                        <div className='bg-white w-14 h-14 rounded-lg dark:bg-background'>
+                        <div className='w-14 h-14 bg-white rounded-lg dark:bg-background'>
                             <Popover>
                                 <PopoverTrigger>
-                                    <div className='flex justify-center items-center h-full p-1'>
+                                    <div className='flex justify-center items-center p-1 h-full'>
                                         <Image src={basemap[activeBasemap].thumbnail} width={100} height={100} className='rounded' alt={basemap[activeBasemap].name} />
                                     </div>
                                 </PopoverTrigger>
-                                <PopoverContent className='w-fit p-2'>
+                                <PopoverContent className='p-2 w-fit'>
                                     <div className='flex gap-2 justify-center items-center text-sm'>
                                         {basemap.map((item, index) => (
-                                            <div key={item.id} className='rounded-lg border h-14 w-14 p-1' onClick={() => handleChangeBasemap(index)}>
+                                            <div key={item.id} className='p-1 w-14 h-14 rounded-lg border' onClick={() => handleChangeBasemap(index)}>
                                                 <Image src={item.thumbnail} width={100} height={100} alt={item.name} className='rounded' />
                                             </div>
                                         ))}
@@ -2418,7 +2456,7 @@ export default function MapLayout({
                         </div>
                     </div>
                     <div className='absolute bottom-5 left-1/2 -translate-x-1/2 z-[1]'>
-                        <div className="flex justify-center items-center gap-1 bg-white dark:bg-background p-1 rounded-lg">
+                        <div className="flex gap-1 justify-center items-center p-1 bg-white rounded-lg dark:bg-background">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant={"ghost"} size="sm"><TbTriangleSquareCircle /></Button>
@@ -2450,7 +2488,7 @@ export default function MapLayout({
                             </DropdownMenu>
                             <Button variant={"ghost"} size="sm" onClick={() => handleNorth()}><ArrowUp style={{ transform: `rotate(${-compass.rotate}deg)` }} /></Button>
                             <Button variant={"ghost"} size="sm" onClick={() => handleZoomOut()}><MinusIcon /></Button>
-                            <label htmlFor="" className="text-xs w-5 text-center">{zoom}</label>
+                            <label htmlFor="" className="w-5 text-xs text-center">{zoom}</label>
                             <Button variant={"ghost"} size="sm" onClick={() => handleZoomIn()}><PlusIcon /></Button>
                             {/* <Button variant={"ghost"} size="sm" onClick={() => handleMaxLayersBbox()}><Fullscreen /></Button> */}
                             <Button variant={"ghost"} size="sm" onClick={() => handleMaxLayersBbox()}><Fullscreen /></Button>
@@ -2463,13 +2501,13 @@ export default function MapLayout({
                 <div className={`${displayLayouts.table ? "block" : "hidden"} w-screen`}>
                     <ResizablePanelGroup direction="horizontal" className="h-full">
                         <ResizablePanel defaultSize={100}>
-                            <div className={`relative w-full h-full bg-white rounded-lg p-5 dark:bg-background`}>
+                            <div className={`relative p-5 w-full h-full bg-white rounded-lg dark:bg-background`}>
                                 <div className="flex justify-between items-center mb-2">
-                                    <h5 className='text-md font-bold mb-2'>Table</h5>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                    <h5 className='mb-2 font-bold text-md'>Table</h5>
+                                    <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => {
                                         setDisplayLayouts({ ...displayLayouts, table: false })
                                     }}>
-                                        <X className="h-4 w-4" />
+                                        <X className="w-4 h-4" />
                                     </Button>
                                 </div>
                                 <div className="h-[50vh] w-full overflow-auto">
@@ -2479,7 +2517,7 @@ export default function MapLayout({
                         </ResizablePanel>
                         <ResizableHandle withHandle />
                         <ResizablePanel defaultSize={0}>
-                            <div className={`relative w-full h-full bg-white rounded-lg p-5 dark:bg-background`}>
+                            <div className={`relative p-5 w-full h-full bg-white rounded-lg dark:bg-background`}>
                                 <div className="flex justify-between items-center">
                                 </div>
                             </div>
@@ -2491,13 +2529,13 @@ export default function MapLayout({
             {/* MODAL EL */}
             {displayLayouts.legend && (
                 <div className='absolute bottom-14 right-32 mb-5 ml-60'>
-                    <div className='bg-white rounded-lg dark:bg-background p-2'>
-                        <div className="flex justify-between items-center gap-5">
-                            <h5 className='text-md font-bold'>Legend {selectedLayer?.name}</h5>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                    <div className='p-2 bg-white rounded-lg dark:bg-background'>
+                        <div className="flex gap-5 justify-between items-center">
+                            <h5 className='font-bold text-md'>Legend {selectedLayer?.name}</h5>
+                            <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => {
                                 setDisplayLayouts((prev) => ({ ...prev, legend: false }));
                             }}>
-                                <X className="h-4 w-4" />
+                                <X className="w-4 h-4" />
                             </Button>
                         </div>
                         <div>
@@ -2518,10 +2556,10 @@ export default function MapLayout({
                 </div>
             )}
             {displayLayouts.node_workspace && (
-                <div className='absolute top-0 h-screen w-screen left-0 rounded p-5 z-10'>
-                    <div className='bg-white w-full h-full p-5 dark:bg-background'>
-                        <div className='absolute flex top-0 right-0'>
-                            <Button variant={"ghost"} className='rounded-full p-3' onClick={() => { setDisplayLayouts({ ...displayLayouts, node_workspace: false }) }}>
+                <div className='absolute top-0 left-0 z-10 p-5 w-screen h-screen rounded'>
+                    <div className='p-5 w-full h-full bg-white dark:bg-background'>
+                        <div className='flex absolute top-0 right-0'>
+                            <Button variant={"ghost"} className='p-3 rounded-full' onClick={() => { setDisplayLayouts({ ...displayLayouts, node_workspace: false }) }}>
                                 <X size={20} />
                             </Button>
                         </div>
@@ -2530,8 +2568,8 @@ export default function MapLayout({
                 </div>
             )}
             {displayLayouts.addLayer && (
-                <div className='absolute h-screen w-screen flex justify-center items-center p-0 md:p-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-slate-200 bg-opacity-50 backdrop-filter backdrop-blur-sm z-10' >
-                    <div className='relative w-full bg-white lg:max-h-screen rounded-lg p-5 dark:bg-background overflow-scroll'>
+                <div className='flex absolute top-1/2 left-1/2 z-10 justify-center items-center p-0 w-screen h-screen bg-opacity-50 backdrop-filter backdrop-blur-sm -translate-x-1/2 -translate-y-1/2 md:p-10 bg-slate-200' >
+                    <div className='overflow-scroll relative p-5 w-full bg-white rounded-lg lg:max-h-screen dark:bg-background'>
                         <div className='flex justify-between items-center'>
                             <div>
                                 <p className='font-semibold'>Add Layer</p>
@@ -2541,15 +2579,15 @@ export default function MapLayout({
                                 <IoClose size={"13pt"} />
                             </Button>
                         </div>
-                        <div className='h-full px-2 py-5 overflow-auto'>
+                        <div className='overflow-auto px-2 py-5 h-full'>
                             <Tabs defaultValue="datasets">
-                                <TabsList className="grid w-full grid-cols-4">
+                                <TabsList className="grid grid-cols-4 w-full">
                                     <TabsTrigger value="datasets">Datasets</TabsTrigger>
                                     <TabsTrigger value="wms">WMS</TabsTrigger>
                                     <TabsTrigger value="upload">Upload</TabsTrigger>
                                     <TabsTrigger value="integration">Integrations</TabsTrigger>
                                 </TabsList>
-                                <div className='h-full px-2 py-5'>
+                                <div className='px-2 py-5 h-full'>
                                     <TabsContent value="datasets">
                                         <Card>
                                             <CardHeader>
@@ -2558,10 +2596,10 @@ export default function MapLayout({
                                             </CardHeader>
                                             <CardContent className="space-y-2">
                                                 <div className='h-[55vh] w-full'>
-                                                    <div className="h-full flex overflow-auto border rounded-lg">
+                                                    <div className="flex overflow-auto h-full rounded-lg border">
                                                         <ResizablePanelGroup direction="horizontal">
                                                             <ResizablePanel defaultSize={25}>
-                                                                <ScrollArea className="h-full w-full">
+                                                                <ScrollArea className="w-full h-full">
                                                                     {datasets.map((dataset, index) => (
                                                                         <Button
                                                                             key={index}
@@ -2576,10 +2614,10 @@ export default function MapLayout({
                                                             </ResizablePanel >
                                                             <ResizableHandle withHandle />
                                                             <ResizablePanel defaultSize={75}>
-                                                                <div className='h-full w-full rounded-lg dark:bg-background'>
+                                                                <div className='w-full h-full rounded-lg dark:bg-background'>
                                                                     {isLoading.dataset && (
-                                                                        <div className="h-full w-full flex items-center justify-center">
-                                                                            <div className="flex flex-col items-center gap-2">
+                                                                        <div className="flex justify-center items-center w-full h-full">
+                                                                            <div className="flex flex-col gap-2 items-center">
                                                                                 <AiOutlineLoading3Quarters className="animate-spin" size={24} />
                                                                                 <p className="text-sm">Loading dataset...</p>
                                                                             </div>
@@ -2588,14 +2626,14 @@ export default function MapLayout({
                                                                     {!isLoading.dataset && (
                                                                         <>
                                                                             {datasetResult?.length === 0 && (
-                                                                                <div className="h-full flex flex-col justify-center items-center">
+                                                                                <div className="flex flex-col justify-center items-center h-full">
                                                                                     <LuDatabase size={"30pt"} />
                                                                                     <p className='font-bold'>Theres no data to show yet.</p>
                                                                                     <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
                                                                                 </div>
                                                                             )}
                                                                             {activeDatasets?.map_service_vendor === MapServiceVendor.Geoserver && (
-                                                                                <div className='grid grid-cols-2 lg:grid-cols-4 gap-2 p-2'>
+                                                                                <div className='grid grid-cols-2 gap-2 p-2 lg:grid-cols-4'>
                                                                                     {datasetResult?.map((item, index) => (
                                                                                         <div
                                                                                             key={index}
@@ -2603,11 +2641,11 @@ export default function MapLayout({
                                                                                             className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''
                                                                                                 }`}
                                                                                         >
-                                                                                            <div className="w-full h-48 relative">
+                                                                                            <div className="relative w-full h-48">
                                                                                                 <img
                                                                                                     src={item?.thumbnail || ''}
                                                                                                     alt="Dataset Preview"
-                                                                                                    className="w-full h-full object-cover hover:scale-105 transition-all"
+                                                                                                    className="object-cover w-full h-full transition-all hover:scale-105"
                                                                                                 />
                                                                                             </div>
                                                                                             <PlusCircleIcon
@@ -2615,7 +2653,7 @@ export default function MapLayout({
                                                                                                 className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'
                                                                                                     }`}
                                                                                             />
-                                                                                            <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">
+                                                                                            <p className="px-2 py-1 text-xs capitalize text-background text-ellipsis">
                                                                                                 {item.title}
                                                                                             </p>
                                                                                         </div>
@@ -2645,7 +2683,7 @@ export default function MapLayout({
                                     <TabsContent value="wms">
                                         <Card>
                                             <CardHeader>
-                                                <div className="flex items-center justify-between">
+                                                <div className="flex justify-between items-center">
                                                     <div>
                                                         <CardTitle>WMS</CardTitle>
                                                         <CardDescription>
@@ -2656,7 +2694,7 @@ export default function MapLayout({
                                                 </div>
                                             </CardHeader>
                                             <CardContent className="space-y-2">
-                                                <div className="flex flex-col gap-2 lg:flex-row items-center mb-2">
+                                                <div className="flex flex-col gap-2 items-center mb-2 lg:flex-row">
                                                     <Select onValueChange={(value) => setDatasetProperties({ ...datasetProperties, map_service_vendor: value })}>
                                                         <SelectTrigger className="w-full lg:w-[180px]">
                                                             <SelectValue defaultValue={MapServiceVendor.Geoserver} placeholder="Select Map Vendor" />
@@ -2673,14 +2711,14 @@ export default function MapLayout({
                                                             : (datasetProperties.map_service_vendor == MapServiceVendor.ArcGIS) ? "http(s)://(domain)/(path)/(to)/(services)"
                                                                 : "http(s)://(domain)/(path)/(to)/(tiles)/x/y/z"
                                                     } className='w-full' onChange={(e) => setDatasetProperties({ ...datasetProperties, url: e.currentTarget.value })} />
-                                                    <Button type="submit" className='w-full lg:w-auto right-0' onClick={() => handleDatasets()}>Connect</Button>
+                                                    <Button type="submit" className='right-0 w-full lg:w-auto' onClick={() => handleDatasets()}>Connect</Button>
                                                 </div>
                                                 <div className='h-[50vh] w-full'>
-                                                    <div className='h-full w-full overflow-auto bg-white border p-5 mb-2 rounded-lg dark:bg-background'>
+                                                    <div className='overflow-auto p-5 mb-2 w-full h-full bg-white rounded-lg border dark:bg-background'>
 
                                                         {isLoading.dataset && (
-                                                            <div className="h-full w-full flex items-center justify-center">
-                                                                <div className="flex flex-col items-center gap-2">
+                                                            <div className="flex justify-center items-center w-full h-full">
+                                                                <div className="flex flex-col gap-2 items-center">
                                                                     <AiOutlineLoading3Quarters className="animate-spin" size={24} />
                                                                     <p className="text-sm">Loading dataset...</p>
                                                                 </div>
@@ -2689,7 +2727,7 @@ export default function MapLayout({
                                                         {!isLoading.dataset && (
                                                             <>
                                                                 {datasetResult?.length === 0 && (
-                                                                    <div className="h-full flex flex-col justify-center items-center">
+                                                                    <div className="flex flex-col justify-center items-center h-full">
                                                                         <LuDatabase size={"30pt"} />
                                                                         <p className='font-bold'>Theres no data to show yet.</p>
                                                                         <p className='text-sm'>No data available yet. Please upload or enter a valid URL to display data.</p>
@@ -2700,18 +2738,18 @@ export default function MapLayout({
                                                                         <div className='grid grid-cols-4 gap-2'>
                                                                             {datasetResult?.map((item, index) => (
                                                                                 <div key={index} onClick={() => handleSelectedDatasets(index)} className={`relative bg-primary rounded-lg border overflow-hidden ${selectedDatasets.some(dataset => dataset.index === index) ? 'border-primary border-2' : ''}`}>
-                                                                                    <div className="w-full h-48 relative">
+                                                                                    <div className="relative w-full h-48">
                                                                                         <img
                                                                                             src={item?.thumbnail || ''}
                                                                                             alt="Dataset Preview"
-                                                                                            className="w-full h-full object-cover hover:scale-105 transition-all"
+                                                                                            className="object-cover w-full h-full transition-all hover:scale-105"
                                                                                         />
                                                                                     </div>
                                                                                     <PlusCircleIcon
                                                                                         size={'24'}
                                                                                         className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white bg-primary rounded-full p-2 hover:bg-primary-darker cursor-pointer ${selectedDatasets.some(dataset => dataset.index === index) ? '' : 'hidden'}`}
                                                                                     />
-                                                                                    <p className="text-background text-xs px-2 text-ellipsis capitalize py-1">{item.title}</p>
+                                                                                    <p className="px-2 py-1 text-xs capitalize text-background text-ellipsis">{item.title}</p>
                                                                                 </div>
                                                                             ))}
                                                                         </div>

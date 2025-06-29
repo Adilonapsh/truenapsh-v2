@@ -21,6 +21,8 @@ type MapComponentsProps = {
     handleDrop?: (event: React.DragEvent<HTMLDivElement>) => void;
     onContextMenu?: (e: MapLayerMouseEvent) => void;
     transformRequests?: TransformRequestFunction;
+    onMoveStart?: (e: mapboxgl.MapEvent) => void;
+    onMoveEnd?: (e: mapboxgl.MapEvent) => void;
 }
 
 type ViewState = {

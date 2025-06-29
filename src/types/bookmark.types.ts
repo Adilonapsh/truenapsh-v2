@@ -1,7 +1,7 @@
 import { LngLat } from "mapbox-gl"
 
 export interface BookmarkResponse {
-    data: Bookmark[]
+    data: Bookmark[] | Bookmark
 }
 
 export interface Bookmark {
