@@ -58,8 +58,8 @@ export default function LoginComponent() {
                 console.log("Login failed!");
             }
         } catch (error: unknown) {
-            if (error instanceof AuthError) {
-                switch (error.type) {
+            if (error instanceof Error) {
+                switch ((error as any).type) {
                     case "CredentialsSignin":
                         return { error: "Invalid Credentials" }
                     default:
@@ -121,19 +121,24 @@ export default function LoginComponent() {
                                 </FormItem>
                             )}
                         />
-                        <FormField
+                        {/* <FormField
                             control={form.control}
                             name="rememberMe"
                             render={({ field }) => (
                                 <FormItem className="flex items-center gap-2">
                                     <FormControl>
-                                        <input type="checkbox" className="h-4 w-4 rounded border-gray-300" {...field} checked={field.value} />
+                                        <Input 
+                                            type="checkbox" 
+                                            className="h-4 w-4 rounded border-gray-300"
+                                            {...field}
+                                            checked={field.value || false}
+                                        />
                                     </FormControl>
                                     <p className="text-gray-700 dark:text-gray-300 !m-0">Remember me</p>
                                     <FormMessage />
                                 </FormItem>
                             )}
-                        />
+                        /> */}
                         <Button type="submit" className="w-full bg-black hover:bg-gray-800 text-white dark:bg-white dark:hover:bg-gray-200 dark:text-black">
                             {isLoading ? (
                                 <AiOutlineLoading3Quarters className='animate-spin' />

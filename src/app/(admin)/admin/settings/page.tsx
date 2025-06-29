@@ -132,9 +132,9 @@ export default function SettingsPage() {
         }
     };
 
-    useEffect(() => {  
+    useEffect(() => {
         fetchUsersDetails();
-    }, [form, profileForm]);
+    }, [form, profileForm, fetchUsersDetails]);
 
     // Handle file upload
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -242,7 +242,7 @@ export default function SettingsPage() {
             Object.entries(data).forEach(([key, value]) => {
                 formData.append(key, typeof value === 'boolean' ? value.toString() : value);
             });
-            
+
             const response = await update(formData);
 
             if (response) {

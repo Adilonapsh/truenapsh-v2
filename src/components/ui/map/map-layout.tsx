@@ -2644,12 +2644,12 @@ export default function MapLayout({
                                                                             )}
                                                                             {activeDatasets?.map_service_vendor === MapServiceVendor.ArcGIS && datasetResult?.length > 0 && (
                                                                                 <div className="relative h-full">
-                                                                                    <TreeDirectory
+                                                                                    {/* <TreeDirectory
                                                                                         data={datasetResult}
                                                                                         setSelectedDatasets={setSelectedDatasets}
                                                                                         selectedDatasets={selectedDatasets}
                                                                                         activeDatasets={activeDatasets}
-                                                                                    />
+                                                                                    /> */}
                                                                                 </div>
                                                                             )}
                                                                         </>
@@ -2738,7 +2738,7 @@ export default function MapLayout({
                                                                     )}
                                                                     {datasetProperties?.map_service_vendor == MapServiceVendor.ArcGIS && datasetResult?.length != 0 && (
                                                                         <div>
-                                                                            <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} />
+                                                                            {/* <TreeDirectory data={datasetResult} setSelectedDatasets={setSelectedDatasets} selectedDatasets={selectedDatasets} /> */}
                                                                         </div>
                                                                     )}
                                                                 </div>

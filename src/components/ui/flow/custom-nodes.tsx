@@ -91,7 +91,7 @@ export function GroupNode({ data, selected }: { data: any, selected: boolean }) 
     );
 }
 
-export const nodeTypes = Object.values(widgets).flat().reduce((acc, widget) => {
+export const nodeTypes = Object.values(widgets).flat().reduce((acc: Record<string, React.FC<any>>, widget) => {
     acc[widget.type] = (props: any) => {
         const type = props.type;
         if (type.includes("-node")) {

@@ -147,7 +147,11 @@ export default async function RootLayout({
 }>) {
 
     const session = await getServerSession()
-    data.user = session?.user
+    data.user = {
+        name: session?.user?.name ?? "Guest",
+        email: session?.user?.email ?? "guest@example.com",
+        avatar: session?.user?.image ?? "/avatars/default.jpg"
+    }
     return (
         <section>
             <Toaster

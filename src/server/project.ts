@@ -1,16 +1,17 @@
 'use server'
 
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { decrypt } from "@/lib/crypt";
 import { Project } from "@/types/project.types";
-import { getServerSession } from "next-auth";
+import { getAuthSession } from "@/lib/auth-utils";
+
 
 const baseURL = process.env.NEXT_AUTH_URL;
 
 
 export const get = async (): Promise<Project[]> => {
-    const session = await getServerSession(authOptions);
-    const accessToken = decrypt(session?.user.accessToken);
+    const session = await getAuthSession();
+    if (!session?.user || !('accessToken' in session.user)) throw new Error('Unauthorized: Missing access token');
+    const accessToken = decrypt(session.user.accessToken as string);
 
     const data = await fetch(`${baseURL}/projects`, {
         method: 'GET',
@@ -25,8 +26,9 @@ export const get = async (): Promise<Project[]> => {
 }
 
 export const project = async (id: string): Promise<Project> => {
-    const session = await getServerSession(authOptions);
-    const accessToken = decrypt(session?.user.accessToken);
+    const session = await getAuthSession();
+    if (!session?.user || !('accessToken' in session.user)) throw new Error('Unauthorized: Missing access token');
+    const accessToken = decrypt(session.user.accessToken as string);
     const data = await fetch(`${baseURL}/projects/${id}`, {
         method: 'GET',
         headers: {
@@ -40,10 +42,11 @@ export const project = async (id: string): Promise<Project> => {
 }
 
 export const create = async (project: Project): Promise<Project> => {
-    const session = await getServerSession(authOptions);
-    const accessToken = decrypt(session?.user.accessToken);
+    const session = await getAuthSession();
+    if (!session?.user || !('accessToken' in session.user)) throw new Error('Unauthorized: Missing access token');
+    const accessToken = decrypt(session.user.accessToken as string);
     try {
-        let data = await fetch(`${baseURL}/projects`, {
+        const data = await fetch(`${baseURL}/projects`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,

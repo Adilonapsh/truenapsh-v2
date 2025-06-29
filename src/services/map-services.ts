@@ -252,7 +252,7 @@ const getGeoserverServices = async (url: string) => {
                 const title = layer.querySelector("Title")?.textContent?.replaceAll("_", " ") || "No Title";
                 const legend = layer.querySelector("Style")?.querySelector("LegendURL")?.querySelector("OnlineResource")?.getAttribute("xlink:href");
                 const crs = layer.querySelector("CRS")?.textContent;
-                let bbox;
+                // let bbox;
                 // if (crs === "EPSG:4326") {
                 //     const boundingBox = layer.querySelector("BoundingBox[CRS='EPSG:4326']");
                 //     if (boundingBox) {
@@ -268,7 +268,7 @@ const getGeoserverServices = async (url: string) => {
                 const east = rawbbox?.querySelector("eastBoundLongitude")?.textContent;
                 const south = rawbbox?.querySelector("southBoundLatitude")?.textContent;
                 const north = rawbbox?.querySelector("northBoundLatitude")?.textContent;
-                bbox = `${west},${south},${east},${north}`;
+                const bbox = `${west},${south},${east},${north}`;
                 // }
                 const thumbnail = `${url}?service=WMS&version=1.1.0&request=GetMap&layers=${name}&bbox=${bbox}&width=300&height=150&srs=EPSG%3A4326&styles=&format=image%2Fjpeg`
                 const metadata = {

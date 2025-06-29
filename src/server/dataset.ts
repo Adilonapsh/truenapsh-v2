@@ -1,7 +1,6 @@
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getAuthSession } from "@/lib/auth-utils";
 import { decrypt } from "@/lib/crypt";
 import { Datasets } from "@/types/datasets.types";
-import { getServerSession } from "next-auth";
 
 const baseURL = process.env.NEXT_AUTH_URL;
 
@@ -10,8 +9,9 @@ type DatasetResponse = {
 }
 
 export const get = async (): Promise<DatasetResponse> => {
-    const session = await getServerSession(authOptions);
-    const accessToken = decrypt(session?.user.accessToken);
+    const session = await getAuthSession();
+    if (!session?.user || !('accessToken' in session.user)) throw new Error('Unauthorized: Missing access token');
+    const accessToken = decrypt(session.user.accessToken as string);
 
     const data = await fetch(`${baseURL}/datasets`, {
         method: 'GET',

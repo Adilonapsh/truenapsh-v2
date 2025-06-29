@@ -54,43 +54,43 @@ function Landscape() {
             const material = new THREE.MeshBasicMaterial({
                 color: idx === 0 ? 0x000000 : 0xffffff,
                 side: idx === 0 ? THREE.FrontSide : THREE.BackSide,
-                onBeforeCompile: (shader: THREE.ShaderLibShader) => {
-                    shader.uniforms.time = timeRef.current;
-                    shader.uniforms.hasShift = { value: idx };
-
-                    shader.vertexShader = `
-                        uniform float hasShift;
-                        uniform float time;
-                        varying float river;
-                        varying float vHasShift;
-                        ${noiseGLSL}
-                        ${shader.vertexShader}
-                    `.replace(
-                        '#include <begin_vertex>',
-                        `#include <begin_vertex>
-                        vHasShift = hasShift;
-                        float t = time * 2.0;
-                        vec3 pos = vec3(modelMatrix * vec4(position, 1.0));
-                        float treeNoise = abs(snoise((pos.xz - vec2(0., t)) * 0.25));
-                        treeNoise = pow(treeNoise, 0.5);
-                        float riverNoise = snoise(vec2(0, pos.z - t) * 0.05);
-                        riverNoise = smoothstep(5., 7., abs(pos.x + riverNoise * 2.5));
-                        transformed.y += treeNoise * 2.5 * riverNoise;
-                        transformed.y += hasShift * 0.05;
-                        river = riverNoise;
-                    `);
-
-                    shader.fragmentShader = `
-                        varying float vHasShift;
-                        varying float river;
-                        ${shader.fragmentShader}
-                    `.replace(
-                        '#include <color_fragment>',
-                        `#include <color_fragment>
-                        if(vHasShift < 0.5 && river < 0.01) diffuseColor.rgb = vec3(1.0);
-                        `);
-                },
             });
+
+            material.onBeforeCompile = (shader: THREE.WebGLProgramParametersWithUniforms) => {
+                shader.uniforms.time = timeRef.current;
+                shader.uniforms.hasShift = { value: idx };
+                shader.vertexShader = `
+                uniform float hasShift;
+                uniform float time;
+                varying float river;
+                varying float vHasShift;
+                ${noiseGLSL}
+                ${shader.vertexShader}
+            `.replace(
+                    '#include <begin_vertex>',
+                    `#include <begin_vertex>
+                vHasShift = hasShift;
+                float t = time * 2.0;
+                vec3 pos = vec3(modelMatrix * vec4(position, 1.0));
+                float treeNoise = abs(snoise((pos.xz - vec2(0., t)) * 0.25));
+                treeNoise = pow(treeNoise, 0.5);
+                float riverNoise = snoise(vec2(0, pos.z - t) * 0.05);
+                riverNoise = smoothstep(5., 7., abs(pos.x + riverNoise * 2.5));
+                transformed.y += treeNoise * 2.5 * riverNoise;
+                transformed.y += hasShift * 0.05;
+                river = riverNoise;
+            `);
+                shader.fragmentShader = `
+                varying float vHasShift;
+                varying float river;
+                ${shader.fragmentShader}
+            `.replace(
+                    '#include <color_fragment>',
+                    `#include <color_fragment>
+                if(vHasShift < 0.5 && river < 0.01) diffuseColor.rgb = vec3(1.0);
+                `);
+            };
+
             return material;
         });
     }, []);

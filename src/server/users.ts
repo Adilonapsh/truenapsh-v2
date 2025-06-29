@@ -1,6 +1,6 @@
 'use server'
 
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getAuthSession } from "@/lib/auth-utils";
 import { decrypt } from "@/lib/crypt";
 import { getServerSession } from "next-auth";
 
@@ -54,8 +54,9 @@ export const register = async (formData: FormData): Promise<User> => {
 }
 
 export const userDetails = async (): Promise<User> => {
-    const session = await getServerSession(authOptions);
-    const accessToken = decrypt(session?.user.accessToken);
+    const session = await getAuthSession();
+    if (!session?.user || !('accessToken' in session.user)) throw new Error('Unauthorized: Missing access token');
+    const accessToken = decrypt(session.user.accessToken as string);
     const data = await fetch(`${baseURL}/auth/user`, {
         method: 'GET',
         headers: {
@@ -73,9 +74,10 @@ export const userDetails = async (): Promise<User> => {
     return json;
 }
 
-export const update = async (formData): Promise<User | undefined> => {
-    const session = await getServerSession(authOptions);
-    const accessToken = decrypt(session?.user.accessToken);
+export const update = async (formData: any): Promise<User | undefined> => {
+    const session = await getAuthSession();
+    if (!session?.user || !('accessToken' in session.user)) throw new Error('Unauthorized: Missing access token');
+    const accessToken = decrypt(session.user.accessToken as string);
 
     try {
         const data = await fetch(`${baseURL}/auth/update-profile`, {

@@ -6,8 +6,13 @@ import { get } from '@/server/dataset';
 import { project } from '@/server/project';
 import { Toaster } from 'react-hot-toast';
 
-export default async function MapPage(context: { params: { id: string } }) {
-    const { id } = await context.params;
+interface PageProps {
+    params: Promise<{ id: string }>;
+    searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function MapPage({ params, searchParams }: PageProps) {
+    const { id } = await params;
 
     try {
         const [fetchedProject, fetchedDatasets, fetchedBookmarks] = await Promise.all([

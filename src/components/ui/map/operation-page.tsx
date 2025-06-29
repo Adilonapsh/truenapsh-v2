@@ -765,7 +765,7 @@ export default function OperationComponents({
                 const targetLayerSource = map?.getLayer(targetLayer)?.source ?? "";
                 const targetData = map?.getSource(targetLayerSource)?.serialize().data;
                 const pointsLayer = await pointAlongLinesLayers(targetData, Number(operationOptions.interval), operationOptions.units)
-                let elevationLayer = await elevationLayers(pointsLayer as any, sourceElevation);
+                const elevationLayer = await elevationLayers(pointsLayer as any, sourceElevation);
                 console.log("Elevation layer created:", elevationLayer);
             }
         }
