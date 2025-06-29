@@ -63,7 +63,7 @@ import { cn } from "@/lib/utils";
 import { addBookmark, removeBookmark, updateBookmark } from "@/server/bookmark";
 import { convertWMSToVectorData, fetchLayerBbox, getAllFeaturesGeoserver, getFeatureInfo, getWMSServices } from '@/services/map-services';
 import { addGeojsonToMap, aiCommand, calculateCoordinatesWithAspectRatio, findLayerConfigByGeometryType, searchAlternatives } from "@/tools/map-tools";
-import { Bookmark } from "@/types/bookmark.types";
+import { Bookmark, BookmarkResponse } from "@/types/bookmark.types";
 import { Datasets } from "@/types/datasets.types";
 import {
     closestCorners,
@@ -113,6 +113,9 @@ import OperationComponents from "./operation-page";
 import SortableItem from './sortable-item';
 import { StylePanel } from './style-panel';
 import LegendMapbox from "./legend-mapbox";
+import { useLayers } from "@/hooks/zustand/layer-store";
+import { shallow } from 'zustand/shallow';
+
 
 export default function MapLayout({
     layersFetch,
@@ -154,7 +157,7 @@ export default function MapLayout({
         {
             id: "Mapbox",
             name: "Mapbox",
-            url: "mapbox://styles/mapbox/streets-v9",
+            url: "mapbox://styles/mapbox/streets-v12",
             thumbnail: "/assets/basemap/Light.png"
         },
         {
@@ -182,7 +185,20 @@ export default function MapLayout({
             thumbnail: "/assets/basemap/googleStreets.png"
         },
     ]);
-    const [layers, setLayers] = useState(layersFetch);
+
+
+
+
+    // LAYERS
+    const { layers, setLayers, setLayerVisibility, addLayer, removeLayer } = useLayers();
+
+    useEffect(() => {
+        setLayers(layersFetch);
+    }, [layersFetch, setLayers]);
+
+
+
+
     const [activeBasemap, setActiveBasemap] = useState(0);
     const [mapboxLayerStyle, setMapboxLayerStyle] = useState<MapboxLayerStyle>({
         fill: "#000000",
@@ -519,7 +535,7 @@ export default function MapLayout({
                 const newMarker = new mapboxgl.Marker({
                     // color: "#000",
                     clickTolerance: 20,
-                    element : el
+                    element: el
                 })
                     .setLngLat([longitude, latitude])
                     .addTo(map);
@@ -552,7 +568,7 @@ export default function MapLayout({
                 if (bm.id.toLowerCase().includes("mapbox")) {
                     map.setStyle(bm?.url);
                     setTimeout(() => {
-                        setLayers(layers.map((layer, i) => i === 0 ? { ...layer, rendered: layer.rendered ? 0 + 1 : 1 } : layer));
+                        setLayers(layers.map((layer) => ({ ...layer, rendered: 0 })));
                     }, 500);
                 } else {
                     if (map.getLayer("basemap-layer")) {
@@ -584,11 +600,7 @@ export default function MapLayout({
         if (map) {
             map.setLayoutProperty(layerId, "visibility", !status ? "visible" : "none")
         }
-        setLayers((prevLayers) =>
-            prevLayers.map((layer) =>
-                layer.id === layerId ? { ...layer, visible: !status } : layer
-            )
-        );
+        setLayerVisibility(layerId, !status);
     }
 
     const isSourceUsed = (sourceId: string): boolean => {
@@ -610,7 +622,7 @@ export default function MapLayout({
                 }
             }
         }
-        setLayers((prevLayers) => prevLayers.filter((_, i) => i !== index));
+        removeLayer(layerId);
     }
 
     const handleZoomToLayer = async (index: number) => {
@@ -817,7 +829,7 @@ export default function MapLayout({
                         const geojsonData = JSON.parse(reader.result as string);
                         addGeojsonToMap({
                             mapRef: mapRef,
-                            setLayers: setLayers,
+                            addLayer: addLayer,
                             layerName: fl.name.split(".")[0].replaceAll("_", " "),
                             data: geojsonData
                         })
@@ -828,7 +840,7 @@ export default function MapLayout({
                     const shapeData = await shp(buffer);
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: shapeData as GeoJSON.GeoJSON
                     });
@@ -843,7 +855,7 @@ export default function MapLayout({
                     const geojson = toGeoJSON.kml(kml);
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
@@ -864,7 +876,7 @@ export default function MapLayout({
                     const geojson = toGeoJSON.kml(kml);
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
@@ -874,7 +886,7 @@ export default function MapLayout({
                     const geojson = topojson.feature(topojsonData, topojsonData.objects[Object.keys(topojsonData.objects)[0]]);
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
@@ -890,7 +902,7 @@ export default function MapLayout({
                     };
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         layerName: fl.name.split(".")[0].replace(/_/g, " "),
                         data: geojson as GeoJSON.GeoJSON
                     });
@@ -1113,7 +1125,7 @@ export default function MapLayout({
                     }
                 });
 
-                setLayers(prevLayers => [...prevLayers, {
+                const newLayer = {
                     id: layerId,
                     name: `XYZ Layer ${layers.length + 1}`,
                     map_service_url: url.toString(),
@@ -1130,7 +1142,9 @@ export default function MapLayout({
                         url: href,
                         map_service_vendor: MapServiceVendor.XYZ,
                     }
-                } as Layer]);
+                };
+
+                addLayer(newLayer);
             }
         } else if (datasetProperties.map_service_vendor == MapServiceVendor.GeoJSON) {
             if (map) {
@@ -1179,7 +1193,8 @@ export default function MapLayout({
                         console.error("Error fetching GeoJSON:", error);
                         toast.error("Failed to load GeoJSON data");
                     });
-                setLayers(prevLayers => [...prevLayers, {
+
+                const newLayer = {
                     id: layerId,
                     name: `Geojson Layer ${layers.length + 1}`,
                     map_service_url: url.toString(),
@@ -1196,7 +1211,9 @@ export default function MapLayout({
                         url: href,
                         map_service_vendor: MapServiceVendor.GeoJSON,
                     }
-                } as Layer]);
+                };
+
+                addLayer(newLayer);
             }
         } else {
             const datasets = await getWMSServices(datasetProperties.url, datasetProperties.map_service_vendor);
@@ -1231,7 +1248,7 @@ export default function MapLayout({
                 const maxZoom = 24;
                 const status = "Local";
 
-                setLayers(prevLayers => [...prevLayers, {
+                const newLayer = {
                     id: layerId,
                     name: layerName,
                     description: "",
@@ -1249,7 +1266,9 @@ export default function MapLayout({
                         map_service_layer_name: mapServiceLayerName,
                         map_service_vendor: mapServiceVendor as MapServiceVendor,
                     }
-                }]);
+                };
+
+                addLayer(newLayer);
             });
             setSelectedDatasets([]);
         }
@@ -1259,10 +1278,11 @@ export default function MapLayout({
         const map = mapRef.current?.getMap();
         if (map) {
             toast.promise(
-                convertWMSToVectorData(layer, map, layers).then(vectorLayer => {
-                    if (vectorLayer) {
-                        setLayers(prevLayers => [...prevLayers, ...vectorLayer]);
-                    }
+                convertWMSToVectorData(layer, map, layers).then(vectorLayers => {
+                    // Add each vector layer to the map
+                    vectorLayers?.forEach(vectorLayer => {
+                        addLayer(vectorLayer);
+                    });
                 }),
                 {
                     loading: 'Loading...',
@@ -1307,7 +1327,6 @@ export default function MapLayout({
 
     useEffect(() => {
         const map = mapRef.current?.getMap();
-        console.log(layers)
         if (map) {
             layers.forEach(layer => {
                 let url = "";
@@ -1326,7 +1345,7 @@ export default function MapLayout({
                     }
 
                     if (!map.getLayer(layer.id)) {
-                        if (layer.map_service_url.includes("FeatureServer")) {
+                        if ((layer.map_service_vendor as MapServiceVendor) === MapServiceVendor.GeoJSON && layer.map_service_url) {
                             fetch(url)
                                 .then(response => response.json())
                                 .then(data => {
@@ -1354,11 +1373,10 @@ export default function MapLayout({
                                     console.error("Error fetching GeoJSON:", error);
                                     toast.error("Failed to load GeoJSON data");
                                 });
-                        } else if (layer.map_service_vendor == MapServiceVendor.GeoJSON && layer.map_service_url) {
+                        } else if (layer.map_service_url.includes("FeatureServer")) {
                             fetch(url)
                                 .then(response => response.json())
                                 .then(data => {
-                                    console.log(data);
                                     if (data.features) {
                                         const type = data.features[0].geometry.type;
                                         const layerConfig = findLayerConfigByGeometryType(type);
@@ -1440,6 +1458,8 @@ export default function MapLayout({
                 const layerName = "Image " + (layers.length + 1);
 
                 const commonLayerProps = {
+                    id: layerId,
+                    name: layerName,
                     map_service_url: imageUrl,
                     map_service_layer_name: layerName,
                     map_service_vendor: MapServiceVendor.Image,
@@ -1451,11 +1471,9 @@ export default function MapLayout({
                     rendered: 1
                 };
 
-                setLayers(prevLayers => [...prevLayers, {
-                    ...commonLayerProps,
-                    id: layerId,
-                    name: layerName
-                }]);
+
+                addLayer({ ...commonLayerProps });
+
             }
         };
 
@@ -1501,7 +1519,7 @@ export default function MapLayout({
             }
             addGeojsonToMap({
                 mapRef: mapRef,
-                setLayers: setLayers,
+                addLayer: addLayer,
                 layerName: "Untitled Layer " + layers.length + 1,
                 data: features
             })
@@ -1523,7 +1541,7 @@ export default function MapLayout({
         const map = mapRef.current;
         const mapCanvas = map?.getCanvas();
         const dataUrl = mapCanvas?.toDataURL('image/png')
-        
+
         const link = document.createElement('a');
         link.download = 'map.png';
         link.href = dataUrl || '';
@@ -1867,7 +1885,7 @@ export default function MapLayout({
             properties
         }
 
-        const response = await toast.promise(
+        const response: BookmarkResponse = await toast.promise(
             addBookmark(newBookmark),
             {
                 loading: 'Saving bookmark...',
@@ -1876,8 +1894,10 @@ export default function MapLayout({
             }
         )
 
-        const { data }: { data: Bookmark } = response;
-        setBookmarks([...bookmarks, data]);
+        const { data } = response;
+        if (data) {
+            setBookmarks([...bookmarks, data as Bookmark]);
+        }
 
     }
 
@@ -2376,8 +2396,8 @@ export default function MapLayout({
                                 <X className="h-4 w-4" />
                             </Button>
                         </CardHeader>
-                        <CardContent className="">
-                            <OperationComponents layers={layers} mapRef={mapRef} setLayers={setLayers} />
+                        <CardContent>
+                            <OperationComponents mapRef={mapRef} />
                         </CardContent>
                     </Card>
                 )}

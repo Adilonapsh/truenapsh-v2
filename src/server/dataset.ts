@@ -5,7 +5,11 @@ import { getServerSession } from "next-auth";
 
 const baseURL = process.env.NEXT_AUTH_URL;
 
-export const get = async (): Promise<Datasets[]> => {
+type DatasetResponse = {
+    data: Datasets[]
+}
+
+export const get = async (): Promise<DatasetResponse> => {
     const session = await getServerSession(authOptions);
     const accessToken = decrypt(session?.user.accessToken);
 

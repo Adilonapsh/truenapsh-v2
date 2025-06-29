@@ -27,16 +27,16 @@ import { useEffect, useState } from "react"
 import { MdTerrain } from "react-icons/md"
 import { MapRef } from "react-map-gl"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../select"
+import { useLayers } from "@/hooks/zustand/layer-store"
+import { featureCollection } from "@turf/turf"
 
 export default function OperationComponents({
-    layers,
-    setLayers,
     mapRef
 }: {
-    layers: Layer[] | undefined,
-    setLayers: React.Dispatch<React.SetStateAction<Layer[]>>,
     mapRef: React.RefObject<MapRef | null>,
 }) {
+
+    const { layers, setLayers, setLayerVisibility, addLayer, removeLayer } = useLayers();
     const [selectedOperation, setSelectedOperation] = useState<string | null>(null)
     const [searchQuery, setSearchQuery] = useState("")
     const [operationOptions, setOperationOptions] = useState<Record<string, any>>({})
@@ -555,7 +555,7 @@ export default function OperationComponents({
             if (bufferedLayer) {
                 addGeojsonToMap({
                     mapRef: mapRef,
-                    setLayers: setLayers,
+                    addLayer: addLayer,
                     data: bufferedLayer as GeoJSON.GeoJSON,
                     layerName: `Buffer ${operationOptions.bufferDistance} ${operationOptions.units}`,
                 })
@@ -573,7 +573,7 @@ export default function OperationComponents({
                 if (clippedLayers) {
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         data: clippedLayers as GeoJSON.GeoJSON,
                         layerName: `Clipped ${(layers?.length ?? 0) + 1}`,
                     })
@@ -592,7 +592,7 @@ export default function OperationComponents({
                 if (differenceLayer) {
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         data: differenceLayer as GeoJSON.GeoJSON,
                         layerName: `Difference ${(layers?.length ?? 0) + 1}`,
                     })
@@ -608,7 +608,7 @@ export default function OperationComponents({
                 if (linesToPolygon) {
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         data: linesToPolygon as GeoJSON.GeoJSON,
                         layerName: `Untitled Layers ${(layers?.length ?? 0) + 1}`,
                     })
@@ -624,7 +624,7 @@ export default function OperationComponents({
                 if (centroidLayer) {
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         data: centroidLayer as GeoJSON.GeoJSON,
                         layerName: `Untitled Layers ${(layers?.length ?? 0) + 1}`,
                     })
@@ -640,7 +640,7 @@ export default function OperationComponents({
                 if (polygonToLines) {
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         data: polygonToLines as GeoJSON.GeoJSON,
                         layerName: `Untitled Layers ${(layers?.length ?? 0) + 1}`,
                     })
@@ -659,7 +659,7 @@ export default function OperationComponents({
                 if (hexagon) {
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         data: hexagon as GeoJSON.GeoJSON,
                         layerName: `Hexagon ${(layers?.length ?? 0) + 1} ${operationOptions.cellSize} ${operationOptions.units}`,
                     })
@@ -681,7 +681,7 @@ export default function OperationComponents({
                 if (removeDuplicateLayer) {
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         data: removeDuplicateLayer as GeoJSON.GeoJSON,
                         layerName: `Clean Layers ${(layers?.length ?? 0) + 1}`,
                     })
@@ -697,7 +697,7 @@ export default function OperationComponents({
                 if (pointsLayer) {
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         data: pointsLayer as GeoJSON.GeoJSON,
                         layerName: `Points Along Line / ${operationOptions.interval} ${operationOptions.units}`,
                     })
@@ -712,7 +712,7 @@ export default function OperationComponents({
                 if (simplifyLayer) {
                     addGeojsonToMap({
                         mapRef: mapRef,
-                        setLayers: setLayers,
+                        addLayer: addLayer,
                         data: simplifyLayer as GeoJSON.GeoJSON,
                         layerName: `Simplify ${(layers?.length ?? 0) + 1} ${operationOptions.tolerance}`,
                     })
@@ -723,6 +723,8 @@ export default function OperationComponents({
 
         } else if (lowerOperationName === "split by line") {
 
+        
+
         } else if (lowerOperationName === "building") {
             const targetLayer = operationOptions.targetLayer
             const cutBuilding = operationOptions.cutBuilding
@@ -730,19 +732,30 @@ export default function OperationComponents({
                 const targetLayerSource = map?.getLayer(targetLayer)?.source ?? "";
                 const targetData = map?.getSource(targetLayerSource)?.serialize().data;
                 let buildingLayer = await buildingLayers(targetData);
-                console.log("Building layer created:", buildingLayer);
-                if (cutBuilding === "Extract Building") {
-                    buildingLayer = await clipLayers(targetData, buildingLayer);
-                }
-                if (buildingLayer) {
-                    const layerName = `Building ${(cutBuilding === "Extract Building") ? "Clip" : ""} ${(layers?.length ?? 0) + 1}`;
-                    addGeojsonToMap({
-                        mapRef: mapRef,
-                        setLayers: setLayers,
-                        data: buildingLayer as GeoJSON.GeoJSON,
-                        layerName: layerName,
-                    });
-                    console.log("Building layer created:", layerName);
+
+                // Check if buildingLayer exists and has the correct structure
+                if (buildingLayer && buildingLayer.features && buildingLayer.features.length > 0) {
+                    if (cutBuilding === "Extract Building") {
+                        // Ensure buildingLayer is the correct type before passing to clipLayers
+                        const clippedLayer = await clipLayers(targetData, buildingLayer as GeoJSON.FeatureCollection<GeoJSON.Polygon | GeoJSON.MultiPolygon, GeoJSON.GeoJsonProperties>);
+                        buildingLayer = clippedLayer;
+                    }
+
+                    // Final check before adding to map
+                    if (buildingLayer && buildingLayer.features && buildingLayer.features.length > 0) {
+                        const layerName = `Building ${(cutBuilding === "Extract Building") ? "Clip" : ""} ${(layers?.length ?? 0) + 1}`;
+                        addGeojsonToMap({
+                            mapRef: mapRef,
+                            addLayer: addLayer,
+                            data: buildingLayer as GeoJSON.GeoJSON,
+                            layerName: layerName,
+                        });
+                        console.log("Building layer created:", layerName);
+                    } else {
+                        console.warn("Building layer is empty after processing");
+                    }
+                } else {
+                    console.warn("No building features found or buildingLayer is undefined");
                 }
             }
         } else if (lowerOperationName === "elevation") {
@@ -752,7 +765,7 @@ export default function OperationComponents({
                 const targetLayerSource = map?.getLayer(targetLayer)?.source ?? "";
                 const targetData = map?.getSource(targetLayerSource)?.serialize().data;
                 const pointsLayer = await pointAlongLinesLayers(targetData, Number(operationOptions.interval), operationOptions.units)
-                let elevationLayer = await elevationLayers(pointsLayer, sourceElevation);
+                let elevationLayer = await elevationLayers(pointsLayer as any, sourceElevation);
                 console.log("Elevation layer created:", elevationLayer);
             }
         }

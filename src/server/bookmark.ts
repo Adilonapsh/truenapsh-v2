@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 
 const baseURL = process.env.NEXT_AUTH_URL;
 
-export const bookmark = async (project_id: string): Promise<BookmarkResponse[]> => {
+export const bookmark = async (project_id: string): Promise<BookmarkResponse> => {
     const session = await getServerSession(authOptions);
     const accessToken = decrypt(session?.user.accessToken);
 

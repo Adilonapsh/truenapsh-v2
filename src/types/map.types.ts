@@ -54,7 +54,7 @@ type Layer = {
     min_zoom?: number;
     max_zoom?: number;
     status?: string;
-    metadata?: object;
+    metadata?: Record<string, any>;
     rendered?: number;
 }
 
