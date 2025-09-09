@@ -47,6 +47,10 @@
 47. Show Team Cursors
 48. Add Auto Scrap data from website in AI
 49. Tambahkan Expression di Style
+50. Fix backed Layer and Add Layer
+51. Use Zustand
+52. Style Dijadikan Komponen
+53. Feature Info Dijadikan Komponen
 
 
 

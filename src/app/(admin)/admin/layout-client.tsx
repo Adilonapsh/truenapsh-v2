@@ -104,13 +104,32 @@ export function LayoutClient({ children, data }: LayoutClientProps) {
                                         <Separator orientation="vertical" className="mr-2 h-4" />
                                         <Breadcrumb>
                                             <BreadcrumbList>
-                                                <BreadcrumbItem className="hidden md:block">
-                                                    <BreadcrumbLink href="#">Dashboard</BreadcrumbLink>
-                                                </BreadcrumbItem>
-                                                <BreadcrumbSeparator className="hidden md:block" />
-                                                <BreadcrumbItem>
-                                                    <BreadcrumbPage className="capitalize">Testing</BreadcrumbPage>
-                                                </BreadcrumbItem>
+                                                {window.location.pathname
+                                                    .split('/')
+                                                    .filter(segment => segment && segment !== 'admin')
+                                                    .map((segment, index, array) => {
+                                                        const path = '/' + array.slice(0, index + 1).join('/');
+                                                        const isLast = index === array.length - 1;
+
+                                                        return (
+                                                            <div key={path}>
+                                                                <BreadcrumbItem className="hidden md:block">
+                                                                    {isLast ? (
+                                                                        <BreadcrumbPage className="capitalize">
+                                                                            {segment}
+                                                                        </BreadcrumbPage>
+                                                                    ) : (
+                                                                        <BreadcrumbLink href={path}>
+                                                                            {segment}
+                                                                        </BreadcrumbLink>
+                                                                    )}
+                                                                </BreadcrumbItem>
+                                                                {!isLast && (
+                                                                    <BreadcrumbSeparator className="hidden md:block" />
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
                                             </BreadcrumbList>
                                         </Breadcrumb>
                                     </div>
