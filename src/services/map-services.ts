@@ -1,6 +1,6 @@
 // import { Layer, Location, MapServiceVendor, WMSParams } from "@/types/map.types";
 
-import { GetAllLayers, Layer, MapServiceVendor, ParsedLayer, WMSParams } from "@/types/map.types";
+import { GetAllLayers, Layer, LayerNode, MapServiceVendor, ParsedLayer, WMSParams } from "@/types/map.types";
 import { getBBOX } from "@/tools/map-tools";
 import { v4 } from "uuid";
 
@@ -293,8 +293,87 @@ const getGeoserverServices = async (url: string) => {
     }
 }
 
+const transformGeoserverServicesToFolder = async (url: string) => {
+    try {
+        const urls = `${url.replace("/wms", "")}/ows?service=WMS&version=1.3.0&request=GetCapabilities`;
+        const response = await fetch(urls);
+        const body = await response.text();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(body, "text/xml");
+
+        const rootLayer = xmlDoc.querySelector("Capability > Layer");
+        if (!rootLayer) return [];
+
+        const layers = rootLayer.querySelectorAll("Layer");
+
+        // Kumpulkan layer berdasarkan workspace
+        const grouped: Record<string, LayerNode> = {};
+
+        layers.forEach((layer) => {
+            const fullName = layer.querySelector("Name")?.textContent || "";
+            if (!fullName.includes(":")) return; // skip layer tanpa workspace
+            const [workspace, layerName] = fullName.split(":");
+
+            const title = layer.querySelector("Title")?.textContent?.replaceAll("_", " ") || layerName;
+            const legend = layer.querySelector("Style")?.querySelector("LegendURL")?.querySelector("OnlineResource")?.getAttribute("xlink:href");
+            const rawbbox = layer.querySelector("EX_GeographicBoundingBox");
+            const west = rawbbox?.querySelector("westBoundLongitude")?.textContent;
+            const east = rawbbox?.querySelector("eastBoundLongitude")?.textContent;
+            const south = rawbbox?.querySelector("southBoundLatitude")?.textContent;
+            const north = rawbbox?.querySelector("northBoundLatitude")?.textContent;
+            const bbox = `${west},${south},${east},${north}`;
+            const thumbnail = `${url}?service=WMS&version=1.1.0&request=GetMap&layers=${fullName}&bbox=${bbox}&width=300&height=150&srs=EPSG%3A4326&styles=&format=image%2Fjpeg`;
+
+            if (!grouped[workspace]) {
+                grouped[workspace] = {
+                    id: v4(),
+                    name: workspace.replaceAll("_", " "),
+                    type: "folder",
+                    children: []
+                };
+            }
+
+            // Jika mau bikin group layer type "MapServer" per setiap title utama
+            let mapServerGroup = grouped[workspace].children!.find(c => c.name === title && c.type === "MapServer");
+            if (!mapServerGroup) {
+                mapServerGroup = {
+                    id: v4(),
+                    name: title,
+                    type: "MapServer",
+                    children: [],
+                    metadata: {
+                        url: `${url}`,
+                        type: "MapServer"
+                    }
+                };
+                grouped[workspace].children!.push(mapServerGroup);
+            }
+
+            mapServerGroup.children!.push({
+                id: v4(),
+                name: title,
+                type: "layer",
+                children: null,
+                metadata: {
+                    name: fullName,
+                    legend,
+                    bbox,
+                    thumbnail,
+                    url
+                }
+            });
+        });
+        return Object.values(grouped);
+
+    } catch (err: unknown) {
+        console.error("Error caught:", err instanceof Error ? err.message : err);
+        return [];
+    }
+};
+
 const getWMSServices = async (url: string, map_service_vendor: string) => {
     if (map_service_vendor == MapServiceVendor.Geoserver) {
+        transformGeoserverServicesToFolder(url);
         return getGeoserverServices(url);
     } else {
         const transform = await transformEsriServicesToFolder(url);
@@ -358,7 +437,6 @@ const transformEsriServicesToFolder = async (url: string) => {
 const getAllFeaturesGeoserver = async (url: string, layerId: string) => {
     const workspace = layerId.split(":")[0];
     const urls = `${url.replace("/wms", "")}/${workspace}/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=${layerId}&maxFeatures=100&outputFormat=application/json`
-    console.log("URL :", urls);
     try {
         const response = await fetch(urls);
         const data = await response.json();
