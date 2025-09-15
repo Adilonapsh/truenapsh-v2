@@ -57,7 +57,6 @@ export default function LoginComponent() {
                 setIsLoading(true);
                 router.push("/admin/dashboard");
             } else {
-                console.log("Login failed!");
                 form.setError("identifier", {
                     type: "manual",
                     message: "Invalid credentials"
