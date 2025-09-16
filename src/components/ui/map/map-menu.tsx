@@ -16,18 +16,16 @@ import {
     MenubarTrigger
 } from "@/components/ui/menubar"
 import { useTheme } from 'next-themes'
-import { LayoutDisplay } from '@/types/map.types'
+import { useMapStore } from '@/stores/map'
 
-function MapMenu(
+const MapMenu = (
     {
         children,
         onNewTab,
         onNewWindow,
         onSave,
         onShare,
-        onExit,
-        displayLayouts,
-        setDisplayLayouts,
+        onExit
     }:
         {
             children?: React.ReactNode
@@ -35,11 +33,10 @@ function MapMenu(
             onNewWindow?: () => void
             onSave?: () => void
             onShare?: () => void
-            onExit?: () => void,
-            displayLayouts?: LayoutDisplay,
-            setDisplayLayouts: React.Dispatch<React.SetStateAction<LayoutDisplay>>,
+            onExit?: () => void
         }
-) {
+) => {
+    
     const handleOnNewTab = () => {
         window.open(window.location.href, '_blank');
     }
@@ -49,6 +46,7 @@ function MapMenu(
     }
 
     const { theme, setTheme } = useTheme();
+    const { displayLayouts, setDisplayLayouts } = useMapStore();
 
 
     return (

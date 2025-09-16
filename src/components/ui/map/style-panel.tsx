@@ -13,6 +13,7 @@ import IconLayerType from "./icon-layer-type"
 import LegendEsri from "./legend-esri"
 import LegendMapbox from "./legend-mapbox"
 import { MapRef } from "react-map-gl"
+import { useMapStore } from "@/stores/map"
 
 interface StyleValue {
     opacity: number
@@ -39,7 +40,6 @@ export function StylePanel(
         onBrightnessChange,
         onZoomChange,
         onOpacityChange,
-        setDisplayLayouts,
         setSelectedLayer,
         handleEditFeatures,
         resetFill,
@@ -57,12 +57,14 @@ export function StylePanel(
         onBrightnessChange: (brightness: number[]) => void,
         onZoomChange: (brightness: number[]) => void,
         onOpacityChange: (opacity: number) => void,
-        setDisplayLayouts: React.Dispatch<React.SetStateAction<LayoutDisplay>>
         setSelectedLayer: React.Dispatch<React.SetStateAction<Layer | null>>
         handleEditFeatures: () => void,
         resetFill: () => void,
         resetStroke: () => void,
     }) {
+
+    const { displayLayouts, setDisplayLayouts } = useMapStore();
+
     return (
         <Card className="w-[320px] shadow-lg text-sm overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -77,7 +79,7 @@ export function StylePanel(
                 </CardTitle>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
                     setSelectedLayer(null);
-                    setDisplayLayouts((prev) => ({ ...prev, style: false }));
+                    setDisplayLayouts({ style: false });
                 }}>
                     <X className="h-4 w-4" />
                 </Button>
@@ -90,7 +92,7 @@ export function StylePanel(
                     <Table2Icon />
                 </Toggle>
                 <Toggle size="sm" aria-label="Legend" onClick={() => {
-                    setDisplayLayouts((prev) => ({ ...prev, legend: true }));
+                    setDisplayLayouts({ legend: true });
                 }}>
                     <ImagesIcon />
                 </Toggle>
