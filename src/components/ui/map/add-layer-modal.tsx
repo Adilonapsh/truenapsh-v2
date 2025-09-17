@@ -257,8 +257,19 @@ export default function AddLayerModal() {
                             <TabsContent value="datasets">
                                 <Card>
                                     <CardHeader>
-                                        <CardTitle>Datasets</CardTitle>
-                                        <CardDescription>Select Your Layer</CardDescription>
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <CardTitle>Datasets</CardTitle>
+                                                <CardDescription>
+                                                    Select Your Layer
+                                                </CardDescription>
+                                            </div>
+                                            {selectedDatasets.length > 0 && (
+                                                <p className="text-xs">
+                                                    {selectedDatasets.length} Layer Selected
+                                                </p>
+                                            )}
+                                        </div>
                                     </CardHeader>
                                     <CardContent className="space-y-2">
                                         <div className="h-[55vh] w-full">
