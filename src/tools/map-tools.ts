@@ -681,15 +681,16 @@ const elevationLayers = async (
             const points = featureCollection.features.map((feature) => {
                 const geom = feature.geometry as Polygon | MultiPolygon;
                 const coords = geom.coordinates;
-                return coords;
+                return Array.isArray(coords[0])
+                    ? coords[0].map((c: any) => `[${c}]`).join(",")
+                    : `[${coords[1]},${coords[0]}]`;
             });
             const response = await fetch(
                 `https://maptoolkit.p.rapidapi.com/elevation?points=[${points}]`,
                 {
                     headers: {
-                        "x-rapidapi-key":
-                            "313cbbad8cmshee05ce25c9e166bp101569jsnef19f7ec20c8",
-                        "x-rapidapi-host": "maptoolkit.p.rapidapi.com",
+                        'x-rapidapi-key': '313cbbad8cmshee05ce25c9e166bp101569jsnef19f7ec20c8',
+                        'x-rapidapi-host': 'maptoolkit.p.rapidapi.com'
                     },
                 }
             );
