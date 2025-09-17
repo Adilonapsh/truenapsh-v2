@@ -1,15 +1,20 @@
 'use server'
 
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getServerAuthSession } from "@/lib/auth";
 import { decrypt } from "@/lib/crypt";
 import { Bookmark, BookmarkResponse } from "@/types/bookmark.types";
-import { getServerSession } from "next-auth";
 
 const baseURL = process.env.NEXT_AUTH_URL;
 
 export const bookmark = async (project_id: string): Promise<BookmarkResponse[]> => {
-    const session = await getServerSession(authOptions);
-    const accessToken = decrypt(session?.user.accessToken);
+    const session = await getServerAuthSession();
+    
+    // Check if session and user exist
+    if (!session?.user?.accessToken) {
+        throw new Error('Unauthorized: No valid session found');
+    }
+    
+    const accessToken = decrypt(session.user.accessToken);
 
     const data = await fetch(`${baseURL}/bookmark?project_id=${project_id}`, {
         method: 'GET',
@@ -19,13 +24,23 @@ export const bookmark = async (project_id: string): Promise<BookmarkResponse[]> 
         }
     });
 
+    if (!data.ok) {
+        throw new Error(`Failed to fetch bookmarks: ${data.statusText}`);
+    }
+
     const json = await data.json();
-    return json;
+    return json.data;
 }
 
 export const addBookmark = async (properties: Bookmark): Promise<BookmarkResponse> => {
-    const session = await getServerSession(authOptions);
-    const accessToken = decrypt(session?.user.accessToken);
+    const session = await getServerAuthSession();
+    
+    // Check if session and user exist
+    if (!session?.user?.accessToken) {
+        throw new Error('Unauthorized: No valid session found');
+    }
+    
+    const accessToken = decrypt(session.user.accessToken);
 
     const data = await fetch(`${baseURL}/bookmark`, {
         method: 'POST',
@@ -37,13 +52,23 @@ export const addBookmark = async (properties: Bookmark): Promise<BookmarkRespons
         body: JSON.stringify(properties)
     })
 
+    if (!data.ok) {
+        throw new Error(`Failed to add bookmark: ${data.statusText}`);
+    }
+
     const json = await data.json();
     return json;
 }
 
 export const updateBookmark = async (bookmark_id: string, properties: Bookmark): Promise<BookmarkResponse> => {
-    const session = await getServerSession(authOptions);
-    const accessToken = decrypt(session?.user.accessToken);
+    const session = await getServerAuthSession();
+    
+    // Check if session and user exist
+    if (!session?.user?.accessToken) {
+        throw new Error('Unauthorized: No valid session found');
+    }
+    
+    const accessToken = decrypt(session.user.accessToken);
 
     const data = await fetch(`${baseURL}/bookmark/${bookmark_id}`, {
         method: 'PUT',
@@ -54,13 +79,24 @@ export const updateBookmark = async (bookmark_id: string, properties: Bookmark):
         },
         body: JSON.stringify(properties)
     });
+    
+    if (!data.ok) {
+        throw new Error(`Failed to update bookmark: ${data.statusText}`);
+    }
+
     const json = await data.json();
     return json;
 }
 
 export const removeBookmark = async (bookmark_id: string): Promise<BookmarkResponse> => {
-    const session = await getServerSession(authOptions);
-    const accessToken = decrypt(session?.user.accessToken);
+    const session = await getServerAuthSession();
+    
+    // Check if session and user exist
+    if (!session?.user?.accessToken) {
+        throw new Error('Unauthorized: No valid session found');
+    }
+    
+    const accessToken = decrypt(session.user.accessToken);
 
     const data = await fetch(`${baseURL}/bookmark/${bookmark_id}`, {
         method: 'DELETE',
@@ -70,7 +106,11 @@ export const removeBookmark = async (bookmark_id: string): Promise<BookmarkRespo
             'Content-Type': 'application/json',
         }
     })
+    
+    if (!data.ok) {
+        throw new Error(`Failed to remove bookmark: ${data.statusText}`);
+    }
+
     const json = await data.json();
-   
     return json;
 }

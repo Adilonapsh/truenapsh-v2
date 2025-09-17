@@ -27,7 +27,7 @@ const LegendEsri: React.FC<{ url: string }> = ({ url }) => {
             }
         };
         fetchLegend();
-    }, []);
+    }, [url]);
     data.push(...legendData);
 
     return (

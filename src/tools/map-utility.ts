@@ -8,11 +8,6 @@ import * as topojson from "topojson-client";
 import * as wkt from "wkt";
 
 
-
-
-
-
-
 // File type handlers
 interface FileHandler {
     extensions: string[];

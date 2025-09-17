@@ -3,7 +3,7 @@ import { getToken } from 'next-auth/jwt';
 
 export async function middleware(req: Request) {
     console.log(req.url);
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
     const status = token ? 'authenticated' : 'unauthenticated';
     console.log(status)
 

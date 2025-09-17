@@ -92,8 +92,8 @@ export default function DashboardPage() {
           : projects?.map((project: Project, i: number) => (
               <ProjectCard
                 key={i}
-                id={project.id}
-                title={project.name}
+                id={project.id ?? ""}
+                title={project!.name}
                 description={project?.description}
                 imageUrl={project.thumbnail ?? ""}
                 tags={project?.tags as string[]}

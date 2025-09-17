@@ -96,7 +96,7 @@ function TagInput({
     }
   }
 
-  useOnClickOutside(containerRef, () => setIsOpen(false));
+  useOnClickOutside(containerRef as React.RefObject<HTMLElement>, () => setIsOpen(false));
 
   return (
     <div

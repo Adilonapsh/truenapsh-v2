@@ -53,7 +53,15 @@ function SettingActions({
 }) {
 
     const handleInputChange = (value: string, id: string) => {
-        updateNodeProperties({ ...selectedNode?.data, metadata: { ...selectedNode?.data?.metadata, [id]: value } })
+        updateNodeProperties({
+            data: {
+                ...selectedNode?.data,
+                metadata: {
+                    ...(selectedNode?.data?.metadata || {}),
+                    [id]: value
+                }
+            }
+        })
     }
     return (
         <div>
@@ -62,8 +70,8 @@ function SettingActions({
                 <Input
                     id="nodeLabel"
                     type="text"
-                    value={selectedNode?.data.label}
-                    onChange={(e) => updateNodeProperties({ label: e.target.value })}
+                    value={selectedNode?.data?.label?.toString() || ''}
+                    onChange={(e) => updateNodeProperties({ data: { ...selectedNode?.data, label: e.target.value } })}
                     className="border rounded"
                 />
             </div>
@@ -72,8 +80,8 @@ function SettingActions({
                 <Input
                     id="DescLabel"
                     type="text"
-                    value={selectedNode?.data?.desc}
-                    onChange={(e) => updateNodeProperties({ desc: e.target.value })}
+                    value={selectedNode?.data?.desc?.toString() || ''}
+                    onChange={(e) => updateNodeProperties({ data: { ...selectedNode?.data, desc: e.target.value } })}
                     className="border rounded"
                 />
             </div>

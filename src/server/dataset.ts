@@ -1,22 +1,27 @@
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getServerAuthSession } from "@/lib/auth";
 import { decrypt } from "@/lib/crypt";
 import { Datasets } from "@/types/datasets.types";
-import { getServerSession } from "next-auth";
 
 const baseURL = process.env.NEXT_AUTH_URL;
 
 export const get = async (): Promise<Datasets[]> => {
-    const session = await getServerSession(authOptions);
-    const accessToken = decrypt(session?.user.accessToken);
+  const session = await getServerAuthSession();
 
-    const data = await fetch(`${baseURL}/datasets`, {
-        method: 'GET',
-        headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'accept': 'application/json',
-        },
-    });
+  // Check if session and user exist
+  if (!session?.user?.accessToken) {
+    throw new Error("Unauthorized: No valid session found");
+  }
 
-    const json = await data.json();
-    return json;
-}
+  const accessToken = decrypt(session.user.accessToken);
+
+  const data = await fetch(`${baseURL}/datasets`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      accept: "application/json",
+    },
+  });
+
+  const json = await data.json();
+  return json.data;
+};

@@ -27,7 +27,7 @@ function LegendMapbox({ mapRef, selectedLayer }: Props) {
 
         const type = layer.type || "";
         const filters = map.getFilter(selectedLayerId); // Ambil filter layer
-        let legendItems: LegendItem[] = [];
+        const legendItems: LegendItem[] = [];
 
         if (!filters) {
             // Jika tidak ada filter, ambil style default
@@ -116,7 +116,7 @@ const getSize = (type: string, layerId: string, map: mapboxgl.Map, filter?: any)
 const extractUniqueFilters = (filters: any) => {
     if (!Array.isArray(filters)) return [];
 
-    let extractedFilters: any[] = [];
+    const extractedFilters: any[] = [];
 
     if (filters[0] === "all") {
         filters.slice(1).forEach((f) => {

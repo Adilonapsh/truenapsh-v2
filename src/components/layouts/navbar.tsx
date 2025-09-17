@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Sun, Moon, GalleryVerticalEnd, Hexagon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Moon, Sun } from "lucide-react"
+import Link from "next/link"
+import { useEffect, useState } from "react"
 
 export default function Navbar() {
     const [theme, setTheme] = useState("light")

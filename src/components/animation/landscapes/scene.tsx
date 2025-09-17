@@ -39,84 +39,103 @@ float snoise(vec2 v){
 }`;
 
 function Landscape() {
-    const meshRef = useRef<THREE.Mesh>(null);
-    const timeRef = useRef({ value: 0 });
+  const meshRef = useRef<THREE.Mesh>(null);
+  const timeRef = useRef({ value: 0 });
 
-    const geometry = useMemo(() => {
-        return mergeGeometries([
-            new THREE.PlaneGeometry(1, 1, 250, 500),
-            new THREE.PlaneGeometry(1, 1, 250, 500),
-        ], true).rotateX(-Math.PI / 2);
-    }, []);
+  const geometry = useMemo(() => {
+    return mergeGeometries(
+      [
+        new THREE.PlaneGeometry(1, 1, 250, 500),
+        new THREE.PlaneGeometry(1, 1, 250, 500),
+      ],
+      true
+    ).rotateX(-Math.PI / 2);
+  }, []);
 
-    const materials = useMemo(() => {
-        return [0, 1].map((idx) => {
-            const material = new THREE.MeshBasicMaterial({
-                color: idx === 0 ? 0x000000 : 0xffffff,
-                side: idx === 0 ? THREE.FrontSide : THREE.BackSide,
-                onBeforeCompile: (shader: THREE.ShaderLibShader) => {
-                    shader.uniforms.time = timeRef.current;
-                    shader.uniforms.hasShift = { value: idx };
+  const materials = useMemo(() => {
+    return [0, 1].map((idx) => {
+      const material = new THREE.MeshBasicMaterial({
+        color: idx === 0 ? 0x000000 : 0xffffff,
+        side: idx === 0 ? THREE.FrontSide : THREE.BackSide,
+      });
 
-                    shader.vertexShader = `
-                        uniform float hasShift;
-                        uniform float time;
-                        varying float river;
-                        varying float vHasShift;
-                        ${noiseGLSL}
-                        ${shader.vertexShader}
-                    `.replace(
-                        '#include <begin_vertex>',
-                        `#include <begin_vertex>
-                        vHasShift = hasShift;
-                        float t = time * 2.0;
-                        vec3 pos = vec3(modelMatrix * vec4(position, 1.0));
-                        float treeNoise = abs(snoise((pos.xz - vec2(0., t)) * 0.25));
-                        treeNoise = pow(treeNoise, 0.5);
-                        float riverNoise = snoise(vec2(0, pos.z - t) * 0.05);
-                        riverNoise = smoothstep(5., 7., abs(pos.x + riverNoise * 2.5));
-                        transformed.y += treeNoise * 2.5 * riverNoise;
-                        transformed.y += hasShift * 0.05;
-                        river = riverNoise;
-                    `);
+      // Add onBeforeCompile after creating the material
+      material.onBeforeCompile = (shader: THREE.ShaderLibShader) => {
+        shader.uniforms.time = timeRef.current;
+        shader.uniforms.hasShift = { value: idx };
 
-                    shader.fragmentShader = `
-                        varying float vHasShift;
-                        varying float river;
-                        ${shader.fragmentShader}
-                    `.replace(
-                        '#include <color_fragment>',
-                        `#include <color_fragment>
-                        if(vHasShift < 0.5 && river < 0.01) diffuseColor.rgb = vec3(1.0);
-                        `);
-                },
-            });
-            return material;
-        });
-    }, []);
+        shader.vertexShader = `
+                uniform float hasShift;
+                uniform float time;
+                varying float river;
+                varying float vHasShift;
+                ${noiseGLSL}
+                ${shader.vertexShader}
+            `.replace(
+          "#include <begin_vertex>",
+          `#include <begin_vertex>
+                vHasShift = hasShift;
+                float t = time * 2.0;
+                vec3 pos = vec3(modelMatrix * vec4(position, 1.0));
+                float treeNoise = abs(snoise((pos.xz - vec2(0., t)) * 0.25));
+                treeNoise = pow(treeNoise, 0.5);
+                float riverNoise = snoise(vec2(0, pos.z - t) * 0.05);
+                riverNoise = smoothstep(5., 7., abs(pos.x + riverNoise * 2.5));
+                transformed.y += treeNoise * 2.5 * riverNoise;
+                transformed.y += hasShift * 0.05;
+                river = riverNoise;
+            `
+        );
 
-    useFrame((state) => {
-        timeRef.current.value = state.clock.getElapsedTime();
+        shader.fragmentShader = `
+                varying float vHasShift;
+                varying float river;
+                ${shader.fragmentShader}
+            `.replace(
+          "#include <color_fragment>",
+          `#include <color_fragment>
+                if(vHasShift < 0.5 && river < 0.01) diffuseColor.rgb = vec3(1.0);
+                `
+        );
+      };
+
+      return material;
     });
+  }, []);
 
-    return <mesh ref={meshRef} geometry={geometry} material={materials} scale={[100, 1, 100]} />;
+  useFrame((state) => {
+    timeRef.current.value = state.clock.getElapsedTime();
+  });
+
+  return (
+    <mesh
+      ref={meshRef}
+      geometry={geometry}
+      material={materials}
+      scale={[100, 1, 100]}
+    />
+  );
 }
 
 function Scene() {
-    return (
-        <Canvas camera={{ position: [-20, 25, 17], fov: 35 }}>
-            <ambientLight intensity={1} />
-            <directionalLight position={[10, 10, 10]} intensity={1} />
-            <OrbitControls enableZoom={false} enablePan={false} enableRotate={false} />
-            <Landscape />
-        </Canvas>
-    );
+  return (
+    <Canvas camera={{ position: [-20, 25, 17], fov: 35 }}>
+      <ambientLight intensity={1} />
+      <directionalLight position={[10, 10, 10]} intensity={1} />
+      <OrbitControls
+        enableZoom={false}
+        enablePan={false}
+        enableRotate={false}
+      />
+      <Landscape />
+    </Canvas>
+  );
 }
 
 export default function Home() {
-    return (
-        <main className="w-full h-screen bg-white">
-            <Scene />
-        </main>
-    );
+  return (
+    <main className="w-full h-screen bg-white">
+      <Scene />
+    </main>
+  );
 }
