@@ -47,6 +47,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../select";
+import { FeatureCollection, Geometry, MultiPolygon, Polygon } from "geojson";
 
 export default function OperationComponents({
   mapRef,
@@ -770,9 +771,8 @@ export default function OperationComponents({
           addGeojsonToMap({
             mapRef: mapRef,
             data: hexagon as GeoJSON.GeoJSON,
-            layerName: `Hexagon ${(layers?.length ?? 0) + 1} ${
-              operationOptions.cellSize
-            } ${operationOptions.units}`,
+            layerName: `Hexagon ${(layers?.length ?? 0) + 1} ${operationOptions.cellSize
+              } ${operationOptions.units}`,
           });
           console.log("Center", hexagon);
         }
@@ -832,9 +832,8 @@ export default function OperationComponents({
           addGeojsonToMap({
             mapRef: mapRef,
             data: simplifyLayer as GeoJSON.GeoJSON,
-            layerName: `Simplify ${(layers?.length ?? 0) + 1} ${
-              operationOptions.tolerance
-            }`,
+            layerName: `Simplify ${(layers?.length ?? 0) + 1} ${operationOptions.tolerance
+              }`,
           });
           console.log("Center", simplifyLayer);
         }
@@ -844,41 +843,62 @@ export default function OperationComponents({
     } else if (lowerOperationName === "building") {
       const targetLayer = operationOptions.targetLayer;
       const cutBuilding = operationOptions.cutBuilding;
+
       if (targetLayer) {
         const targetLayerSource = map?.getLayer(targetLayer)?.source ?? "";
         const targetData = map?.getSource(targetLayerSource)?.serialize().data;
-        let buildingLayer = await buildingLayers(targetData);
+
+        // Pastikan fallback ke null jika undefined
+        let buildingLayer: FeatureCollection<Geometry> | null =
+          (await buildingLayers(targetData)) ?? null;
+
         console.log("Building layer created:", buildingLayer);
-        if (cutBuilding === "Extract Building") {
-          buildingLayer = await clipLayers(targetData, buildingLayer);
+
+        if (cutBuilding === "Extract Building" && buildingLayer) {
+          const clipped = await clipLayers(
+            targetData as FeatureCollection<Polygon | MultiPolygon>,
+            buildingLayer as FeatureCollection<Polygon | MultiPolygon>
+          );
+          buildingLayer = clipped ?? null;
         }
+
         if (buildingLayer) {
-          const layerName = `Building ${
-            cutBuilding === "Extract Building" ? "Clip" : ""
-          } ${(layers?.length ?? 0) + 1}`;
+          const layerName = `Building ${cutBuilding === "Extract Building" ? "Clip" : ""
+            } ${(layers?.length ?? 0) + 1}`;
+
           addGeojsonToMap({
             mapRef: mapRef,
             data: buildingLayer as GeoJSON.GeoJSON,
             layerName: layerName,
           });
+
           console.log("Building layer created:", layerName);
         }
       }
     } else if (lowerOperationName === "elevation") {
       const targetLayer = operationOptions.targetLayer;
       const sourceElevation = operationOptions.sourceelevation;
+
       if (targetLayer) {
         const targetLayerSource = map?.getLayer(targetLayer)?.source ?? "";
         const targetData = map?.getSource(targetLayerSource)?.serialize().data;
+
         const pointsLayer = await pointAlongLinesLayers(
           targetData,
           Number(operationOptions.interval),
           operationOptions.units
         );
-        let elevationLayer = await elevationLayers(
-          pointsLayer,
+
+        if (!pointsLayer) {
+          console.warn("No points generated from line layer.");
+          return;
+        }
+
+        const elevationLayer = await elevationLayers(
+          pointsLayer as FeatureCollection<Geometry>,
           sourceElevation
         );
+
         console.log("Elevation layer created:", elevationLayer);
       }
     }

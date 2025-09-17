@@ -44,14 +44,14 @@
 44. Add 3D Data
 45. Add Arcgis Tables
 46. Find Another Basemaps
-47. Show Team Cursors
+47. Show Team Cursors Toggle
 48. Add Auto Scrap data from website in AI
-49. Tambahkan Expression di Style
+49. Tambahkan Expression di Style 
 50. Fix backed Layer and Add Layer
-51. Use Zustand
+51. Use Zustand (WIP)
 52. Style Dijadikan Komponen
 53. Feature Info Dijadikan Komponen
-
+54. Map Tools dibuat dinamik, misal data yang bisa point hanya point saja, atau jika bisa semua maka show all layer
 
 
 
