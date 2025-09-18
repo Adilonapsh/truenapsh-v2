@@ -65,6 +65,7 @@ import { Button } from "../button";
 import {
     Card,
     CardContent,
+    CardDescription,
     CardHeader,
     CardTitle
 } from "@/components/ui/card";
@@ -146,6 +147,7 @@ import OperationComponents from "./operation-page";
 import SortableItem from "./sortable-item";
 import { StylePanel } from "./style-panel";
 import { CursorData } from "@/types/collaboration.types";
+import IconTooltip from "../icon-tooltip";
 
 export default function MapLayout({
     layersFetch,
@@ -159,7 +161,7 @@ export default function MapLayout({
     const params = useParams();
     const mapRef = useRef<MapRef | null>(null);
 
-    const { setMap, displayLayouts, setDisplayLayouts } = useMapStore();
+    const { setMap, displayLayouts, setDisplayLayouts, selectedLayer, setSelectedLayer } = useMapStore();
 
     const drawRef = useRef<MapboxDraw | null>(null); // Ref untuk MapboxDraw
     const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
@@ -213,17 +215,6 @@ export default function MapLayout({
     const { layers, setLayers, removeLayer, setVisible, addLayer } =
         useLayerStore();
     const [activeBasemap, setActiveBasemap] = useState(0);
-    const [mapboxLayerStyle, setMapboxLayerStyle] = useState<MapboxLayerStyle>({
-        fill: "#000000",
-        stroke: "#000000",
-        stroke_width: 0,
-        opacity: 100,
-        contrast: 0,
-        saturation: 0,
-        brightness: [0, 1],
-        zoom: [0, 24],
-    });
-    const [selectedLayer, setSelectedLayer] = useState<Layer | null>(null);
 
     // const [selectedDatasets, setSelectedDatasets] = useState<ParsedLayer[]>([]);
     const {
@@ -807,163 +798,15 @@ export default function MapLayout({
         setIsLoading({ ...isLoading, zoomToMap: false });
     };
 
+
+
     const handleStyleLayer = (index: number) => {
         const map = mapRef?.current?.getMap();
         setSelectedLayer(layers[index] as Layer);
         setDisplayLayouts({ ...displayLayouts, style: true });
-        if (map) {
-            getStyleLayer(index);
-        }
     };
 
-    const getStyleLayer = (index: number) => {
-        const map = mapRef?.current?.getMap();
-        const layerId = layers[index]?.id;
 
-        if (map && layerId) {
-            const layer = map.getLayer(layerId) as LayerSpecification | undefined;
-            if (layer) {
-                if (layer.minzoom && layer.maxzoom) {
-                    setMapboxLayerStyle((prev) => ({
-                        ...prev,
-                        zoom: [layer.minzoom ?? 0, layer.maxzoom ?? 24],
-                    }));
-                }
-
-                if (layer?.paint) {
-                    // Handle opacity
-                    const opacityKey =
-                        `${layer.type}-opacity` as keyof typeof layer.paint;
-                    const opacity = layer.paint[opacityKey] as
-                        | DataDrivenPropertyValueSpecification<number>
-                        | undefined;
-
-                    if (opacity !== undefined) {
-                        const parsedOpacity =
-                            typeof opacity === "number"
-                                ? opacity
-                                : parseFloat(opacity as unknown as string);
-                        setMapboxLayerStyle((prev) => ({
-                            ...prev,
-                            opacity: parsedOpacity * 100,
-                        }));
-                    }
-
-                    // Handle fill color
-                    const colorKey = `${layer.type}-color` as keyof typeof layer.paint;
-                    const color = layer.paint[colorKey] as
-                        | DataDrivenPropertyValueSpecification<ColorSpecification>
-                        | undefined;
-                    if (color) {
-                        setMapboxLayerStyle((prev) => ({
-                            ...prev,
-                            fill: typeof color === "string" ? color : undefined,
-                        }));
-                    }
-
-                    // Handle stroke or outline color
-                    const strokeKey =
-                        `${layer.type}-stroke-color` as keyof typeof layer.paint;
-                    const outlineKey =
-                        `${layer.type}-outline-color` as keyof typeof layer.paint;
-
-                    const stroke = layer.paint[strokeKey] as
-                        | DataDrivenPropertyValueSpecification<ColorSpecification>
-                        | undefined;
-                    const outline = layer.paint[outlineKey] as
-                        | DataDrivenPropertyValueSpecification<ColorSpecification>
-                        | undefined;
-
-                    setMapboxLayerStyle((prev) => {
-                        const updatedStroke = stroke ?? outline ?? "#000000";
-                        return {
-                            ...prev,
-                            stroke:
-                                typeof updatedStroke === "string" ? updatedStroke : undefined,
-                        };
-                    });
-
-                    // handle brightness
-                    const brightnessMinKey =
-                        `${layer.type}-brightness-min` as keyof typeof layer.paint;
-                    const brightnessMin = layer.paint[brightnessMinKey] as
-                        | DataDrivenPropertyValueSpecification<number>
-                        | undefined;
-                    const brightnessMaxKey =
-                        `${layer.type}-brightness-max` as keyof typeof layer.paint;
-                    const brightnessMax = layer.paint[brightnessMaxKey] as
-                        | DataDrivenPropertyValueSpecification<number>
-                        | undefined;
-
-                    if (brightnessMin !== undefined || brightnessMax !== undefined) {
-                        const parsedMinBrightness =
-                            typeof brightnessMin === "number"
-                                ? brightnessMin
-                                : parseFloat(brightnessMin as unknown as string);
-                        const parsedMaxBrightness =
-                            typeof brightnessMax === "number"
-                                ? brightnessMax
-                                : parseFloat(brightnessMax as unknown as string);
-                        setMapboxLayerStyle((prev) => ({
-                            ...prev,
-                            brightness: [parsedMinBrightness, parsedMaxBrightness],
-                        }));
-                    }
-
-                    // handle saturation
-                    const saturationKey =
-                        `${layer.type}-saturation` as keyof typeof layer.paint;
-                    const saturation = layer.paint[saturationKey] as
-                        | DataDrivenPropertyValueSpecification<number>
-                        | undefined;
-                    if (saturation !== undefined) {
-                        const parsedSaturation =
-                            typeof saturation === "number"
-                                ? saturation
-                                : parseFloat(saturation as unknown as string);
-                        setMapboxLayerStyle((prev) => ({
-                            ...prev,
-                            saturation: parsedSaturation,
-                        }));
-                    }
-
-                    // Handle stroke width
-                    const strokeWidthKey =
-                        `${layer.type}-stroke-width` as keyof typeof layer.paint;
-                    const strokeWidth = layer.paint[strokeWidthKey] as
-                        | DataDrivenPropertyValueSpecification<number>
-                        | undefined;
-                    if (strokeWidth !== undefined) {
-                        const parsedStrokeWidth =
-                            typeof strokeWidth === "number"
-                                ? strokeWidth
-                                : parseFloat(strokeWidth as unknown as string);
-                        setMapboxLayerStyle((prev) => ({
-                            ...prev,
-                            stroke_width: parsedStrokeWidth,
-                        }));
-                    }
-
-                    // handle contrast
-                    const contrastKey =
-                        `${layer.type}-contrast` as keyof typeof layer.paint;
-                    const contrast = layer.paint[contrastKey] as
-                        | DataDrivenPropertyValueSpecification<number>
-                        | undefined;
-                    if (contrast !== undefined) {
-                        const parsedContrast =
-                            typeof contrast === "number"
-                                ? contrast
-                                : parseFloat(contrast as unknown as string);
-                        setMapboxLayerStyle((prev) => ({
-                            ...prev,
-                            contrast: parsedContrast,
-                        }));
-                    }
-                }
-            }
-        }
-    };
 
     const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
@@ -1021,132 +864,6 @@ export default function MapLayout({
         }
     };
 
-    const setPaint = (paint_type: string, value: string | number | undefined) => {
-        const map = mapRef?.current?.getMap();
-        if (selectedLayer) {
-            const layerId = selectedLayer.id;
-            if (map && value) {
-                const type = map.getLayer(layerId)?.type;
-                if (type) {
-                    const paintType = (type +
-                        paint_type) as keyof mapboxgl.PaintSpecification;
-                    map.setPaintProperty(selectedLayer.id, paintType, value);
-                }
-            }
-        }
-    };
-
-    const setFill = (value: string) => {
-        setMapboxLayerStyle({ ...mapboxLayerStyle, fill: value });
-        setPaint("-color", value);
-    };
-
-    const setStroke = (value: string) => {
-        const map = mapRef?.current?.getMap();
-        if (selectedLayer && map) {
-            const layerId = selectedLayer.id;
-            const type = map.getLayer(layerId)?.type;
-            setMapboxLayerStyle({ ...mapboxLayerStyle, stroke: value });
-            if (type == "fill") {
-                setPaint("-outline-color", value);
-            } else {
-                setPaint("-stroke-color", value);
-            }
-        }
-    };
-
-    const setStrokeWidth = (value: number) => {
-        setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width: value });
-        setPaint("-stroke-width", value);
-    };
-
-    const setContrast = (value: number) => {
-        setMapboxLayerStyle({ ...mapboxLayerStyle, contrast: value });
-        setPaint("-contrast", value);
-    };
-
-    const setSaturation = (value: number) => {
-        setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: value });
-        setPaint("-saturation", value);
-    };
-
-    const setBrightness = (values: number[]) => {
-        setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: values });
-        setPaint("-brightness-min", values[0]);
-        setPaint("-brightness-max", values[1]);
-    };
-
-    const handleZoomChange = (values: number[]) => {
-        setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: values });
-        const map = mapRef?.current?.getMap();
-        if (selectedLayer && map) {
-            const layerId = selectedLayer.id;
-            map.setLayerZoomRange(layerId, values[0], values[1]);
-        }
-    };
-
-    const setOpacity = (value: number) => {
-        const map = mapRef?.current?.getMap();
-        if (selectedLayer) {
-            const layerId = selectedLayer.id;
-            const type = map?.getLayer(layerId)?.type;
-            const val = value / 100;
-            setMapboxLayerStyle({ ...mapboxLayerStyle, opacity: value ?? 0 });
-            setPaint("-opacity", val);
-            if (type == "circle") {
-                setPaint("-stroke-opacity", val);
-            }
-        }
-    };
-
-    const resetFill = () => {
-        const defaultColor = "#000000";
-        setMapboxLayerStyle({ ...mapboxLayerStyle, fill: defaultColor });
-        setPaint("-color", undefined);
-    };
-
-    const resetStroke = () => {
-        const map = mapRef?.current?.getMap();
-        const defaultColor = "#000000";
-        if (selectedLayer && map) {
-            const layerId = selectedLayer.id;
-            const type = map.getLayer(layerId)?.type;
-            setMapboxLayerStyle({ ...mapboxLayerStyle, stroke: defaultColor });
-            if (type == "fill") {
-                setPaint("-outline-color", defaultColor);
-            } else {
-                setPaint("-stroke-color", defaultColor);
-            }
-        }
-    };
-
-    const resetStrokeWidth = () => {
-        const strokeWidth = 0;
-        setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width: strokeWidth });
-        setPaint("-stroke-width", strokeWidth);
-    };
-
-    const resetContrast = () => {
-        const contrast = 0;
-        setMapboxLayerStyle({ ...mapboxLayerStyle, contrast: contrast });
-        setPaint("-contrast", contrast);
-    };
-
-    const resetSaturation = () => {
-        const saturation = 0;
-        setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: saturation });
-        setPaint("-saturation", saturation);
-    };
-
-    const resetBrightness = () => {
-        const brightness = 0;
-        setMapboxLayerStyle({
-            ...mapboxLayerStyle,
-            brightness: [brightness, brightness],
-        });
-        setPaint("-brightness-min", brightness);
-        setPaint("-brightness-max", brightness);
-    };
 
     const handleDatasets = async () => {
         setIsLoading({ ...isLoading, dataset: true });
@@ -2145,76 +1862,46 @@ export default function MapLayout({
                 </div>
             )}
 
-            {/* TOP ELEMENT */}
+            {/* LEFT SIDE */}
             <div className="absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto">
                 <div className="px-5 py-2 w-80 text-sm bg-white rounded dark:bg-background">
                     <div className="flex sticky top-0 justify-between items-center py-2 bg-white dark:bg-background">
                         <h5 className="font-bold text-md">Workspaces</h5>
                         <div className="flex gap-3 items-center">
                             <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger onClick={() => signOut()}>
-                                        <BiLogOutCircle size={"13pt"} />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Logout</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger
+                                <div className="flex gap-2">
+                                    <IconTooltip
+                                        label="Logout"
+                                        icon={<BiLogOutCircle size="13pt" />}
+                                        onClick={() => signOut()}
+                                    />
+                                    <IconTooltip
+                                        label="AI Chat"
+                                        icon={<WiStars size="13pt" />}
                                         onClick={() =>
                                             setDisplayLayouts({ ...displayLayouts, aiChat: true })
                                         }
-                                    >
-                                        <WiStars size={"13pt"} />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>AI Chat</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger>
-                                        <BiCollapse size={"13pt"} onClick={collapseAll} />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Collapse All</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger
+                                    />
+                                    <IconTooltip
+                                        label="Collapse All"
+                                        icon={<BiCollapse size="13pt" />}
+                                        onClick={collapseAll}
+                                    />
+                                    <IconTooltip
+                                        label="Node Workspaces"
+                                        icon={<AiOutlineSisternode size="13pt" />}
                                         onClick={() =>
-                                            setDisplayLayouts({
-                                                ...displayLayouts,
-                                                node_workspace: true,
-                                            })
+                                            setDisplayLayouts({ ...displayLayouts, node_workspace: true })
                                         }
-                                    >
-                                        <AiOutlineSisternode size={"13pt"} />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Node Workspaces</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger
+                                    />
+                                    <IconTooltip
+                                        label="Add Layer"
+                                        icon={<PlusIcon size="13pt" />}
                                         onClick={() =>
                                             setDisplayLayouts({ ...displayLayouts, addLayer: true })
                                         }
-                                    >
-                                        <PlusIcon size={"13pt"} />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Add Layer</p>
-                                    </TooltipContent>
-                                </Tooltip>
+                                    />
+                                </div>
                             </TooltipProvider>
                         </div>
                     </div>
@@ -2282,7 +1969,6 @@ export default function MapLayout({
                                                         size="sm"
                                                         onClick={() => handleZoomToLayer(index)}
                                                     >
-                                                        {" "}
                                                         <TbZoomInAreaFilled size={"12pt"} />
                                                     </Button>
                                                     <Button
@@ -2339,56 +2025,84 @@ export default function MapLayout({
 
             {/* RIGHT SIDE */}
             <div className="absolute top-0 right-0 p-5 text-xs min-w-96">
-                {displayLayouts.layerInfo ? (
-                    <div className="bg-white rounded-lg max-h-[calc(100vh-15rem)] max-w-xl overflow-auto dark:bg-background">
-                        <div
-                            id="header"
-                            className="flex sticky top-0 justify-between items-center px-5 pt-5 pb-3 bg-white dark:bg-background"
-                        >
-                            <div>
-                                <p className="mb-2 text-sm font-semibold">Layer Information</p>
-                                <p className="font-semibold">
-                                    Long : {currentMapClick?.lng.toFixed(9)}, Lat{" "}
-                                    {currentMapClick?.lat.toFixed(9)}
-                                </p>
+                {displayLayouts.layerInfo && (
+                    <Card>
+                        <CardHeader>
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <CardTitle className="text-sm mb-2">Layer Information</CardTitle>
+                                    <CardDescription className="text-xs text-foreground">
+                                        {currentMapClick ? (
+                                            <>
+                                                Long: {currentMapClick.lng.toFixed(9)},
+                                                Lat: {currentMapClick.lat.toFixed(9)}
+                                            </>
+                                        ) : (
+                                            "Click on a layer to view its information."
+                                        )}
+                                    </CardDescription>
+                                </div>
+                                <Button
+                                    variant={"link"}
+                                    size={"sm"}
+                                    onClick={() => setDisplayLayouts({ ...displayLayouts, layerInfo: false })}>
+                                    <IoClose size={"13pt"} />
+                                </Button>
                             </div>
-                            <Button
-                                variant={"link"}
-                                onClick={() =>
-                                    setDisplayLayouts({ ...displayLayouts, layerInfo: false })
-                                }
-                            >
-                                <IoClose size={"13pt"} />
-                            </Button>
-                        </div>
-                        <div className="px-5 text-xs">
+                        </CardHeader>
+                        <CardContent>
                             <FeatureInfo infoFeatures={infoFeatures} isLoading={isLoading} />
-                        </div>
-                    </div>
-                ) : (
-                    ""
+                        </CardContent>
+                    </Card>
                 )}
-            </div>
-            <div className="absolute top-0 right-0 z-10 mt-5 mr-5 text-xs">
                 {displayLayouts.style && (
-                    <StylePanel
-                        mapRef={mapRef}
-                        selectedLayer={selectedLayer}
-                        values={mapboxLayerStyle}
-                        setValues={setMapboxLayerStyle}
-                        onFillChange={setFill}
-                        onStrokeChange={setStroke}
-                        onStrokeWidthChange={setStrokeWidth}
-                        onContrastChange={setContrast}
-                        onSaturationChange={setSaturation}
-                        onBrightnessChange={setBrightness}
-                        onZoomChange={handleZoomChange}
-                        onOpacityChange={(e) => setOpacity(e)}
-                        setSelectedLayer={setSelectedLayer}
-                        handleEditFeatures={handleEditFeatures}
-                        resetFill={resetFill}
-                        resetStroke={resetStroke}
-                    />
+                    <Card>
+                        <CardHeader>
+                            <div className="relative flex justify-between items-center">
+                                <div className="absolute -top-10 -left-10 opacity-55">
+                                    <IconLayerType size={"50pt"} layer={selectedLayer} />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-sm mb-2">Style {selectedLayer?.name || "Layer"}</CardTitle>
+                                    <CardDescription className="text-xs text-foreground">
+                                        {selectedLayer?.name || "Select a layer to style"}
+                                    </CardDescription>
+                                </div>
+                                <Button
+                                    variant={"link"}
+                                    size={"sm"}
+                                    onClick={() => {
+                                        setSelectedLayer(null);
+                                        setDisplayLayouts({ style: false });
+                                    }}>
+                                    <IoClose size={"13pt"} />
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <StylePanel
+                                handleEditFeatures={handleEditFeatures}
+                            />
+                        </CardContent>
+                    </Card>
+                    // <StylePanel
+                    //     mapRef={mapRef}
+                    //     selectedLayer={selectedLayer}
+                    //     values={mapboxLayerStyle}
+                    //     setValues={setMapboxLayerStyle}
+                    //     onFillChange={setFill}
+                    //     onStrokeChange={setStroke}
+                    //     onStrokeWidthChange={setStrokeWidth}
+                    //     onContrastChange={setContrast}
+                    //     onSaturationChange={setSaturation}
+                    //     onBrightnessChange={setBrightness}
+                    //     onZoomChange={handleZoomChange}
+                    //     onOpacityChange={(e) => setOpacity(e)}
+                    //     setSelectedLayer={setSelectedLayer}
+                    //     handleEditFeatures={handleEditFeatures}
+                    //     resetFill={resetFill}
+                    //     resetStroke={resetStroke}
+                    // />
                 )}
             </div>
             <div className="absolute top-0 right-0 z-10 p-5 text-xs min-w-96">

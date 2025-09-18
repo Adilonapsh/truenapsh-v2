@@ -6,7 +6,7 @@ import { Bookmark, BookmarkResponse } from "@/types/bookmark.types";
 
 const baseURL = process.env.NEXT_AUTH_URL;
 
-export const bookmark = async (project_id: string): Promise<BookmarkResponse[]> => {
+export const bookmark = async (project_id: string): Promise<BookmarkResponse> => {
     const session = await getServerAuthSession();
     
     // Check if session and user exist
@@ -29,7 +29,7 @@ export const bookmark = async (project_id: string): Promise<BookmarkResponse[]> 
     }
 
     const json = await data.json();
-    return json.data;
+    return json;
 }
 
 export const addBookmark = async (properties: Bookmark): Promise<BookmarkResponse> => {

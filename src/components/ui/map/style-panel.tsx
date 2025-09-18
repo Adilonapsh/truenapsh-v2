@@ -12,8 +12,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "..
 import IconLayerType from "./icon-layer-type"
 import LegendEsri from "./legend-esri"
 import LegendMapbox from "./legend-mapbox"
-import { MapRef } from "react-map-gl"
 import { useMapStore } from "@/stores/map"
+import { ScrollArea } from "../scroll-area"
+import { useState } from "react"
+import { ColorSpecification, DataDrivenPropertyValueSpecification, LayerSpecification } from "mapbox-gl"
+import useLayerStore from "@/stores/layer"
 
 interface StyleValue {
     opacity: number
@@ -26,64 +29,314 @@ interface StyleValue {
     zoom: [number, number]
 }
 
-export function StylePanel(
-    {
-        mapRef,
-        selectedLayer,
-        values,
-        setValues,
-        onFillChange,
-        onStrokeChange,
-        onStrokeWidthChange,
-        onContrastChange,
-        onSaturationChange,
-        onBrightnessChange,
-        onZoomChange,
-        onOpacityChange,
-        setSelectedLayer,
-        handleEditFeatures,
-        resetFill,
-        resetStroke,
-    }: {
-        mapRef: React.RefObject<MapRef | null>,
-        selectedLayer: Layer | null,
-        values: MapboxLayerStyle,
-        setValues: React.Dispatch<React.SetStateAction<MapboxLayerStyle>>,
-        onFillChange: (fill: string) => void,
-        onStrokeChange: (stroke: string) => void,
-        onStrokeWidthChange: (width: number) => void,
-        onContrastChange: (contrast: number) => void,
-        onSaturationChange: (saturation: number) => void,
-        onBrightnessChange: (brightness: number[]) => void,
-        onZoomChange: (brightness: number[]) => void,
-        onOpacityChange: (opacity: number) => void,
-        setSelectedLayer: React.Dispatch<React.SetStateAction<Layer | null>>
-        handleEditFeatures: () => void,
-        resetFill: () => void,
-        resetStroke: () => void,
-    }) {
+export interface StylePanelProps {
+    handleEditFeatures: () => void;
+}
 
-    const { displayLayouts, setDisplayLayouts } = useMapStore();
+export function StylePanel({ handleEditFeatures }: StylePanelProps) {
+
+    const { layers } = useLayerStore();
+    const { map, setDisplayLayouts, selectedLayer, setSelectedLayer, displayLayouts } = useMapStore();
+    const mapRef = map;
+
+    const [mapboxLayerStyle, setMapboxLayerStyle] = useState<MapboxLayerStyle>({
+        fill: "#000000",
+        stroke: "#000000",
+        stroke_width: 0,
+        opacity: 100,
+        contrast: 0,
+        saturation: 0,
+        brightness: [0, 1],
+        zoom: [0, 24],
+    });
+
+    const handleStyleLayer = (index: number) => {
+        const map = mapRef?.current?.getMap();
+        setSelectedLayer(layers[index] as Layer);
+        setDisplayLayouts({ ...displayLayouts, style: true });
+        if (map) {
+            getStyleLayer(index);
+        }
+    };
+
+    const getStyleLayer = (index: number) => {
+        const map = mapRef?.current?.getMap();
+        const layerId = layers[index]?.id;
+
+        if (map && layerId) {
+            const layer = map.getLayer(layerId) as LayerSpecification | undefined;
+            if (layer) {
+                if (layer.minzoom && layer.maxzoom) {
+                    setMapboxLayerStyle((prev) => ({
+                        ...prev,
+                        zoom: [layer.minzoom ?? 0, layer.maxzoom ?? 24],
+                    }));
+                }
+
+                if (layer?.paint) {
+                    // Handle opacity
+                    const opacityKey =
+                        `${layer.type}-opacity` as keyof typeof layer.paint;
+                    const opacity = layer.paint[opacityKey] as
+                        | DataDrivenPropertyValueSpecification<number>
+                        | undefined;
+
+                    if (opacity !== undefined) {
+                        const parsedOpacity =
+                            typeof opacity === "number"
+                                ? opacity
+                                : parseFloat(opacity as unknown as string);
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            opacity: parsedOpacity * 100,
+                        }));
+                    }
+
+                    // Handle fill color
+                    const colorKey = `${layer.type}-color` as keyof typeof layer.paint;
+                    const color = layer.paint[colorKey] as
+                        | DataDrivenPropertyValueSpecification<ColorSpecification>
+                        | undefined;
+                    if (color) {
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            fill: typeof color === "string" ? color : undefined,
+                        }));
+                    }
+
+                    // Handle stroke or outline color
+                    const strokeKey =
+                        `${layer.type}-stroke-color` as keyof typeof layer.paint;
+                    const outlineKey =
+                        `${layer.type}-outline-color` as keyof typeof layer.paint;
+
+                    const stroke = layer.paint[strokeKey] as
+                        | DataDrivenPropertyValueSpecification<ColorSpecification>
+                        | undefined;
+                    const outline = layer.paint[outlineKey] as
+                        | DataDrivenPropertyValueSpecification<ColorSpecification>
+                        | undefined;
+
+                    setMapboxLayerStyle((prev) => {
+                        const updatedStroke = stroke ?? outline ?? "#000000";
+                        return {
+                            ...prev,
+                            stroke:
+                                typeof updatedStroke === "string" ? updatedStroke : undefined,
+                        };
+                    });
+
+                    // handle brightness
+                    const brightnessMinKey =
+                        `${layer.type}-brightness-min` as keyof typeof layer.paint;
+                    const brightnessMin = layer.paint[brightnessMinKey] as
+                        | DataDrivenPropertyValueSpecification<number>
+                        | undefined;
+                    const brightnessMaxKey =
+                        `${layer.type}-brightness-max` as keyof typeof layer.paint;
+                    const brightnessMax = layer.paint[brightnessMaxKey] as
+                        | DataDrivenPropertyValueSpecification<number>
+                        | undefined;
+
+                    if (brightnessMin !== undefined || brightnessMax !== undefined) {
+                        const parsedMinBrightness =
+                            typeof brightnessMin === "number"
+                                ? brightnessMin
+                                : parseFloat(brightnessMin as unknown as string);
+                        const parsedMaxBrightness =
+                            typeof brightnessMax === "number"
+                                ? brightnessMax
+                                : parseFloat(brightnessMax as unknown as string);
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            brightness: [parsedMinBrightness, parsedMaxBrightness],
+                        }));
+                    }
+
+                    // handle saturation
+                    const saturationKey =
+                        `${layer.type}-saturation` as keyof typeof layer.paint;
+                    const saturation = layer.paint[saturationKey] as
+                        | DataDrivenPropertyValueSpecification<number>
+                        | undefined;
+                    if (saturation !== undefined) {
+                        const parsedSaturation =
+                            typeof saturation === "number"
+                                ? saturation
+                                : parseFloat(saturation as unknown as string);
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            saturation: parsedSaturation,
+                        }));
+                    }
+
+                    // Handle stroke width
+                    const strokeWidthKey =
+                        `${layer.type}-stroke-width` as keyof typeof layer.paint;
+                    const strokeWidth = layer.paint[strokeWidthKey] as
+                        | DataDrivenPropertyValueSpecification<number>
+                        | undefined;
+                    if (strokeWidth !== undefined) {
+                        const parsedStrokeWidth =
+                            typeof strokeWidth === "number"
+                                ? strokeWidth
+                                : parseFloat(strokeWidth as unknown as string);
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            stroke_width: parsedStrokeWidth,
+                        }));
+                    }
+
+                    // handle contrast
+                    const contrastKey =
+                        `${layer.type}-contrast` as keyof typeof layer.paint;
+                    const contrast = layer.paint[contrastKey] as
+                        | DataDrivenPropertyValueSpecification<number>
+                        | undefined;
+                    if (contrast !== undefined) {
+                        const parsedContrast =
+                            typeof contrast === "number"
+                                ? contrast
+                                : parseFloat(contrast as unknown as string);
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            contrast: parsedContrast,
+                        }));
+                    }
+                }
+            }
+        }
+    };
+
+    const setPaint = (paint_type: string, value: string | number | undefined) => {
+        const map = mapRef?.current?.getMap();
+        if (selectedLayer) {
+            const layerId = selectedLayer.id;
+            if (map && value) {
+                const type = map.getLayer(layerId)?.type;
+                if (type) {
+                    const paintType = (type +
+                        paint_type) as keyof mapboxgl.PaintSpecification;
+                    map.setPaintProperty(selectedLayer.id, paintType, value);
+                }
+            }
+        }
+    };
+
+    const setFill = (value: string) => {
+        setMapboxLayerStyle({ ...mapboxLayerStyle, fill: value });
+        setPaint("-color", value);
+    };
+
+    const setStroke = (value: string) => {
+        const map = mapRef?.current?.getMap();
+        if (selectedLayer && map) {
+            const layerId = selectedLayer.id;
+            const type = map.getLayer(layerId)?.type;
+            setMapboxLayerStyle({ ...mapboxLayerStyle, stroke: value });
+            if (type == "fill") {
+                setPaint("-outline-color", value);
+            } else {
+                setPaint("-stroke-color", value);
+            }
+        }
+    };
+
+    const setStrokeWidth = (value: number) => {
+        setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width: value });
+        setPaint("-stroke-width", value);
+    };
+
+    const setContrast = (value: number) => {
+        setMapboxLayerStyle({ ...mapboxLayerStyle, contrast: value });
+        setPaint("-contrast", value);
+    };
+
+    const setSaturation = (value: number) => {
+        setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: value });
+        setPaint("-saturation", value);
+    };
+
+    const setBrightness = (values: number[]) => {
+        setMapboxLayerStyle({ ...mapboxLayerStyle, brightness: values });
+        setPaint("-brightness-min", values[0]);
+        setPaint("-brightness-max", values[1]);
+    };
+
+    const handleZoomChange = (values: number[]) => {
+        setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: values });
+        const map = mapRef?.current?.getMap();
+        if (selectedLayer && map) {
+            const layerId = selectedLayer.id;
+            map.setLayerZoomRange(layerId, values[0], values[1]);
+        }
+    };
+
+    const setOpacity = (value: number) => {
+        const map = mapRef?.current?.getMap();
+        if (selectedLayer) {
+            const layerId = selectedLayer.id;
+            const type = map?.getLayer(layerId)?.type;
+            const val = value / 100;
+            setMapboxLayerStyle({ ...mapboxLayerStyle, opacity: value ?? 0 });
+            setPaint("-opacity", val);
+            if (type == "circle") {
+                setPaint("-stroke-opacity", val);
+            }
+        }
+    };
+
+    const resetFill = () => {
+        const defaultColor = "#000000";
+        setMapboxLayerStyle({ ...mapboxLayerStyle, fill: defaultColor });
+        setPaint("-color", undefined);
+    };
+
+    const resetStroke = () => {
+        const map = mapRef?.current?.getMap();
+        const defaultColor = "#000000";
+        if (selectedLayer && map) {
+            const layerId = selectedLayer.id;
+            const type = map.getLayer(layerId)?.type;
+            setMapboxLayerStyle({ ...mapboxLayerStyle, stroke: defaultColor });
+            if (type == "fill") {
+                setPaint("-outline-color", defaultColor);
+            } else {
+                setPaint("-stroke-color", defaultColor);
+            }
+        }
+    };
+
+    const resetStrokeWidth = () => {
+        const strokeWidth = 0;
+        setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width: strokeWidth });
+        setPaint("-stroke-width", strokeWidth);
+    };
+
+    const resetContrast = () => {
+        const contrast = 0;
+        setMapboxLayerStyle({ ...mapboxLayerStyle, contrast: contrast });
+        setPaint("-contrast", contrast);
+    };
+
+    const resetSaturation = () => {
+        const saturation = 0;
+        setMapboxLayerStyle({ ...mapboxLayerStyle, saturation: saturation });
+        setPaint("-saturation", saturation);
+    };
+
+    const resetBrightness = () => {
+        const brightness = 0;
+        setMapboxLayerStyle({
+            ...mapboxLayerStyle,
+            brightness: [brightness, brightness],
+        });
+        setPaint("-brightness-min", brightness);
+        setPaint("-brightness-max", brightness);
+    };
 
     return (
-        <Card className="w-[320px] shadow-lg text-sm overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="relative font-medium">
-                    <div className="absolute -top-10 -left-12 opacity-15">
-                        <IconLayerType size={"50pt"} layer={selectedLayer} />
-                    </div>
-                    <div>
-                        <p className="text-lg font-medium">Styles</p>
-                        <p className="text-xs">{selectedLayer?.name}</p>
-                    </div>
-                </CardTitle>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                    setSelectedLayer(null);
-                    setDisplayLayouts({ style: false });
-                }}>
-                    <X className="h-4 w-4" />
-                </Button>
-            </CardHeader>
+        <>
             <div className="flex items-center justify-center gap-1 border-b border-t pt-2 px-4 pb-2 mt-2">
                 <Toggle size="sm" aria-label="Toggle italic" onClick={handleEditFeatures}>
                     <PenIcon />
@@ -91,54 +344,25 @@ export function StylePanel(
                 <Toggle size="sm" aria-label="Toggle layout">
                     <Table2Icon />
                 </Toggle>
-                <Toggle size="sm" aria-label="Legend" onClick={() => {
-                    setDisplayLayouts({ legend: true });
-                }}>
+                <Toggle size="sm" aria-label="Legend" onClick={() => { setDisplayLayouts({ legend: true }); }}>
                     <ImagesIcon />
                 </Toggle>
-                <Toggle size="sm" aria-label="Toggle grid 2">
-                    <svg
-                        className="h-4 w-4"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                    >
-                        <rect width="18" height="18" x="3" y="3" rx="2" />
-                        <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
-                    </svg>
-                </Toggle>
-                <Toggle size="sm" aria-label="Toggle grid 3">
-                    <svg
-                        className="h-4 w-4"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                    >
-                        <rect width="18" height="18" x="3" y="3" rx="2" />
-                        <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
-                    </svg>
-                </Toggle>
             </div>
-            <CardContent className="max-h-[70vh] overflow-y-scroll">
+            <ScrollArea className="max-h-[70vh] overflow-y-scroll">
                 <div className="grid gap-4 pt-4">
                     <div className="grid gap-2">
                         <div className="flex items-center justify-between">
                             <Label className="text-xs">Opacity</Label>
-                            <span className="w-12 text-right text-sm">{values.opacity}</span>
+                            <span className="w-12 text-right text-sm">{mapboxLayerStyle.opacity}</span>
                         </div>
                         <Slider
-                            value={[values.opacity ?? 100]}
+                            value={[mapboxLayerStyle.opacity ?? 100]}
+                            onValueChange={([opacity]) => {
+                                setMapboxLayerStyle({ ...mapboxLayerStyle, opacity })
+                                setOpacity(opacity)
+                            }}
                             max={100}
                             step={1}
-                            className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-                            onValueChange={([opacity]) => {
-                                setValues({ ...values, opacity })
-                                onOpacityChange(opacity)
-                            }}
                         />
                     </div>
 
@@ -148,189 +372,192 @@ export function StylePanel(
                             <div className="flex items-center gap-2">
                                 <Input
                                     type="number"
-                                    value={values.zoom?.[0] ?? 24}
+                                    value={mapboxLayerStyle.zoom?.[0] ?? 24}
                                     className="h-8 w-20"
                                     max={24}
                                     min={0}
                                     onChange={(e) => {
                                         const newZoom = Number(e.target.value);
-                                        setValues({ ...values, zoom: [newZoom, values.zoom?.[1] ?? newZoom] });
-                                        onZoomChange([newZoom, values.zoom?.[1] ?? newZoom]);
+                                        setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: [newZoom, mapboxLayerStyle.zoom?.[1] ?? newZoom] });
+                                        handleZoomChange([newZoom, mapboxLayerStyle.zoom?.[1] ?? newZoom]);
                                     }}
                                 />
                                 <span>-</span>
                                 <Input
                                     type="number"
-                                    value={values.zoom?.[1] ?? 24}
+                                    value={mapboxLayerStyle.zoom?.[1] ?? 24}
                                     className="h-8 w-20"
                                     max={24}
                                     min={0}
                                     onChange={(e) => {
-                                        setValues({ ...values, zoom: [values.zoom?.[0] ?? 24, Number(e.target.value)] })
-                                        onZoomChange([values.zoom?.[0] ?? 24, Number(e.target.value)])
+                                        setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: [mapboxLayerStyle.zoom?.[0] ?? 24, Number(e.target.value)] })
+                                        handleZoomChange([mapboxLayerStyle.zoom?.[0] ?? 24, Number(e.target.value)])
                                     }}
                                 />
                             </div>
                         </div>
                         <Slider
-                            value={values.zoom}
+                            value={mapboxLayerStyle.zoom}
                             min={0}
                             max={24}
                             step={0.001}
                             className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
                             onValueChange={(zoom) => {
-                                setValues({ ...values, zoom })
-                                onZoomChange(zoom)
+                                setMapboxLayerStyle({ ...mapboxLayerStyle, zoom })
+                                handleZoomChange(zoom)
                             }}
                         />
                     </div>
 
-                    <Accordion type="single" collapsible>
-                        <AccordionItem value="item-1">
-                            <AccordionTrigger>Vector</AccordionTrigger>
-                            <AccordionContent>
-                                <div className="grid gap-4">
-                                    <div className="grid gap-2">
-                                        <Label className="text-xs">Fill</Label>
-                                        <div className="flex items-center gap-2">
-                                            <div className="relative flex h-8 w-20 overflow-hidden rounded border">
-                                                <input
-                                                    type="color"
-                                                    value={values.fill}
-                                                    className="absolute h-[150%] w-[150%] -translate-x-2 -translate-y-2 cursor-pointer"
-                                                    onChange={(e) => {
-                                                        setValues({ ...values, fill: e.target.value })
-                                                        onFillChange(e.target.value)
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="relative">
-                                                <Input
-                                                    value={values.fill}
-                                                    className="font-mono"
-                                                    onChange={(e) => {
-                                                        setValues({ ...values, fill: e.target.value })
-                                                        onFillChange(e.target.value)
-                                                    }}
-                                                />
-                                                {values.fill != "#000000" && (
-                                                    <Button className="absolute right-0 top-0" variant={"ghost"} onClick={(e) => resetFill()}><XIcon /></Button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label className="text-xs">Stroke</Label>
-                                        <div className="flex items-center gap-2">
-                                            <div className="relative flex h-8 w-20 overflow-hidden rounded border">
-                                                <input
-                                                    type="color"
-                                                    value={values.stroke}
-                                                    className="absolute h-[150%] w-[150%] -translate-x-2 -translate-y-2 cursor-pointer"
-                                                    onChange={(e) => {
-                                                        setValues({ ...values, stroke: e.target.value })
-                                                        onStrokeChange(e.target.value)
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="relative">
-                                                <Input
-                                                    value={values.stroke}
-                                                    className="font-mono"
-                                                    onChange={(e) => {
-                                                        setValues({ ...values, stroke: e.target.value })
-                                                        onStrokeChange(e.target.value)
-                                                    }}
-                                                />
-                                                {values.stroke != "#000000" && (
-                                                    <Button className="absolute right-0 top-0" variant={"ghost"} onClick={(e) => resetStroke()}><XIcon /></Button>
-                                                )}
+                    {selectedLayer?.type === 'vector' && (
+                        <Accordion type="single" collapsible>
+                            <AccordionItem value="item-1">
+                                <AccordionTrigger>Vector</AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="grid gap-4">
+                                        <div className="grid gap-2">
+                                            <Label className="text-xs">Fill</Label>
+                                            <div className="flex items-center gap-2">
+                                                <div className="relative flex h-8 w-20 overflow-hidden rounded border">
+                                                    <input
+                                                        type="color"
+                                                        value={mapboxLayerStyle.fill}
+                                                        className="absolute h-[150%] w-[150%] -translate-x-2 -translate-y-2 cursor-pointer"
+                                                        onChange={(e) => {
+                                                            setMapboxLayerStyle({ ...mapboxLayerStyle, fill: e.target.value })
+                                                            setFill(e.target.value)
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className="relative">
+                                                    <Input
+                                                        value={mapboxLayerStyle.fill}
+                                                        className="font-mono"
+                                                        onChange={(e) => {
+                                                            setMapboxLayerStyle({ ...mapboxLayerStyle, fill: e.target.value })
+                                                            setFill(e.target.value)
+                                                        }}
+                                                    />
+                                                    {mapboxLayerStyle.fill != "#000000" && (
+                                                        <Button className="absolute right-0 top-0" variant={"ghost"} onClick={(e) => resetFill()}><XIcon /></Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <div className="flex items-center justify-between">
-                                            <Label className="text-xs">Stroke Width</Label>
-                                            <span className="w-12 text-right text-sm">{values.stroke_width}</span>
+                                        <div className="grid gap-2">
+                                            <Label className="text-xs">Stroke</Label>
+                                            <div className="flex items-center gap-2">
+                                                <div className="relative flex h-8 w-20 overflow-hidden rounded border">
+                                                    <input
+                                                        type="color"
+                                                        value={mapboxLayerStyle.stroke}
+                                                        className="absolute h-[150%] w-[150%] -translate-x-2 -translate-y-2 cursor-pointer"
+                                                        onChange={(e) => {
+                                                            setMapboxLayerStyle({ ...mapboxLayerStyle, stroke: e.target.value })
+                                                            setStroke(e.target.value)
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className="relative">
+                                                    <Input
+                                                        value={mapboxLayerStyle.stroke}
+                                                        className="font-mono"
+                                                        onChange={(e) => {
+                                                            setMapboxLayerStyle({ ...mapboxLayerStyle, stroke: e.target.value })
+                                                            setStroke(e.target.value)
+                                                        }}
+                                                    />
+                                                    {mapboxLayerStyle.stroke != "#000000" && (
+                                                        <Button className="absolute right-0 top-0" variant={"ghost"} onClick={(e) => resetStroke()}><XIcon /></Button>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <Slider
-                                            value={[values.stroke_width ?? 100]}
-                                            max={100}
-                                            step={1}
-                                            className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-                                            onValueChange={([stroke_width]) => {
-                                                setValues({ ...values, stroke_width })
-                                                onStrokeWidthChange(stroke_width)
-                                            }}
-                                        />
-                                    </div>
+                                        <div className="grid gap-2">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-xs">Stroke Width</Label>
+                                                <span className="w-12 text-right text-sm">{mapboxLayerStyle.stroke_width}</span>
+                                            </div>
+                                            <Slider
+                                                value={[mapboxLayerStyle.stroke_width ?? 100]}
+                                                max={100}
+                                                step={1}
+                                                className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
+                                                onValueChange={([stroke_width]) => {
+                                                    setMapboxLayerStyle({ ...mapboxLayerStyle, stroke_width })
+                                                    setStrokeWidth(stroke_width)
+                                                }}
+                                            />
+                                        </div>
 
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
+                    )}
+                    {selectedLayer?.type === 'raster' && (
+                        <Accordion type="single" collapsible>
+                            <AccordionItem value="item-1">
+                                <AccordionTrigger>Raster</AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="grid gap-4">
 
-                    <Accordion type="single" collapsible>
-                        <AccordionItem value="item-1">
-                            <AccordionTrigger>Raster</AccordionTrigger>
-                            <AccordionContent>
-                                <div className="grid gap-4">
-
-                                    <div className="grid gap-2">
-                                        <div className="flex items-center justify-between">
-                                            <Label className="text-xs">Contrast</Label>
-                                            <span className="w-12 text-right text-sm">{values.contrast}</span>
+                                        <div className="grid gap-2">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-xs">Contrast</Label>
+                                                <span className="w-12 text-right text-sm">{mapboxLayerStyle.contrast}</span>
+                                            </div>
+                                            <Slider
+                                                value={[mapboxLayerStyle.contrast ?? 1]}
+                                                max={1}
+                                                min={-1}
+                                                step={0.001}
+                                                className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
+                                                onValueChange={([contrast]) => {
+                                                    setMapboxLayerStyle({ ...mapboxLayerStyle, contrast })
+                                                    setContrast(contrast)
+                                                }}
+                                            />
                                         </div>
-                                        <Slider
-                                            value={[values.contrast ?? 1]}
-                                            max={1}
-                                            min={-1}
-                                            step={0.001}
-                                            className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-                                            onValueChange={([contrast]) => {
-                                                setValues({ ...values, contrast })
-                                                onContrastChange(contrast)
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <div className="flex items-center justify-between">
-                                            <Label className="text-xs">Saturation</Label>
-                                            <span className="w-12 text-right text-sm">{values.saturation}</span>
+                                        <div className="grid gap-2">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-xs">Saturation</Label>
+                                                <span className="w-12 text-right text-sm">{mapboxLayerStyle.saturation}</span>
+                                            </div>
+                                            <Slider
+                                                value={[mapboxLayerStyle.saturation ?? 1]}
+                                                max={1}
+                                                min={-1}
+                                                step={0.001}
+                                                className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
+                                                onValueChange={([saturation]) => {
+                                                    setMapboxLayerStyle({ ...mapboxLayerStyle, saturation })
+                                                    setSaturation(saturation)
+                                                }}
+                                            />
                                         </div>
-                                        <Slider
-                                            value={[values.saturation ?? 1]}
-                                            max={1}
-                                            min={-1}
-                                            step={0.001}
-                                            className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-                                            onValueChange={([saturation]) => {
-                                                setValues({ ...values, saturation })
-                                                onSaturationChange(saturation)
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <div className="flex items-center justify-between">
-                                            <Label className="text-xs">Brightness</Label>
-                                            <span className="w-24 text-right text-sm">{values.brightness?.[0] ?? 0} - {values.brightness?.[1] ?? 1}</span>
+                                        <div className="grid gap-2">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-xs">Brightness</Label>
+                                                <span className="w-24 text-right text-sm">{mapboxLayerStyle.brightness?.[0] ?? 0} - {mapboxLayerStyle.brightness?.[1] ?? 1}</span>
+                                            </div>
+                                            <Slider
+                                                value={mapboxLayerStyle.brightness ?? [0, 1]}
+                                                min={0}
+                                                max={1}
+                                                step={0.001}
+                                                className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
+                                                onValueChange={(brightness) => {
+                                                    setMapboxLayerStyle({ ...mapboxLayerStyle, brightness })
+                                                    setBrightness(brightness)
+                                                }}
+                                            />
                                         </div>
-                                        <Slider
-                                            value={values.brightness ?? [0, 1]}
-                                            min={0}
-                                            max={1}
-                                            step={0.001}
-                                            className="[&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-                                            onValueChange={(brightness) => {
-                                                setValues({ ...values, brightness })
-                                                onBrightnessChange(brightness)
-                                            }}
-                                        />
                                     </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
+                    )}
 
                     <Accordion type="single" collapsible>
                         <AccordionItem value="item-1">
@@ -352,10 +579,8 @@ export function StylePanel(
                         </AccordionItem>
                     </Accordion>
                 </div>
-
-
-            </CardContent>
-        </Card >
+            </ScrollArea>
+        </>
     )
 }
 

@@ -53,11 +53,7 @@ export default async function MapPage({ params }: MapPageProps) {
         <MapLayout
           layersFetch={(fetchedProject as Project)?.layers ?? []}
           datasetsFetch={(fetchedDatasets as Datasets[]) ?? []}
-          bookmarkFetch={
-            ((fetchedBookmarks as BookmarkResponse[])
-              ?.map((b) => b.data)
-              .flat() as Bookmark[]) ?? []
-          }
+          bookmarkFetch={fetchedBookmarks?.data as Bookmark[] ?? []}
         />
       </div>
     );

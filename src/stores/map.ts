@@ -1,20 +1,23 @@
-import { LayoutDisplay, MapIsLoading } from "@/types/map.types";
+import { Layer, LayoutDisplay, MapIsLoading } from "@/types/map.types";
+import { RefObject } from "react";
 import { MapRef } from "react-map-gl";
 import { create } from "zustand";
 
 
 interface MapStore {
-    map: MapRef | null;
+    map: RefObject<MapRef | null>;
     setMap: (ref: MapRef) => void;
     isLoading: MapIsLoading;
     setIsLoading: (loading: Partial<MapIsLoading>) => void;
     displayLayouts: LayoutDisplay;
     setDisplayLayouts: (layouts: Partial<LayoutDisplay>) => void;
+    selectedLayer: Layer | null;
+    setSelectedLayer: (layer: Layer | null) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
-    map: null,
-    setMap: (ref) => set({ map: ref }),
+    map: { current: null },
+    setMap: (ref) => set({ map: { current: ref } }),
     isLoading: {
         initLoading: true,
         zoomToMap: false,
@@ -41,4 +44,6 @@ export const useMapStore = create<MapStore>((set) => ({
         set((state) => ({
             displayLayouts: { ...state.displayLayouts, ...layouts }
         })),
+    selectedLayer: null,
+    setSelectedLayer: (layer) => set({ selectedLayer: layer }),
 }));
