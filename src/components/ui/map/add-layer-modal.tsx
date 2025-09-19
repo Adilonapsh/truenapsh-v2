@@ -48,7 +48,7 @@ export default function AddLayerModal() {
 
     const handleDatasets = async () => {
         setIsLoading({ ...isLoading, dataset: true });
-        const mapInstance = map?.getMap();
+        const mapInstance = map?.current?.getMap();
         if (datasetProperties.map_service_vendor == MapServiceVendor.XYZ) {
             if (mapInstance) {
                 const layerId = v4();
