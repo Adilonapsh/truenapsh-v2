@@ -27,8 +27,6 @@ export const authOptions: NextAuthOptions = {
 
         const response = await res.json();
 
-        console.log("Ini Respon credential biasa", response);
-
         if (res.ok && response) {
           const user = {
             ...response.user,
@@ -72,7 +70,6 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }: { token: JWT; user: any }) {
-      console.log("Ini User Token", token);
       if (user) {
         token.id = user.id;
         token.name = user.name;

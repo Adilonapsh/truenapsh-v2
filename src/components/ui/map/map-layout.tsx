@@ -195,13 +195,13 @@ export default function MapLayout({
         {
             id: "Google Satellite",
             name: "Google Satellite",
-            url: "http://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}&s=Ga",
+            url: "https://mt0.google.com/vt/lyrs=s&hl=en&x={x}&y={y}&z={z}&s=Ga",
             thumbnail: "/assets/basemap/Satellite.png",
         },
         {
             id: "Google Street",
             name: "Google Street",
-            url: "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga",
+            url: "https://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga",
             thumbnail: "/assets/basemap/googleStreets.png",
         },
         {
