@@ -83,7 +83,7 @@ export default function AddLayerModal() {
                     map_service_url: url.toString(),
                     map_service_layer_name: "",
                     map_service_vendor: MapServiceVendor.XYZ,
-                    type: "2D",
+                    type: "raster",
                     visible: true,
                     min_zoom: 0,
                     max_zoom: 24,
@@ -100,7 +100,6 @@ export default function AddLayerModal() {
             datasetProperties.map_service_vendor == MapServiceVendor.GeoJSON
         ) {
             if (mapInstance) {
-
                 const layerId = v4();
                 const href = datasetProperties.url;
                 const url = new URL(datasetProperties.url);
@@ -154,7 +153,7 @@ export default function AddLayerModal() {
                     map_service_url: url.toString(),
                     map_service_layer_name: "",
                     map_service_vendor: MapServiceVendor.GeoJSON,
-                    type: "2D",
+                    type: "vector",
                     visible: true,
                     min_zoom: 0,
                     max_zoom: 24,

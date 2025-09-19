@@ -13,6 +13,7 @@ function MapView({
     onZoom,
     onZoomEnd,
     onClick,
+    onTouchEnd,
     onLoad,
     onStyleData,
     handleDragOver,
@@ -37,11 +38,13 @@ function MapView({
                     latitude: -0.8893,
                     zoom: 4.6,
                 }}
+                interactive={true}
                 antialias={true}
                 dragPan={true}
                 style={{ width: "100%", height: "100%" }}
                 onZoom={onZoom}
                 onClick={onClick}
+                onTouchEnd={onTouchEnd}
                 onMouseMove={onMouseMove}
                 mapStyle="mapbox://styles/mapbox/streets-v9"
                 hash={true}
