@@ -178,6 +178,8 @@ interface MapboxStyleState {
   modelStyle: ModelStyle;
   skyStyle: SkyStyle;
 
+  getPaintProperties: () => void;
+
   // Generic paint property setter
   setPaintProperty: (
     paintType: string,
@@ -485,6 +487,254 @@ export const useMapboxStyleStore = create<MapboxStyleState>((set, get) => ({
   backgroundStyle: defaultBackgroundStyle,
   modelStyle: defaultModelStyle,
   skyStyle: defaultSkyStyle,
+
+  getPaintProperties: () => {
+    const map = mapRef?.current;
+    if (!selectedLayer || !map) return null;
+
+    const layer = map.getLayer(selectedLayer.id);
+    if (!layer) return null;
+
+    const layerType = layer.type;
+    const extractedProps: any = {};
+
+    // helper to fetch paint props safely
+    const getProp = (prop: string) => {
+      const value = map.getPaintProperty(selectedLayer.id, prop as any);
+      if (value === undefined || value === null) return undefined;
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') return parseFloat(value);
+      return value; // allow arrays like dasharray, rotation
+    };
+
+    // ----- Common props -----
+    const opacityKey = `${layerType}-opacity`;
+    const opacity = getProp(opacityKey);
+    if (opacity !== undefined) extractedProps.opacity = opacity * 100;
+
+    const colorKey = `${layerType}-color`;
+    const color = getProp(colorKey);
+    if (typeof color === 'string') extractedProps.color = color;
+
+    const strokeColor = getProp(`${layerType}-stroke-color`) || getProp(`${layerType}-outline-color`);
+    if (typeof strokeColor === 'string') extractedProps.strokeColor = strokeColor;
+
+    const widthKeys = [`${layerType}-stroke-width`, `${layerType}-width`, `${layerType}-radius`];
+    for (const key of widthKeys) {
+      const width = getProp(key);
+      if (width !== undefined) {
+        extractedProps.width = width;
+        break;
+      }
+    }
+
+    // ----- Layer specific -----
+    if (layerType === 'raster') {
+      extractedProps.brightness = [getProp('raster-brightness-min'), getProp('raster-brightness-max')];
+      extractedProps.saturation = getProp('raster-saturation');
+      extractedProps.contrast = getProp('raster-contrast');
+    }
+
+    if (layerType === 'fill-extrusion') {
+      extractedProps.height = getProp('fill-extrusion-height');
+      extractedProps.base = getProp('fill-extrusion-base');
+      extractedProps.verticalScale = getProp('fill-extrusion-vertical-scale');
+      extractedProps.emissiveStrength = getProp('fill-extrusion-emissive-strength');
+    }
+
+    if (layerType === 'heatmap') {
+      extractedProps.intensity = getProp('heatmap-intensity');
+      extractedProps.radius = getProp('heatmap-radius');
+      extractedProps.weight = getProp('heatmap-weight');
+      extractedProps.heatmapColor = getProp('heatmap-color');
+    }
+
+    if (layerType === 'hillshade') {
+      extractedProps.exaggeration = getProp('hillshade-exaggeration');
+      extractedProps.illuminationDirection = getProp('hillshade-illumination-direction');
+      extractedProps.shadowColor = getProp('hillshade-shadow-color');
+      extractedProps.highlightColor = getProp('hillshade-highlight-color');
+      extractedProps.accentColor = getProp('hillshade-accent-color');
+    }
+
+    if (layerType === 'model') {
+      extractedProps.modelColor = getProp('model-color');
+      extractedProps.modelOpacity = getProp('model-opacity');
+      extractedProps.rotation = getProp('model-rotation');
+      extractedProps.scale = getProp('model-scale');
+      extractedProps.translation = getProp('model-translation');
+      extractedProps.colorMixIntensity = getProp('model-color-mix-intensity');
+      extractedProps.emissiveStrength = getProp('model-emissive-strength');
+      extractedProps.roughness = getProp('model-roughness');
+    }
+
+    if (layerType === 'symbol') {
+      extractedProps.textColor = getProp('text-color');
+      extractedProps.textOpacity = getProp('text-opacity');
+      extractedProps.textHaloColor = getProp('text-halo-color');
+      extractedProps.textHaloWidth = getProp('text-halo-width');
+      extractedProps.iconColor = getProp('icon-color');
+      extractedProps.iconOpacity = getProp('icon-opacity');
+    }
+
+    if (layerType === 'background') {
+      extractedProps.backgroundColor = getProp('background-color');
+      extractedProps.backgroundOpacity = getProp('background-opacity');
+      extractedProps.backgroundPattern = getProp('background-pattern');
+    }
+
+    if (layerType === 'sky') {
+      extractedProps.skyOpacity = getProp('sky-opacity');
+      extractedProps.skyGradient = getProp('sky-gradient');
+      extractedProps.atmosphereSun = getProp('sky-atmosphere-sun');
+      extractedProps.atmosphereSunIntensity = getProp('sky-atmosphere-sun-intensity');
+    }
+
+    if (layerType === 'line') {
+      extractedProps.blur = getProp('line-blur');
+      extractedProps.offset = getProp('line-offset');
+      extractedProps.gapWidth = getProp('line-gap-width');
+      extractedProps.dasharray = getProp('line-dasharray');
+    }
+
+    if (layerType === 'circle') {
+      extractedProps.blur = getProp('circle-blur');
+      extractedProps.strokeOpacity = getProp('circle-stroke-opacity');
+      extractedProps.strokeWidth = getProp('circle-stroke-width');
+    }
+
+    // ----- Update store -----
+    const updateState = (stateKey: string, newProps: any) => {
+      set((state: any) => ({
+        [stateKey]: { ...state[stateKey], ...newProps }
+      }));
+    };
+
+    const layerStyleMapping: Record<string, { stateKey: string; props: Record<string, any> }> = {
+      fill: {
+        stateKey: 'fillStyle',
+        props: {
+          fillColor: extractedProps.color || defaultFillStyle.fillColor,
+          fillOpacity: (extractedProps.opacity || 100) / 100,
+          fillOutlineColor: extractedProps.strokeColor || defaultFillStyle.fillOutlineColor,
+        },
+      },
+      line: {
+        stateKey: 'lineStyle',
+        props: {
+          lineColor: extractedProps.color || defaultLineStyle.lineColor,
+          lineOpacity: (extractedProps.opacity || 100) / 100,
+          lineWidth: extractedProps.width || defaultLineStyle.lineWidth,
+          lineBlur: extractedProps.blur || defaultLineStyle.lineBlur,
+          lineOffset: extractedProps.offset || defaultLineStyle.lineOffset,
+          lineGapWidth: extractedProps.gapWidth || defaultLineStyle.lineGapWidth,
+          lineDasharray: extractedProps.dasharray || defaultLineStyle.lineDasharray,
+        },
+      },
+      circle: {
+        stateKey: 'circleStyle',
+        props: {
+          circleColor: extractedProps.color || defaultCircleStyle.circleColor,
+          circleOpacity: (extractedProps.opacity || 100) / 100,
+          circleRadius: extractedProps.width || defaultCircleStyle.circleRadius,
+          circleStrokeColor: extractedProps.strokeColor || defaultCircleStyle.circleStrokeColor,
+          circleBlur: extractedProps.blur || defaultCircleStyle.circleBlur,
+          circleStrokeOpacity: extractedProps.strokeOpacity || defaultCircleStyle.circleStrokeOpacity,
+          circleStrokeWidth: extractedProps.strokeWidth || defaultCircleStyle.circleStrokeWidth,
+        },
+      },
+      'fill-extrusion': {
+        stateKey: 'fillExtrusionStyle',
+        props: {
+          fillExtrusionColor: extractedProps.color || defaultFillExtrusionStyle.fillExtrusionColor,
+          fillExtrusionOpacity: (extractedProps.opacity || 100) / 100,
+          fillExtrusionHeight: extractedProps.height || defaultFillExtrusionStyle.fillExtrusionHeight,
+          fillExtrusionBase: extractedProps.base || defaultFillExtrusionStyle.fillExtrusionBase,
+          fillExtrusionVerticalScale: extractedProps.verticalScale || defaultFillExtrusionStyle.fillExtrusionVerticalScale,
+          fillExtrusionEmissiveStrength: extractedProps.emissiveStrength || defaultFillExtrusionStyle.fillExtrusionEmissiveStrength,
+        },
+      },
+      symbol: {
+        stateKey: 'symbolStyle',
+        props: {
+          textColor: extractedProps.textColor || defaultSymbolStyle.textColor,
+          textOpacity: extractedProps.textOpacity || defaultSymbolStyle.textOpacity,
+          textHaloColor: extractedProps.textHaloColor || defaultSymbolStyle.textHaloColor,
+          textHaloWidth: extractedProps.textHaloWidth || defaultSymbolStyle.textHaloWidth,
+          iconColor: extractedProps.iconColor || defaultSymbolStyle.iconColor,
+          iconOpacity: extractedProps.iconOpacity || defaultSymbolStyle.iconOpacity,
+        },
+      },
+      heatmap: {
+        stateKey: 'heatmapStyle',
+        props: {
+          heatmapColor: extractedProps.heatmapColor || defaultHeatmapStyle.heatmapColor,
+          heatmapIntensity: extractedProps.intensity || defaultHeatmapStyle.heatmapIntensity,
+          heatmapOpacity: (extractedProps.opacity || 100) / 100,
+          heatmapRadius: extractedProps.radius || defaultHeatmapStyle.heatmapRadius,
+          heatmapWeight: extractedProps.weight || defaultHeatmapStyle.heatmapWeight,
+        },
+      },
+      raster: {
+        stateKey: 'rasterStyle',
+        props: {
+          rasterOpacity: (extractedProps.opacity || 100) / 100,
+          rasterBrightnessMin: extractedProps.brightness?.[0] || defaultRasterStyle.rasterBrightnessMin,
+          rasterBrightnessMax: extractedProps.brightness?.[1] || defaultRasterStyle.rasterBrightnessMax,
+          rasterSaturation: extractedProps.saturation || defaultRasterStyle.rasterSaturation,
+          rasterContrast: extractedProps.contrast || defaultRasterStyle.rasterContrast,
+        },
+      },
+      hillshade: {
+        stateKey: 'hillshadeStyle',
+        props: {
+          hillshadeExaggeration: extractedProps.exaggeration || defaultHillshadeStyle.hillshadeExaggeration,
+          hillshadeIlluminationDirection: extractedProps.illuminationDirection || defaultHillshadeStyle.hillshadeIlluminationDirection,
+          hillshadeShadowColor: extractedProps.shadowColor || defaultHillshadeStyle.hillshadeShadowColor,
+          hillshadeHighlightColor: extractedProps.highlightColor || defaultHillshadeStyle.hillshadeHighlightColor,
+          hillshadeAccentColor: extractedProps.accentColor || defaultHillshadeStyle.hillshadeAccentColor,
+        },
+      },
+      background: {
+        stateKey: 'backgroundStyle',
+        props: {
+          backgroundColor: extractedProps.backgroundColor || defaultBackgroundStyle.backgroundColor,
+          backgroundOpacity: extractedProps.backgroundOpacity || defaultBackgroundStyle.backgroundOpacity,
+          backgroundPattern: extractedProps.backgroundPattern || defaultBackgroundStyle.backgroundPattern,
+        },
+      },
+      model: {
+        stateKey: 'modelStyle',
+        props: {
+          modelColor: extractedProps.modelColor || defaultModelStyle.modelColor,
+          modelOpacity: extractedProps.modelOpacity || defaultModelStyle.modelOpacity,
+          modelRotation: extractedProps.rotation || defaultModelStyle.modelRotation,
+          modelScale: extractedProps.scale || defaultModelStyle.modelScale,
+          modelTranslation: extractedProps.translation || defaultModelStyle.modelTranslation,
+          modelColorMixIntensity: extractedProps.colorMixIntensity || defaultModelStyle.modelColorMixIntensity,
+          modelEmissiveStrength: extractedProps.emissiveStrength || defaultModelStyle.modelEmissiveStrength,
+          modelRoughness: extractedProps.roughness || defaultModelStyle.modelRoughness,
+        },
+      },
+      sky: {
+        stateKey: 'skyStyle',
+        props: {
+          skyOpacity: extractedProps.skyOpacity || defaultSkyStyle.skyOpacity,
+          skyGradient: extractedProps.skyGradient || defaultSkyStyle.skyGradient,
+          skyAtmosphereSun: extractedProps.atmosphereSun || defaultSkyStyle.skyAtmosphereSun,
+          skyAtmosphereSunIntensity: extractedProps.atmosphereSunIntensity || defaultSkyStyle.skyAtmosphereSunIntensity,
+        },
+      },
+    };
+
+    // jalankan updateState sesuai type
+    const mapping = layerStyleMapping[layerType];
+    if (mapping) {
+      updateState(mapping.stateKey, mapping.props);
+    }
+
+    return extractedProps;
+  },
 
   // Generic paint property setter
   setPaintProperty: (paintType, value) => {
