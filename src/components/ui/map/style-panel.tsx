@@ -356,7 +356,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
 
   return (
     <>
-      <div className="flex items-center justify-center gap-1 border-b border-t pt-2 px-4 pb-2 mt-2">
+      <div className="flex items-center justify-center gap-1 border-b border-t pt-2 px-4 pb-2">
         <Toggle
           size="sm"
           aria-label="Toggle italic"
@@ -377,7 +377,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
           <ImagesIcon />
         </Toggle>
       </div>
-      <ScrollArea className="max-h-[70vh] overflow-y-scroll">
+      <ScrollArea className="h-full overflow-auto">
         <div className="grid gap-4 pt-4">
           <div className="grid gap-2">
             <div className="flex items-center justify-between">

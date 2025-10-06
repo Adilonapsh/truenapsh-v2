@@ -49,13 +49,13 @@
 49. Tambahkan Expression di Style 
 50. Fix backed Layer and Add Layer
 51. Use Zustand (WIP)
-52. Style Dijadikan Komponen
+52. Style Dijadikan Komponen (Done)
 53. Feature Info Dijadikan Komponen (Done)
 54. Map Tools dibuat dinamik, misal data yang bisa point hanya point saja, atau jika bisa semua maka show all layer
 55. Tambah On Tap (Done)
 
 -- PRODS
-1. Fix bookmark Error
+1. Fix bookmark Error (Done)
 2. Fix Flow Error
-3. Basemap Fix
+3. Basemap Fix (Done)
 

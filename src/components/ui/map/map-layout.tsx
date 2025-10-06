@@ -1669,8 +1669,8 @@ export default function MapLayout({
 
       {/* LEFT SIDE */}
       <div className="absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto">
-        <div className="px-5 py-2 w-80 text-sm bg-white rounded dark:bg-background">
-          <div className="flex sticky top-0 justify-between items-center py-2 bg-white dark:bg-background">
+        <div className="px-5 py-2 w-80 text-sm rounded card-tp">
+          <div className="flex sticky top-0 justify-between items-center py-2">
             <h5 className="font-bold text-md">Workspaces</h5>
             <div className="flex gap-3 items-center">
               <TooltipProvider>
@@ -1832,7 +1832,7 @@ export default function MapLayout({
       <div className="absolute top-0 right-0 p-5 text-xs min-w-96 max-w-[300px] max-h-[90vh]">
         {displayLayouts.layerInfo && (
           <Card>
-            <CardHeader>
+            <CardHeader className="card-tp">
               <div className="flex justify-between items-center">
                 <div>
                   <CardTitle className="text-sm mb-2">
@@ -1860,7 +1860,7 @@ export default function MapLayout({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="max-h-[70vh]">
+            <CardContent className="max-h-[70vh] h-[70vh] card-tp">
               <FeatureInfo infoFeatures={infoFeatures} isLoading={isLoading} />
             </CardContent>
           </Card>
@@ -1892,7 +1892,7 @@ export default function MapLayout({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="max-h-[70vh]">
+            <CardContent className="max-h-[70vh] h-[70vh]">
               <StylePanel handleEditFeatures={handleEditFeatures} />
             </CardContent>
           </Card>
@@ -1902,18 +1902,9 @@ export default function MapLayout({
             <CardHeader>
               <div className="flex justify-between items-center">
                 <div>
-                  <CardTitle className="text-sm mb-2">Routes</CardTitle>
+                  <CardTitle className="text-sm mb-2">Route</CardTitle>
                   <CardDescription className="text-xs text-foreground">
-                    {currentMapClick ? (
-                      <>
-                        From: <br />
-                        {routeCoordinates?.origin?.join(",") || "N/A"}, <br />
-                        To: <br />
-                        {routeCoordinates?.destination?.join(",") || "N/A"}
-                      </>
-                    ) : (
-                      "No Route Information."
-                    )}
+                    Route Information Details
                   </CardDescription>
                 </div>
                 <Button
@@ -1929,7 +1920,7 @@ export default function MapLayout({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="max-h-[70vh]">
+            <CardContent className="max-h-[70vh] ">
               <table className="w-full">
                 <tbody>
                   <tr className="border-b">
@@ -2054,7 +2045,7 @@ export default function MapLayout({
       <div className="absolute bottom-0">
         <div className="relative w-screen">
           <div className="absolute bottom-5 right-10 ml-28 z-[1]">
-            <div className="p-2 text-xs text-center bg-white rounded-lg min-w-52 dark:bg-background">
+            <div className="p-2 text-xs text-center rounded-lg min-w-52 card-tp">
               {mousePosition ? (
                 <>
                   {mousePosition.lng.toFixed(9)}, {mousePosition.lat.toFixed(9)}
@@ -2065,7 +2056,7 @@ export default function MapLayout({
             </div>
           </div>
           <div className="absolute bottom-14 right-10 ml-28 z-[1]">
-            <div className="w-14 h-14 bg-white rounded-lg dark:bg-background">
+            <div className="w-14 h-14 rounded-lg card-tp">
               <Popover>
                 <PopoverTrigger>
                   <div className="flex justify-center items-center p-1 h-full">
@@ -2101,7 +2092,7 @@ export default function MapLayout({
             </div>
           </div>
           <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-[1]">
-            <div className="flex gap-1 justify-center items-center p-1 bg-white rounded-lg dark:bg-background">
+            <div className="flex gap-1 justify-center items-center p-1 rounded-lg card-tp">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant={"ghost"} size="sm">

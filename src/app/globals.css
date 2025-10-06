@@ -87,31 +87,33 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+
+  .card-tp {
+     @apply bg-background border border-background/80 text-foreground;
+    /* @apply bg-background/50 border border-background/80 backdrop-blur-xl text-foreground/70; */
+  }
+
+  .card-solid {
+    @apply bg-background border border-background/80 text-foreground;
+  }
 }
 
-/* Add this in your CSS file */
 ::-webkit-scrollbar {
   width: 3px;
-  /* Width of the scrollbar */
   height: 8px;
-  /* Height for horizontal scrollbar */
 }
 
 ::-webkit-scrollbar-thumb {
   background: #4a5568;
-  /* Color of the scrollbar thumb */
   border-radius: 4px;
-  /* Rounded corners */
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #2d3748;
-  /* Color when hovered */
 }
 
 ::-webkit-scrollbar-track {
   background: #edf2f7;
-  /* Background of the track */
   border-radius: 4px;
 }
 
