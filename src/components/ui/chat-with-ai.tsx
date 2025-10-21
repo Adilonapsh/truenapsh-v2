@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,6 +16,7 @@ import '../../app/css/markdownStyle.css';
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism"
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { AnimatePresence, motion } from 'framer-motion'
 
 interface ChatWithAIProps {
     title?: string;
@@ -26,12 +27,22 @@ interface ChatWithAIProps {
 
 export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Type your message...", className = "", onCommandReceived }: ChatWithAIProps) {
     const [error, setError] = useState<string | null>(null);
+    const [aiStatus, setAiStatus] = useState<"idle" | "thinking" | "building" | "done">("idle");
+
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [isTyping, setIsTyping] = useState(false);
+
     const { messages, input, handleInputChange, isLoading, append, stop, status } = useChat({
         api: '/api/ai-chat',
         initialMessages: [
             // { id: '1', role: 'assistant', content: "Hello! How can I help you today?" }
         ],
+        onResponse: () => {
+            setIsTyping(true);
+            setAiStatus("thinking");
+        },
         onFinish: (message) => {
+            setIsTyping(false);
             if (message?.role === 'assistant' && message.content) {
                 executeCommands(message.content);
             }
@@ -58,7 +69,18 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ty
                 }
             }
         });
+        setTimeout(() => setAiStatus("done"), 1500);
     };
+
+    const shimmer =
+        "before:content-[''] before:absolute before:inset-0 before:animate-pulse before:bg-gradient-to-r before:from-transparent before:via-white/40 before:to-transparent before:rounded";
+
+    const statusMessage = {
+        idle: "",
+        thinking: "🧠 AI is analyzing your command...",
+        building: "🗺️ Building map layers...",
+        done: "",
+    }[aiStatus];
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -81,6 +103,10 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ty
     const handleStop = () => {
         stop();
     };
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
 
     return (
         <Card className={`w-full max-w-xl ${className}`}>
@@ -159,43 +185,61 @@ export function ChatWithAI({ title = "Chat with Truenapsh Ai", placeholder = "Ty
                             </div>
                         </div>
                     )}
-                    {messages.map(m => (
-                        <div key={m.id} className={`mb-4 w-96 mt-5 ${m.role === 'user' ? 'text-right' : 'text-left'}`}>
-                            <div className={`inline-block p-2 max-w-96 rounded-lg ${m.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-800'}`}>
-                                <div className="text-bold">
-                                    <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        components={{
-                                            code({ node, inline, className, children, ...props }) {
-                                                const match = /language-(\w+)/.exec(className || "")
-                                                return !inline && match ? (
-                                                    <CodeBlock
-                                                        language={match[1]}
-                                                        value={String(children).replace(/\n$/, "")}
-                                                        className={className}
-                                                        {...props}
-                                                    />
-                                                ) : (
-                                                    <code className={inline ? "px-1 py-0.5 bg-gray-200 dark:bg-gray-800 rounded" : ""} {...props}>
-                                                        {children}
-                                                    </code>
-                                                )
-                                            },
-                                        }}
-                                    >
-                                        {m.content}
-                                    </ReactMarkdown>
+
+                    {messages.map(m => {
+                        const cleaned = m.content
+                            .replace(/```json([\s\S]*?)```/g, "")
+                            .replace(/::CMD::[\s\S]*?::ENDCMD::/g, "")
+                            .trim();
+                        if (!cleaned) return null;
+
+                        return (
+                            <div key={m.id} className={`mb-4 w-96 mt-5 ${m.role === 'user' ? 'text-right' : 'text-left'}`}>
+                                <div className={`inline-block p-2 max-w-96 rounded-lg ${m.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-800'}`}>
+                                    <div className="text-bold">
+                                        <ReactMarkdown
+                                            remarkPlugins={[remarkGfm]}
+                                            components={{
+                                                code({ node, inline, className, children, ...props }) {
+                                                    const match = /language-(\w+)/.exec(className || "")
+                                                    return !inline && match ? (
+                                                        <CodeBlock
+                                                            language={match[1]}
+                                                            value={String(children).replace(/\n$/, "")}
+                                                            className={className}
+                                                            {...props}
+                                                        />
+                                                    ) : (
+                                                        <code className={inline ? "px-1 py-0.5 bg-gray-200 dark:bg-gray-800 rounded" : ""} {...props}>
+                                                            {children}
+                                                        </code>
+                                                    )
+                                                },
+                                            }}
+                                        >
+                                            {cleaned}
+                                        </ReactMarkdown>
+                                    </div>
                                 </div>
                             </div>
+                        );
+                    })}
+
+                    {aiStatus !== "idle" && aiStatus !== "done" && (
+                        <div className="relative p-2 rounded-lg bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700 bg-[length:200%_100%] animate-shimmer">
+                            {statusMessage}
                         </div>
-                    ))}
-                    {isLoading && (
+                    )}
+                    
+                    {/* {isLoading && (
                         <div className="text-left">
                             <div className="inline-block p-2 rounded-lg bg-gray-200 dark:bg-gray-800">
                                 Truenapsh AI typing..
                             </div>
                         </div>
-                    )}
+                    )} */}
+
+                    <div ref={messagesEndRef} />
                 </div>
                 {error && (
                     <Alert variant="destructive" className="mt-4">
