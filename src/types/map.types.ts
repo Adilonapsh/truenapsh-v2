@@ -58,21 +58,22 @@ type Layer = {
   status?: string;
   metadata?: object;
   rendered?: number;
+  fields?: string[];
   render_type?:
-    | "background"
-    | "building"
-    | "circle"
-    | "clip"
-    | "fill"
-    | "fill-extrusion"
-    | "heatmap"
-    | "hillshade"
-    | "line"
-    | "model"
-    | "raster"
-    | "raster-particle"
-    | "sky"
-    | "symbol";
+  | "background"
+  | "building"
+  | "circle"
+  | "clip"
+  | "fill"
+  | "fill-extrusion"
+  | "heatmap"
+  | "hillshade"
+  | "line"
+  | "model"
+  | "raster"
+  | "raster-particle"
+  | "sky"
+  | "symbol";
 };
 
 enum MapServiceVendor {

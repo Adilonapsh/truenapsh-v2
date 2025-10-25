@@ -153,8 +153,7 @@ const convertWMSToVectorData = async (
       `${selectedLayer?.map_service_url.replace(
         "/wms",
         ""
-      )}/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=${
-        selectedLayer?.map_service_layer_name
+      )}/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=${selectedLayer?.map_service_layer_name
       }&maxFeatures=1000000&outputFormat=application/json&srsName=EPSG:4326`
     );
     const data = await response.json();
@@ -455,7 +454,6 @@ const transformGeoserverServicesToFolder = async (url: string) => {
       });
     });
 
-    console.log("Grouped: ", Object.values(grouped));
     return Object.values(grouped);
   } catch (err: unknown) {
     console.error("Error caught:", err instanceof Error ? err.message : err);
@@ -548,6 +546,7 @@ const getAllFeaturesGeoserver = async (url: string, layerId: string) => {
     console.error("Failed to fetch or parse capabilities document:", error);
   }
 };
+
 
 export {
   fetchGeoserverLayerBbox as fetchLayerBbox,

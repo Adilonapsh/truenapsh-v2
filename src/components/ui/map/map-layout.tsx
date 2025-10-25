@@ -34,6 +34,7 @@ import {
   Eye,
   EyeClosed,
   Fullscreen,
+  Heart,
   LayersIcon,
   MinusIcon,
   PlusIcon,
@@ -85,11 +86,10 @@ import {
   getWMSServices,
 } from "@/services/map-services";
 import useDatasetStore from "@/stores/datasets";
-import useLayerStore from "@/stores/layer";
+import useLayerStore, { useSetFields } from "@/stores/layer";
 import { useMapStore } from "@/stores/map";
 import {
   addGeojsonToMap,
-  aiCommand,
   findLayerConfigByGeometryType,
   searchAlternatives,
 } from "@/tools/map-tools";
@@ -149,6 +149,7 @@ import SortableItem from "./sortable-item";
 import { StylePanel } from "./style-panel";
 import { CursorData } from "@/types/collaboration.types";
 import IconTooltip from "../icon-tooltip";
+import { MapCommandExecutor } from "@/tools/ai-tools/ai-tools";
 
 export default function MapLayout({
   layersFetch,
@@ -221,7 +222,7 @@ export default function MapLayout({
     },
   ]);
   //   const [layers, setLayers] = useState(layersFetch);
-  const { layers, setLayers, removeLayer, setVisible, addLayer } =
+  const { layers, setLayers, removeLayer, setVisibility, addLayer, setFields } =
     useLayerStore();
   const [activeBasemap, setActiveBasemap] = useState(0);
 
@@ -459,7 +460,6 @@ export default function MapLayout({
     if (map) {
       if (mapRef.current) {
         setMap(mapRef.current);
-        console.log("mapRef", mapRef);
       }
 
       // Load Layers
@@ -677,7 +677,7 @@ export default function MapLayout({
         !status ? "visible" : "none"
       );
     }
-    setVisible(layerId, !status);
+    setVisibility(layerId, !status);
   };
 
   const isSourceUsed = (sourceId: string): boolean => {
@@ -1400,26 +1400,12 @@ export default function MapLayout({
     }
   };
 
-  const handleMapboxCommand = (command: any) => {
+  const handleMapboxCommand = async (command: any) => {
     if (!mapRef.current) return;
 
-    if (typeof command === "string") {
-      // Handle string seperti sebelumnya
-      switch (command) {
-        case "zoom_ke_indonesia":
-          mapRef.current.flyTo({
-            center: [113.9213, -0.7893],
-            zoom: 4,
-            speed: 1.2,
-          });
-          break;
-        case "tilt_50":
-          mapRef.current.easeTo({ pitch: 50, duration: 1000 });
-          break;
-        // dll...
-      }
-    } else if (typeof command === "object") {
-      aiCommand(mapRef, command, layers);
+    if (typeof command === "object") {
+      const executor = new MapCommandExecutor(mapRef, layers);
+      await executor.execute(command);
     }
   };
 
@@ -1566,6 +1552,8 @@ export default function MapLayout({
         Object.values(properties)
       );
     }
+
+    setFields(layerId, header);
 
     setTableData({
       headers: header,

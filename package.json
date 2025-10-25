@@ -1,6 +1,6 @@
 {
-  "name": "truenapsh-v2-beta",
-  "version": "0.1.0",
+  "name": "truenapsh-v2",
+  "version": "2.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",

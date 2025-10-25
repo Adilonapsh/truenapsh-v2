@@ -1,6 +1,7 @@
 import { overpassBuildingIntegration } from "@/services/map-integrations";
+import { fetchLayerBbox } from "@/services/map-services";
 import useLayerStore from "@/stores/layer";
-import { Layer, MapServiceVendor, Place } from "@/types/map.types";
+import { BoundingBox, Layer, MapServiceVendor, Place } from "@/types/map.types";
 import * as turf from "@turf/turf";
 import {
   Feature,
@@ -228,13 +229,13 @@ const addGeojsonToMap = async ({
       config.types.some((type) =>
         geometryTypes.includes(
           type as
-            | "Point"
-            | "MultiPoint"
-            | "LineString"
-            | "MultiLineString"
-            | "Polygon"
-            | "MultiPolygon"
-            | "GeometryCollection"
+          | "Point"
+          | "MultiPoint"
+          | "LineString"
+          | "MultiLineString"
+          | "Polygon"
+          | "MultiPolygon"
+          | "GeometryCollection"
         )
       )
     ) {
@@ -713,7 +714,6 @@ const elevationLayers = async (
         }
       );
       const data = await response.json();
-      console.log("Ini Response : ", data);
     } else if (source === "Open Elevation") {
       const points = featureCollection.features.map((feature) => {
         const geom = feature.geometry as Polygon | MultiPolygon;
@@ -735,7 +735,6 @@ const elevationLayers = async (
         `https://api.open-meteo.com/v1/elevation?latitude=${latitudes}&longitude=${longitudes}`
       );
       const data = await response.json();
-      console.log("Ini Response : ", data);
     } else if (source === "GPXZ") {
       const points = featureCollection.features.map((feature) => {
         const geom = feature.geometry as Polygon | MultiPolygon;
@@ -764,80 +763,16 @@ const elevationLayers = async (
         body: `latlons=${pointsStr}`,
       });
       const data = await response.json();
-      console.log("Ini Response : ", data);
     }
   } catch (error) {
     console.error("Error fetching building data:", error);
   }
 };
 
-// AI
-const aiCommand = (
-  mapRef: React.RefObject<MapRef | null>,
-  command: Record<string, any>,
-  layers: Layer[]
-) => {
-  const {
-    action,
-    center,
-    zoom,
-    pitch,
-    bearing,
-    speed = 1.2,
-    duration = 1000,
-  } = command;
 
-  if (!mapRef.current) {
-    console.warn("Map reference is not available");
-    return;
-  }
-
-  const commonParams = {
-    center,
-    zoom,
-    pitch,
-    bearing,
-  };
-
-  try {
-    if (action === "flyTo") {
-      mapRef?.current?.flyTo({ ...commonParams, speed });
-    } else if (action === "easeTo") {
-      mapRef?.current?.getMap().easeTo({ ...commonParams, duration });
-    } else if (action === "findLayer") {
-      mapRef?.current?.getMap().getLayer(command.idLayer);
-    } else if (action === "filterLayer") {
-      const layerId: string =
-        layers.find((layer) => layer.name === command.layerName)?.id ?? "";
-      if (layerId) {
-        mapRef?.current?.getMap().setFilter(layerId, command.filter);
-        const features = mapRef?.current
-          ?.getMap()
-          .queryRenderedFeatures({ layers: [layerId] });
-        console.log("Ini Features ", features);
-        if (features.length > 0) {
-          const bbox = turf.bbox(turf.featureCollection(features));
-          mapRef?.current?.getMap().fitBounds(
-            [
-              [bbox[0], bbox[1]],
-              [bbox[2], bbox[3]],
-            ],
-            {
-              padding: 50,
-              maxZoom: 15,
-            }
-          );
-        }
-      }
-    }
-  } catch (error) {
-    console.error("Error executing map command:", error);
-  }
-};
 
 export {
   addGeojsonToMap,
-  aiCommand,
   bufferLayers,
   buildingLayers,
   calculateCoordinatesWithAspectRatio,

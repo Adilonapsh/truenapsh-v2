@@ -23,6 +23,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { atomDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { AnimatePresence, motion } from "framer-motion";
+import useLayerStore from "@/stores/layer";
 
 interface ChatWithAIProps {
   title?: string;
@@ -38,6 +39,7 @@ export function ChatWithAI({
   onCommandReceived,
 }: ChatWithAIProps) {
   const [error, setError] = useState<string | null>(null);
+  const { layers } = useLayerStore();
   const [aiStatus, setAiStatus] = useState<
     "idle" | "thinking" | "building" | "done"
   >("idle");
@@ -55,6 +57,10 @@ export function ChatWithAI({
     status,
   } = useChat({
     api: "/api/ai-chat",
+    body: {
+      layers: layers,
+      tools: "map",
+    },
     initialMessages: [
       // { id: '1', role: 'assistant', content: "Hello! How can I help you today?" }
     ],
@@ -67,6 +73,7 @@ export function ChatWithAI({
       if (message?.role === "assistant" && message.content) {
         executeCommands(message.content);
       }
+      setAiStatus("done");
     },
   });
 
@@ -80,6 +87,7 @@ export function ChatWithAI({
           try {
             const parsed = JSON.parse(cmd);
             if (parsed && typeof parsed === "object") {
+              setAiStatus("building");
               onCommandReceived?.(parsed);
               return;
             }
@@ -89,7 +97,6 @@ export function ChatWithAI({
         }
       }
     });
-    setTimeout(() => setAiStatus("done"), 1500);
   };
 
   const shimmer =
@@ -133,7 +140,7 @@ export function ChatWithAI({
   return (
     <Card className={`w-full max-w-xl ${className}`}>
       <CardContent className="mb-2">
-        <div className="max-h-[70vh] min-h-96 overflow-auto">
+        <div className="max-h-[70vh] min-h-96 px-2 overflow-auto">
           {messages.length == 0 && (
             <div className="h-96 flex items-center">
               <div className="relative flex flex-1 flex-col items-center justify-center gap-8 self-stretch overflow-hidden py-4">
