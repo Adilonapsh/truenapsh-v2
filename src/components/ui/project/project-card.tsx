@@ -49,7 +49,7 @@ export default function ProjectCard({
     <a href={`/map/${id}`} className="w-full">
       <TooltipProvider>
         <Card
-          className="w-full lg:max-w-md border bg-white dark:bg-gray-950 shadow-lg cursor-pointer group"
+          className="w-full lg:max-w-md border bg-white dark:bg-gray-950 shadow-lg cursor-pointer group overflow-hidden"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           onClick={onClick}
