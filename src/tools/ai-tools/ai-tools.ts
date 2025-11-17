@@ -18,6 +18,7 @@ export interface MapCommand {
     layerName?: string;
     visible?: boolean;
     filter?: any;
+    map_service_vendor?: string;
 }
 
 
@@ -108,6 +109,10 @@ export class MapCommandExecutor {
             console.warn(`Layer not found: ${command.layerName}`);
             return;
         }
+
+
+
+        console.log(command, layer);
 
         map.setFilter(layer.id, command.filter);
 
@@ -310,7 +315,6 @@ const filterLayerAttributes = (
             return filtered as Layer;
         });
 }
-
 
 const getLayerFields = (layers: Layer[], layerId: string) => {
     const layer = layers.find(l => l.id === layerId);

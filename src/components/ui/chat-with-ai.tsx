@@ -219,6 +219,7 @@ export function ChatWithAI({
           {messages.map((m) => {
             const cleaned = m.content
               .replace(/```json([\s\S]*?)```/g, "")
+              .replace(/```text([\s\S]*?)```/g, "")
               .replace(/::CMD::[\s\S]*?::ENDCMD::/g, "")
               .trim();
             if (!cleaned) return null;

@@ -24,7 +24,7 @@ export const widgets = {
         { id: "map", type: 'map', label: 'Map', icon: MapIcon, color: 'yellow', handleSource: Position.Right, handleTarget: Position.Left, action: 'map' },
         { id: "database", type: 'database', label: 'Database', icon: Database, color: 'purple', handleSource: Position.Right, handleTarget: Position.Left, action: 'database' },
         { id: "analytics", type: 'analytics', label: 'Analytics', icon: ChartBar, color: 'indigo', handleSource: Position.Right, handleTarget: Position.Left, action: 'analytics' },
-        { id: "http-request", type: 'http-request', label: 'Http Request', icon: Link, color: 'red', handleSource: Position.Right, handleTarget: null, action: 'http-request' },
+        { id: "http-request", type: 'http-request', label: 'Http Request', icon: Link, color: 'red', handleSource: Position.Right, handleTarget: Position.Left, action: 'http-request' },
     ],
     "Operation": [
         { id: "forloop", type: 'forloop', label: 'Loop', icon: MdLoop, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'forloop' },

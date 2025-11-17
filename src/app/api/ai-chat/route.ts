@@ -14,6 +14,8 @@ export async function POST(req: Request) {
         "https://trumap.web.id",
         "http://localhost:3000",
         "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
     ];
     const origin = req.headers.get("origin");
 
@@ -49,6 +51,7 @@ export async function POST(req: Request) {
                             "map_service_layer_name",
                             "map_service_vendor",
                             "metadata.version",
+                            "render_type",
                             "created_at",
                         ]);
                         return { layers: filteredLayers };

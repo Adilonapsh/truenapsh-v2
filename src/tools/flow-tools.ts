@@ -22,11 +22,23 @@ const convertToWorkflow = (nodes: any[], edges: any[]) => {
         node.data.input = prevOutput || node.data.input;
 
         // Proses data berdasarkan action
-        const output = await processActions(node.data.action as string, node.data.input, node.data.metadata);
-        console.log(`Processing Node (${node.id}):`, { input: node.data.input, output });
+        let output: any = null;
+        if ((node.data.state as { is_enabled?: boolean })?.is_enabled) {
+            output = await processActions(
+                node.data.action as string,
+                node.data.input,
+                node.data.parameters
+            );
+            console.log(`Processing Node (${node.id}):`, { input: node.data.input, output });
 
-        // Simpan output ke node
-        node.data.output = output;
+            // Simpan output ke node
+            node.data.output = output;
+        } else {
+            // Node disabled: langsung teruskan input/prevOutput ke node berikutnya
+            console.log(`Node (${node.id}) is disabled, skipping processing.`);
+            output = node.data.input;
+            node.data.output = output;
+        }
 
         // Periksa apakah node ini bercabang
         const isBranched = isNodeBranched(nodeId, edges);
@@ -121,6 +133,59 @@ const processActions = async (action: string, input: any, metadata: any) => {
         case "count":
             output = `Counted: ${JSON.stringify(input)}`;
             break;
+        // --- tambahan baru ---
+        case "ifelse":
+            output = `IfElse evaluated: ${JSON.stringify(input)}`;
+            break;
+        case "while":
+            output = `While loop processed: ${JSON.stringify(input)}`;
+            break;
+        case "switch":
+            output = `Switch processed: ${JSON.stringify(input)}`;
+            break;
+        case "boundary":
+            output = `Boundary computed: ${JSON.stringify(input)}`;
+            break;
+        case "buffer":
+            output = `Buffer applied: ${JSON.stringify(input)}`;
+            break;
+        case "clip":
+            output = `Clipped: ${JSON.stringify(input)}`;
+            break;
+        case "difference":
+            output = `Difference computed: ${JSON.stringify(input)}`;
+            break;
+        case "intersection":
+            output = `Intersection computed: ${JSON.stringify(input)}`;
+            break;
+        case "centroid":
+            output = `Centroid computed: ${JSON.stringify(input)}`;
+            break;
+        case "lines-to-polygon":
+            output = `Lines converted to polygon: ${JSON.stringify(input)}`;
+            break;
+        case "polygon-to-lines":
+            output = `Polygon converted to lines: ${JSON.stringify(input)}`;
+            break;
+        case "remove-duplicates":
+            output = `Duplicates removed: ${JSON.stringify(input)}`;
+            break;
+        case "generate-points":
+            output = `Points generated along line: ${JSON.stringify(input)}`;
+            break;
+        case "simplify":
+            output = `Geometry simplified: ${JSON.stringify(input)}`;
+            break;
+        case "hexagon-grid":
+            output = `Hexagon grid created: ${JSON.stringify(input)}`;
+            break;
+        case "building":
+            output = `Building data processed: ${JSON.stringify(input)}`;
+            break;
+        case "elevation":
+            output = `Elevation data processed: ${JSON.stringify(input)}`;
+            break;
+        // --- akhir tambahan ---
         default:
             console.log(`Unknown action: ${action}`)
             output = "";

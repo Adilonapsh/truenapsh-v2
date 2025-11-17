@@ -1,5 +1,5 @@
 import { Handle, NodeResizer } from "@xyflow/react";
-import { Trash2, Copy, FolderOpen, Play } from "lucide-react";
+import { Trash2, Copy, FolderOpen, Play, Power } from "lucide-react";
 import { Tooltip } from "react-tooltip";
 import { widgets } from "./widget-node";
 import { LoadingBar } from "../loading-bar";
@@ -27,6 +27,17 @@ const NodeWrapper = ({
     {children}
     <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-full -mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
       <div className="bg-white text-gray-800 rounded-md p-1 flex shadow-md">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            data.toggleEnabled(id);
+          }}
+          data-tooltip-id={`tooltip-${id}`}
+          data-tooltip-content={(data?.state?.is_enabled ?? true) ? "Enabled" : "Disabled"}
+          className="p-1 hover:bg-gray-100 rounded"
+        >
+          <Power size={16} />
+        </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -118,9 +129,18 @@ export const nodeTypes = Object.values(widgets)
           // You should return a fallback element here
           return <div>Unknown node type</div>;
         } else {
+          const isDisabled = props?.data?.state?.is_enabled === false;
+          const borderColorClass = isDisabled
+            ? "border-gray-400"
+            : `border-${widget.color}-500`;
+          const iconColorClass = isDisabled
+            ? "text-gray-400"
+            : `text-${widget.color}-500`;
+          const labelTextClass = isDisabled ? "text-gray-600" : "text-black";
+          const descTextClass = isDisabled ? "text-gray-500" : "text-black";
           return (
             <NodeWrapper
-              borderColor={`border-${widget.color}-500`}
+              borderColor={borderColorClass}
               {...props}
               data={props.data}
             >
@@ -138,7 +158,7 @@ export const nodeTypes = Object.values(widgets)
                   style={handleStyle}
                 />
               ) : null}
-              {props?.data?.is_loading ? (
+              {props?.data?.state?.is_loading ? (
                 <div className="absolute top-0 left-0 h-1 w-full">
                   <LoadingBar
                     className="w-full h-[0.11rem]"
@@ -148,19 +168,16 @@ export const nodeTypes = Object.values(widgets)
                 </div>
               ) : null}
               <div className="flex items-center">
-                <widget.icon
-                  className={`mr-2 text-${widget.color}-500`}
-                  size={24}
-                />
+                <widget.icon className={`mr-2 ${iconColorClass}`} size={24} />
                 <div>
-                  <div className="font-bold text-sm text-black ">
+                  <div className={`font-bold text-sm ${labelTextClass}`}>
                     {props.data.label}
                   </div>
-                  <div className="font-normal text-sm text-black ">
+                  <div className={`font-normal text-sm ${descTextClass}`}>
                     {props.data.desc}
                   </div>
                   <div className="mt-1 space-y-0.5">
-                    {Object.entries(props.data?.metadata || {}).map(
+                    {Object.entries(props.data?.parameters || {}).map(
                       ([key, value]) => (
                         <p
                           key={key}
