@@ -47,7 +47,8 @@ export default function AddLayerModal() {
 
 
     const handleDatasets = async () => {
-        setIsLoading({ ...isLoading, dataset: true });
+        // set loading state (partial update to avoid unnecessary merges)
+        setIsLoading({ dataset: true });
         const mapInstance = map?.current?.getMap();
         if (datasetProperties.map_service_vendor == MapServiceVendor.XYZ) {
             if (mapInstance) {
@@ -100,71 +101,78 @@ export default function AddLayerModal() {
             datasetProperties.map_service_vendor == MapServiceVendor.GeoJSON
         ) {
             if (mapInstance) {
-                const layerId = v4();
-                const href = datasetProperties.url;
-                const url = new URL(datasetProperties.url);
-                const domain = url.hostname;
-                fetch(url)
-                    .then((response) => response.json())
-                    .then((data) => {
-                        const normalizedGeojsonData =
-                            data?.type === "FeatureCollection" && Array.isArray(data.features)
-                                ? data
-                                : {
-                                    type: "FeatureCollection",
-                                    features: data,
-                                };
+                try {
+                    const layerId = v4();
+                    const href = datasetProperties.url?.trim();
+                    if (!href) {
+                        throw new Error("GeoJSON URL is empty");
+                    }
+                    const urlObj = new URL(href);
+                    const domain = urlObj.hostname;
 
-                        if (data && normalizedGeojsonData.features?.length > 0) {
-                            const geometryType =
-                                normalizedGeojsonData.features[0].geometry.type;
-                            const layerConfig = findLayerConfigByGeometryType(geometryType);
+                    const response = await fetch(href);
+                    const data = await response.json();
 
-                            mapInstance.addLayer({
-                                id: layerId,
-                                type: layerConfig?.layerType as "fill" | "line" | "circle",
-                                source: {
-                                    type: "geojson",
-                                    data: normalizedGeojsonData,
-                                },
-                                minzoom: 0,
-                                maxzoom: 24,
-                                layout: {
-                                    visibility: "visible",
-                                },
-                                metadata: {
-                                    domain,
-                                    url: href,
-                                    map_service_vendor: MapServiceVendor.GeoJSON,
-                                },
-                                ...layerConfig?.layerProps,
-                            });
-                            toast.success("Successfully loaded GeoJSON layer");
-                        }
-                    })
-                    .catch((error) => {
-                        console.error("Error fetching GeoJSON:", error);
-                        toast.error("Failed to load GeoJSON data");
-                    });
+                    const normalizedGeojsonData =
+                        data?.type === "FeatureCollection" && Array.isArray(data.features)
+                            ? data
+                            : {
+                                type: "FeatureCollection",
+                                features: data,
+                            };
 
-                addLayer({
-                    id: layerId,
-                    name: `Geojson Layer ${layers.length + 1}`,
-                    map_service_url: url.toString(),
-                    map_service_layer_name: "",
-                    map_service_vendor: MapServiceVendor.GeoJSON,
-                    type: "vector",
-                    visible: true,
-                    min_zoom: 0,
-                    max_zoom: 24,
-                    status: "Local",
-                    rendered: 1,
-                    metadata: {
-                        domain: domain,
-                        url: href,
-                        map_service_vendor: MapServiceVendor.GeoJSON,
-                    },
-                } as Layer);
+                    if (normalizedGeojsonData?.features?.length > 0) {
+                        const geometryType = normalizedGeojsonData.features[0].geometry.type;
+                        const layerConfig = findLayerConfigByGeometryType(geometryType);
+
+                        mapInstance.addLayer({
+                            id: layerId,
+                            type: (layerConfig?.layerType as "fill" | "line" | "circle") ?? "circle",
+                            source: {
+                                type: "geojson",
+                                data: normalizedGeojsonData,
+                            },
+                            minzoom: 0,
+                            maxzoom: 24,
+                            layout: {
+                                visibility: "visible",
+                            },
+                            metadata: {
+                                domain,
+                                url: href,
+                                map_service_vendor: MapServiceVendor.GeoJSON,
+                            },
+                            ...(layerConfig?.layerProps ?? {}),
+                        });
+
+                        // Tambahkan ke store setelah layer sukses ditambahkan ke map
+                        addLayer({
+                            id: layerId,
+                            name: `Geojson Layer ${layers.length + 1}`,
+                            map_service_url: urlObj.toString(),
+                            map_service_layer_name: "",
+                            map_service_vendor: MapServiceVendor.GeoJSON,
+                            type: "vector",
+                            visible: true,
+                            min_zoom: 0,
+                            max_zoom: 24,
+                            status: "Local",
+                            rendered: 1,
+                            metadata: {
+                                domain: domain,
+                                url: href,
+                                map_service_vendor: MapServiceVendor.GeoJSON,
+                            },
+                        } as Layer);
+
+                        toast.success("Successfully loaded GeoJSON layer");
+                    } else {
+                        toast.error("GeoJSON has no features");
+                    }
+                } catch (error) {
+                    console.error("Error fetching GeoJSON:", error);
+                    toast.error("Failed to load GeoJSON data");
+                }
             }
         } else {
             const datasets = await getWMSServices(
@@ -173,7 +181,8 @@ export default function AddLayerModal() {
             );
             setDatasetResult(datasets ?? []);
         }
-        setIsLoading({ ...isLoading, dataset: false });
+        // ensure loading reset
+        setIsLoading({ dataset: false });
     };
 
     const handleAddLayerToMap = async () => {
@@ -244,7 +253,7 @@ export default function AddLayerModal() {
                         <IoClose size={"13pt"} />
                     </Button>
                 </div>
-                <div className="overflow-auto px-2 py-5 h-full">
+                <div className="overflow-auto px-2 py-5 h-full max-w-[80vw] w-[80vw]">
                     <Tabs defaultValue="datasets">
                         <TabsList className="grid grid-cols-4 w-full">
                             <TabsTrigger value="datasets">Datasets</TabsTrigger>
@@ -252,7 +261,7 @@ export default function AddLayerModal() {
                             <TabsTrigger value="upload">Upload</TabsTrigger>
                             <TabsTrigger value="integration">Integrations</TabsTrigger>
                         </TabsList>
-                        <div className="px-2 py-5 h-full">
+                        <div className="px-2 py-5 h-full w-full">
                             <TabsContent value="datasets">
                                 <Card>
                                     <CardHeader>
@@ -370,7 +379,7 @@ export default function AddLayerModal() {
                                             )}
                                         </div>
                                     </CardHeader>
-                                    <CardContent className="space-y-2">
+                                    <CardContent className="space-y-2 w-full">
                                         <div className="flex flex-col gap-2 items-center mb-2 lg:flex-row">
                                             <Select
                                                 onValueChange={(value) =>
@@ -428,7 +437,7 @@ export default function AddLayerModal() {
                                                 Connect
                                             </Button>
                                         </div>
-                                        <div className="h-[50vh] w-full">
+                                        <div className="h-[50vh]">
                                             <div className="overflow-auto p-5 mb-2 w-full h-full bg-white rounded-lg border dark:bg-background">
                                                 {isLoading.dataset && (
                                                     <div className="flex justify-center items-center w-full h-full">
