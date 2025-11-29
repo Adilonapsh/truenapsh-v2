@@ -2,7 +2,7 @@ import { BoundingBox, Layer } from "@/types/map.types";
 import { z } from "zod";
 import * as turf from '@turf/turf';
 import { fetchLayerBbox } from "@/services/map-services";
-import useLayerStore, { useSetFilters } from "@/stores/layer";
+import useLayerStore from "@/stores/layer";
 
 // MAP EXECUTOR
 export interface MapCommand {
@@ -150,12 +150,10 @@ export class MapCommandExecutor {
                 source: layer.id,
                 paint: existingLayer && 'paint' in existingLayer ? existingLayer.paint : { 'raster-opacity': 1 }
             });
-            useSetFilters()(layer.id, rawFilter);
         } else if (layerType === 'ArcGIS') {
             map.setFilter(layer.id, command.filter);
         } else if (layerType === 'GeoJSON') {
             map.setFilter(layer.id, command.filter);
-            useSetFilters()(layer.id, command.filter);
 
             // Fit bounds to filtered features
             const features = map.queryRenderedFeatures({ layers: [layer.id] });
