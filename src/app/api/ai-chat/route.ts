@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { filterLayerAttributes } from "@/tools/ai-tools/ai-tools";
 import { Layer } from "@/types/map.types";
 import { encode as ToonEncode } from '@toon-format/toon';
+import { weatherIntegration } from "@/services/map-integrations";
 
 export const maxDuration = 30;
 
@@ -78,6 +79,18 @@ export async function POST(req: Request) {
                     parameters: z.object({}),
                     execute: async () => {
                         return ToonEncode({ time: new Date().toISOString() });
+                    },
+                }),
+                get_weather: tool({
+                    description: "Get the weather forecast for a specific location",
+                    parameters: z.object({
+                        source: z.string().default("bmkg").nullable().describe("Source of the weather data (bmkg or open-meteo)"),
+                        lon: z.number().describe("Longitude of the location"),
+                        lat: z.number().describe("Latitude of the location"),
+                    }),
+                    execute: async ({ source, lon, lat }) => {
+                        const weatherData = await weatherIntegration( lon, lat,source || undefined,);
+                        return ToonEncode({ weather: weatherData });
                     },
                 }),
             },

@@ -36,6 +36,25 @@ const overpassBuildingIntegration = async (bbox: BBox) => {
     }
 }
 
+const weatherIntegration = async (lon: number, lat: number, source?: string) => {
+    try {
+        if (!source) { source = 'bmkg' }
+        let response;
+        if (source === 'bmkg') {
+            response = await fetch(`https://weather.bmkg.go.id/api/presentwx/coord?lon=${lon}&lat=${lat}`);
+        } else {
+            throw new Error(`Source ${source} not supported`);
+        }
+        if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`) }
+        const weatherData = await response.json();
+        return weatherData;
+    } catch (error) {
+        console.error('Error fetching weather data:', error);
+        throw error;
+    }
+}
+
 export {
-    overpassBuildingIntegration
+    overpassBuildingIntegration,
+    weatherIntegration
 }
