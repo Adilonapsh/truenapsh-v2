@@ -2,7 +2,7 @@ import { BoundingBox, Layer } from "@/types/map.types";
 import { z } from "zod";
 import * as turf from '@turf/turf';
 import { fetchLayerBbox } from "@/services/map-services";
-import useLayerStore from "@/stores/layer";
+import useLayerStore, { useSetFilters } from "@/stores/layer";
 
 // MAP EXECUTOR
 export interface MapCommand {
@@ -20,8 +20,6 @@ export interface MapCommand {
     filter?: any;
     map_service_vendor?: string;
 }
-
-
 
 export class MapCommandExecutor {
     private mapRef: React.RefObject<any>;
@@ -110,24 +108,70 @@ export class MapCommandExecutor {
             return;
         }
 
+        const layerType = layer.map_service_vendor
 
+        if (layerType === "Geoserver") {
+            const rawFilter = String(command?.filter || "").trim().replace(/,$/, "");
+            const cqlFilterClean = rawFilter.replace(/['']/g, "'");
+            const encodedCql = encodeURIComponent(cqlFilterClean);
 
-        console.log(command, layer);
+            const updatedUrl =
+                `${layer.map_service_url}?SERVICE=WMS` +
+                `&VERSION=1.1.1` +
+                `&REQUEST=GetMap` +
+                `&FORMAT=image/png` +
+                `&TRANSPARENT=true` +
+                `&STYLES=` +
+                `&LAYERS=${layer.map_service_layer_name}` +
+                `&CQL_FILTER=${encodedCql}` +
+                `&SRS=EPSG:3857` +
+                `&WIDTH=256&HEIGHT=256` +
+                `&BBOX={bbox-epsg-3857}`;
 
-        map.setFilter(layer.id, command.filter);
+            const existingLayer = map.getLayer(layer.id);
+            const existingSource = map.getSource(layer.id);
 
-        // Fit bounds to filtered features
-        const features = map.queryRenderedFeatures({ layers: [layer.id] });
+            if (existingLayer) {
+                map.removeLayer(layer.id);
+            }
+            if (existingSource) {
+                map.removeSource(layer.id);
+            }
 
-        if (features.length > 0) {
-            const bbox = turf.bbox(turf.featureCollection(features));
-            map.fitBounds(
-                [[bbox[0], bbox[1]], [bbox[2], bbox[3]]],
-                {
-                    padding: 50,
-                    maxZoom: 15,
-                }
-            );
+            map.addSource(layer.id, {
+                type: "raster",
+                tiles: [updatedUrl],
+                tileSize: 256,
+            });
+
+            map.addLayer({
+                id: layer.id,
+                type: "raster",
+                source: layer.id,
+                paint: existingLayer && 'paint' in existingLayer ? existingLayer.paint : { 'raster-opacity': 1 }
+            });
+            useSetFilters()(layer.id, rawFilter);
+        } else if (layerType === 'ArcGIS') {
+            map.setFilter(layer.id, command.filter);
+        } else if (layerType === 'GeoJSON') {
+            map.setFilter(layer.id, command.filter);
+            useSetFilters()(layer.id, command.filter);
+
+            // Fit bounds to filtered features
+            const features = map.queryRenderedFeatures({ layers: [layer.id] });
+
+            if (features.length > 0) {
+                const bbox = turf.bbox(turf.featureCollection(features));
+                map.fitBounds(
+                    [[bbox[0], bbox[1]], [bbox[2], bbox[3]]],
+                    {
+                        padding: 50,
+                        maxZoom: 15,
+                    }
+                );
+            }
+        } else {
+            console.warn(`Unknown vendor: ${layer.map_service_vendor}`);
         }
     }
 

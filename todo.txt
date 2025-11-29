@@ -35,7 +35,7 @@
 35. Add Hotkeys to Draw (Done)
 36. Add Statistic to the table (Done)
 37. Add AI Highlight syntax (Done)
-38. Fix Table Freeze
+38. Fix Table Freeze (Done)
 39. Refactor FeatureServer (Data Table, On click Map, ) / Ganti ke GeoJson
 40. Buat Customisable Properties
 41. Add Data Export 
@@ -48,11 +48,12 @@
 48. Add Auto Scrap data from website in AI
 49. Tambahkan Expression di Style 
 50. Fix backed Layer and Add Layer
-51. Use Zustand (WIP)
+51. Use Zustand (Done)
 52. Style Dijadikan Komponen
 53. Feature Info Dijadikan Komponen (Done)
 54. Map Tools dibuat dinamik, misal data yang bisa point hanya point saja, atau jika bisa semua maka show all layer
 55. Tambah On Tap (Done)
+56. Tambah Timeout di datasets
 
 -- PRODS
 1. Fix bookmark Error

@@ -710,7 +710,8 @@ export default function MapLayout({
       if (layer.map_service_vendor == MapServiceVendor.Geoserver) {
         const fetch = await fetchLayerBbox(
           layer.map_service_url,
-          layer.map_service_layer_name
+          layer.map_service_layer_name,
+          layer.filters as string
         );
         if (map && fetch) {
           const { minLng, minLat, maxLng, maxLat } = fetch;
@@ -1817,11 +1818,11 @@ export default function MapLayout({
       </div>
 
       {/* RIGHT SIDE */}
-      <div className="absolute top-0 right-0 p-5 text-xs min-w-96 max-w-[300px] max-h-[90vh]">
+      <div className="absolute top-0 right-0 p-5 text-xs min-w-96 max-w-[600px] max-h-[90vh]">
         {displayLayouts.layerInfo && (
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center w-96">
                 <div>
                   <CardTitle className="text-sm mb-2">
                     Layer Information
@@ -1848,7 +1849,7 @@ export default function MapLayout({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="max-h-[70vh]">
+            <CardContent className="">
               <FeatureInfo infoFeatures={infoFeatures} isLoading={isLoading} />
             </CardContent>
           </Card>

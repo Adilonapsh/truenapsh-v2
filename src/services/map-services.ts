@@ -12,8 +12,8 @@ import { getBBOX } from "@/tools/map-tools";
 import { v4 } from "uuid";
 import { MapMouseEvent, MapTouchEvent } from "mapbox-gl";
 
-const fetchGeoserverLayerBbox = async (url: string, layerId: string) => {
-  const urls = `${url}?service=WMS&version=1.3.0&request=GetCapabilities`;
+const fetchGeoserverLayerBbox = async (url: string, layerId: string, filters?: string) => {
+  const urls = `${url}?service=WMS&version=1.3.0&request=GetCapabilities${filters ? `&CQL_FILTER=${filters}` : ""}`;
   try {
     const response = await fetch(urls);
     const text = await response.text();

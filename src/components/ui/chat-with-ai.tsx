@@ -41,7 +41,7 @@ export function ChatWithAI({
   const [error, setError] = useState<string | null>(null);
   const { layers } = useLayerStore();
   const [aiStatus, setAiStatus] = useState<
-    "idle" | "thinking" | "building" | "done"
+    "idle" | "thinking" | "building" | "done" | "failed"
   >("idle");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -92,6 +92,7 @@ export function ChatWithAI({
               return;
             }
           } catch (e) {
+            setAiStatus("failed");
             console.warn("Gagal parse JSON dari AI:", e);
           }
         }
@@ -107,6 +108,7 @@ export function ChatWithAI({
     thinking: "🧠 AI is analyzing your command...",
     building: "🗺️ Building map layers...",
     done: "",
+    failed: "⚠️ Failed to process command. Please try again."
   }[aiStatus];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -276,6 +278,11 @@ export function ChatWithAI({
 
           {aiStatus !== "idle" && aiStatus !== "done" && (
             <div className="relative p-2 rounded-lg bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 dark:from-gray-700 dark:via-gray-800 dark:to-gray-700 bg-[length:200%_100%] animate-shimmer">
+              {statusMessage}
+            </div>
+          )}
+          {aiStatus === "failed" && (
+            <div className="relative p-2 rounded-lg bg-gradient-to-r from-red-200 via-red-100 to-red-200 dark:from-red-700 dark:via-red-800 dark:to-red-700 bg-[length:200%_100%] animate-shimmer">
               {statusMessage}
             </div>
           )}

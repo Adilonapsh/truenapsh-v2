@@ -59,6 +59,7 @@ type Layer = {
   metadata?: object;
   rendered?: number;
   fields?: string[];
+  filters?: string | string[] | ExpressionSpecification[] | undefined;
   render_type?:
   | "background"
   | "building"

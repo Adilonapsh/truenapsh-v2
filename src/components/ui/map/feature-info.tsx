@@ -19,7 +19,7 @@ type Props = {
 
 const FeatureInfo = ({ infoFeatures, isLoading }: Props) => {
     return (
-        <div>
+        <div className="max-h-[70vh] overflow-auto">
             {infoFeatures.map((layer, index) => (
                 <Accordion key={index} type="single" collapsible>
                     <AccordionItem

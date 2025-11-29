@@ -4,6 +4,7 @@ import { createPrompt } from "@/lib/promptTemplate";
 import { z } from 'zod';
 import { filterLayerAttributes } from "@/tools/ai-tools/ai-tools";
 import { Layer } from "@/types/map.types";
+import { encode as ToonEncode } from '@toon-format/toon';
 
 export const maxDuration = 30;
 
@@ -54,7 +55,8 @@ export async function POST(req: Request) {
                             "render_type",
                             "created_at",
                         ]);
-                        return { layers: filteredLayers };
+                        // return { layers: filteredLayers };
+                        return ToonEncode({ layers: filteredLayers });
                     },
                 }),
                 get_properties_of_layer: tool({
@@ -67,7 +69,15 @@ export async function POST(req: Request) {
                         if (!layer) {
                             return { error: `Layer with ID ${layerId} not found` };
                         }
-                        return { properties: layer.fields };
+                        // return { properties: layer.fields };
+                        return ToonEncode({ properties: layer.fields });
+                    },
+                }),
+                get_time: tool({
+                    description: "Get the current time",
+                    parameters: z.object({}),
+                    execute: async () => {
+                        return ToonEncode({ time: new Date().toISOString() });
                     },
                 }),
             },

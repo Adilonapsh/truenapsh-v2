@@ -8,6 +8,7 @@ export interface LayerState {
   addLayer: (layer: Layer) => void;
   removeLayer: (layerId: string) => void
   setFields: (layerId: string, fields: Layer["fields"]) => void
+  setFilters: (layerId: string, filters: Layer["filters"]) => void
 }
 
 const useLayerStore = create<LayerState>((set) => ({
@@ -30,6 +31,12 @@ const useLayerStore = create<LayerState>((set) => ({
         layer.id === layerId ? { ...layer, fields } : layer
       ),
     })),
+  setFilters: (layerId: string, filters: Layer["filters"]) =>
+    set((state) => ({
+      layers: state.layers.map((layer) =>
+        layer.id === layerId ? { ...layer, filters } : layer
+      ),
+    })),
 }));
 
 export default useLayerStore;
@@ -41,3 +48,4 @@ export const useAddLayer = () => useLayerStore((state) => state.addLayer);
 export const useRemoveLayerById = () =>
   useLayerStore((state) => state.removeLayer);
 export const useSetFields = () => useLayerStore((state) => state.setFields);
+export const useSetFilters = () => useLayerStore((state) => state.setFilters);
