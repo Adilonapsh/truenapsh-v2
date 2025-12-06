@@ -1822,7 +1822,7 @@ export default function MapLayout({
         {displayLayouts.layerInfo && (
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center w-96">
+              <div className="flex justify-between items-center">
                 <div>
                   <CardTitle className="text-sm mb-2">
                     Layer Information
