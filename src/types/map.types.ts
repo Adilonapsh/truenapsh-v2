@@ -132,6 +132,45 @@ type MapboxLayerStyle = {
   saturation?: number | undefined;
   brightness?: number[] | undefined;
   zoom?: number[] | undefined;
+  // Per-type additions
+  line_width?: number | undefined;
+  line_dasharray?: number[] | undefined;
+  circle_radius?: number | undefined;
+  model_color?: string | ColorSpecification | undefined;
+  model_opacity?: number | undefined; // 0..100 in UI, mapped to 0..1
+  model_emissive_strength?: number | undefined; // 0..5
+  model_rotation?: number[] | undefined; // [x,y,z] in degrees
+  // Fill-extrusion
+  fill_extrusion_color?: string | ColorSpecification | undefined;
+  fill_extrusion_opacity?: number | undefined; // 0..100 in UI
+  fill_extrusion_height?: number | undefined;
+  fill_extrusion_base?: number | undefined;
+  fill_extrusion_vertical_gradient?: boolean | undefined;
+  // Heatmap
+  heatmap_intensity?: number | undefined;
+  heatmap_radius?: number | undefined;
+  heatmap_opacity?: number | undefined; // 0..100 in UI
+  heatmap_color_stops?: Array<[number, string]> | undefined; // [stop,valueColor]
+  // Hillshade
+  hillshade_exaggeration?: number | undefined;
+  hillshade_shadow_color?: string | ColorSpecification | undefined;
+  hillshade_highlight_color?: string | ColorSpecification | undefined;
+  hillshade_accent_color?: string | ColorSpecification | undefined;
+  hillshade_illumination_direction?: number | undefined;
+  hillshade_illumination_anchor?: "map" | "viewport" | undefined;
+  // Symbol
+  symbol_text_color?: string | ColorSpecification | undefined;
+  symbol_icon_color?: string | ColorSpecification | undefined;
+  symbol_text_size?: number | undefined;
+  symbol_icon_size?: number | undefined;
+  // Raster extras
+  raster_hue_rotate?: number | undefined;
+  raster_fade_duration?: number | undefined;
+  // Raster-particle (fallback unknowns)
+  raster_particle_opacity?: number | undefined;
+  raster_particle_speed?: number | undefined;
+  raster_particle_fade_amount?: number | undefined;
+  raster_particle_color?: string | ColorSpecification | undefined;
 };
 
 type ParsedLayer = {

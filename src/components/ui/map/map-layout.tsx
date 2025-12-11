@@ -39,6 +39,7 @@ import {
   MinusIcon,
   PlusIcon,
   SaveAll,
+  ScanSearch,
   X,
 } from "lucide-react";
 import mapboxgl, {
@@ -120,7 +121,7 @@ import { AiOutlineSisternode } from "react-icons/ai";
 import { WiStars } from "react-icons/wi";
 import io from "socket.io-client";
 import { v4 } from "uuid";
-import { ChatWithAI } from "../chat-with-ai";
+import { ChatWithAI } from "../ai/chat-with-ai";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1650,170 +1651,193 @@ export default function MapLayout({
         <div
           className={`absolute top-0 h-screen w-screen flex justify-center items-center z-10 ${
             isLoading.initLoading ? "" : "opacity-0"
-          } transition-all duration-500`}
+          } transition-all duration-500 z-20`}
         >
           <AnimatedLoadingScreen />
         </div>
       )}
 
       {/* LEFT SIDE */}
-      <div className="absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto">
-        <div className="px-5 py-2 w-80 text-sm bg-white rounded dark:bg-background">
-          <div className="flex sticky top-0 justify-between items-center py-2 bg-white dark:bg-background">
-            <h5 className="font-bold text-md">Workspaces</h5>
-            <div className="flex gap-3 items-center">
-              <TooltipProvider>
-                <div className="flex gap-2">
-                  <IconTooltip
-                    label="Logout"
-                    icon={<BiLogOutCircle size="13pt" />}
-                    onClick={() => signOut()}
-                  />
-                  <IconTooltip
-                    label="AI Chat"
-                    icon={<WiStars size="13pt" />}
-                    onClick={() =>
-                      setDisplayLayouts({ ...displayLayouts, aiChat: true })
-                    }
-                  />
-                  <IconTooltip
-                    label="Collapse All"
-                    icon={<BiCollapse size="13pt" />}
-                    onClick={collapseAll}
-                  />
-                  <IconTooltip
-                    label="Node Workspaces"
-                    icon={<AiOutlineSisternode size="13pt" />}
-                    onClick={() =>
-                      setDisplayLayouts({
-                        ...displayLayouts,
-                        node_workspace: true,
-                      })
-                    }
-                  />
-                  <IconTooltip
-                    label="Add Layer"
-                    icon={<PlusIcon size="13pt" />}
-                    onClick={() =>
-                      setDisplayLayouts({ ...displayLayouts, addLayer: true })
-                    }
-                  />
+      <div className="absolute top-0 left-0 flex">
+        <div
+          className={`h-dvh bg-white transform transition-all duration-300 ease-in-out ${
+            displayLayouts.aiChat
+              ? "w-[30rem] overflow-hidden"
+              : "w-[0rem] overflow-hidden"
+          } z-10`}
+        >
+          <ChatWithAI onCommandReceived={handleMapboxCommand} />
+        </div>
+        <div className="transition-transform duration-300 ease-in-out">
+          <div className="absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto">
+            <div className="px-5 py-2 w-80 text-sm bg-white rounded dark:bg-background">
+              <div className="flex sticky top-0 justify-between items-center py-2 bg-white dark:bg-background">
+                <h5 className="font-bold text-md">Workspaces</h5>
+                <div className="flex gap-3 items-center">
+                  <TooltipProvider>
+                    <div className="flex gap-2">
+                      <IconTooltip
+                        label="Logout"
+                        icon={<BiLogOutCircle size="13pt" />}
+                        onClick={() => signOut()}
+                      />
+                      <IconTooltip
+                        label="AI Chat"
+                        icon={<WiStars size="13pt" />}
+                        onClick={() =>
+                          setDisplayLayouts({
+                            ...displayLayouts,
+                            aiChat: !displayLayouts.aiChat,
+                          })
+                        }
+                      />
+                      <IconTooltip
+                        label="Collapse All"
+                        icon={<BiCollapse size="13pt" />}
+                        onClick={collapseAll}
+                      />
+                      <IconTooltip
+                        label="Node Workspaces"
+                        icon={<AiOutlineSisternode size="13pt" />}
+                        onClick={() =>
+                          setDisplayLayouts({
+                            ...displayLayouts,
+                            node_workspace: true,
+                          })
+                        }
+                      />
+                      <IconTooltip
+                        label="Add Layer"
+                        icon={<PlusIcon size="13pt" />}
+                        onClick={() =>
+                          setDisplayLayouts({
+                            ...displayLayouts,
+                            addLayer: true,
+                          })
+                        }
+                      />
+                    </div>
+                  </TooltipProvider>
                 </div>
-              </TooltipProvider>
+              </div>
+              {layers.length === 0 && (
+                <div className="flex flex-col justify-center items-center h-32">
+                  <LayersIcon className="mb-1" size={"20pt"} />
+                  <p className="font-semibold">
+                    You havent added any layers yet.
+                  </p>
+                  <p className="text-xs">Start adding layers to your map.</p>
+                </div>
+              )}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCorners}
+                onDragEnd={handleDragEnd}
+                modifiers={[restrictToVerticalAxis]}
+              >
+                <SortableContext
+                  items={layers.map((layer) => layer.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <Accordion
+                    type="multiple"
+                    value={openItems}
+                    onValueChange={(values) => setOpenItems(values)}
+                  >
+                    {layers.map((layer, index) => (
+                      <SortableItem key={layer.id} id={layer.id}>
+                        <AccordionItem className="border-none" value={layer.id}>
+                          <div className="flex gap-2 items-center">
+                            <IconLayerType size="13pt" layer={layer} />
+                            <AccordionTrigger className="py-2 w-64 text-sm capitalize hover:no-underline">
+                              <input
+                                value={layer.name}
+                                onChange={(e) =>
+                                  handleChangeLayerName(e, index)
+                                }
+                                className="font-medium bg-transparent border-none focus:outline-none focus:ring-0"
+                              />
+                            </AccordionTrigger>
+                          </div>
+                          <AccordionContent className="text-xs border-none">
+                            <div className="flex gap-1 justify-center px-1">
+                              <Button
+                                variant={"ghost"}
+                                size="sm"
+                                onClick={() =>
+                                  setLayerVisible(index, layer.visible)
+                                }
+                              >
+                                {layer.visible ? (
+                                  <Eye size={"12pt"} />
+                                ) : (
+                                  <EyeClosed size={"12pt"} />
+                                )}
+                              </Button>
+                              <Button
+                                variant={"ghost"}
+                                size="sm"
+                                onClick={() => {
+                                  handleConvertToVector(layer);
+                                }}
+                              >
+                                <HiCubeTransparent size={"12pt"} />
+                              </Button>
+                              <Button
+                                variant={"ghost"}
+                                size="sm"
+                                onClick={() => handleZoomToLayer(index)}
+                              >
+                                <ScanSearch size={"12pt"} />
+                              </Button>
+                              <Button
+                                variant={"ghost"}
+                                size="sm"
+                                onClick={() => handleTableMapbox(index)}
+                              >
+                                <FiFilter size={"12pt"} />
+                              </Button>
+                              <Button
+                                variant={"ghost"}
+                                size="sm"
+                                onClick={() => handleStyleLayer(index)}
+                              >
+                                <MdOutlineStyle size={"12pt"} />
+                              </Button>
+                              <Button
+                                variant={"ghost"}
+                                size="sm"
+                                className="text-red-700"
+                                onClick={() => handleRemoveLayer(index)}
+                              >
+                                <BiTrash size={"12pt"} />
+                              </Button>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </SortableItem>
+                    ))}
+                  </Accordion>
+                </SortableContext>
+              </DndContext>
             </div>
           </div>
-          {layers.length === 0 && (
-            <div className="flex flex-col justify-center items-center h-32">
-              <LayersIcon className="mb-1" size={"20pt"} />
-              <p className="font-semibold">You havent added any layers yet.</p>
-              <p className="text-xs">Start adding layers to your map.</p>
+          <div className="absolute top-0 mt-5 ml-5" id="search">
+            <Search onSearch={handleSearch} />
+          </div>
+          <div className="absolute top-0 mt-5 ml-[22rem] font-bold">
+            <MapMenu onSave={handleOnSave} onExit={handleOnExit}></MapMenu>
+            <div className="absolute mt-2">
+              <BookmarkDropdown
+                bookmarks={bookmarks}
+                selectedBookmark={selectedBookmark}
+                onAddBookmark={handleAddBookmark}
+                onDeleteBookmark={handleDeleteBookmark}
+                onEditBookmark={handleEditBookmark}
+                onSelectBookmark={handleSelectBookmark}
+              />
             </div>
-          )}
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragEnd={handleDragEnd}
-            modifiers={[restrictToVerticalAxis]}
-          >
-            <SortableContext
-              items={layers.map((layer) => layer.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <Accordion
-                type="multiple"
-                value={openItems}
-                onValueChange={(values) => setOpenItems(values)}
-              >
-                {layers.map((layer, index) => (
-                  <SortableItem key={layer.id} id={layer.id}>
-                    <AccordionItem className="border-none" value={layer.id}>
-                      <div className="flex gap-2 items-center">
-                        <IconLayerType size="13pt" layer={layer} />
-                        <AccordionTrigger className="py-2 w-64 text-sm capitalize hover:no-underline">
-                          <input
-                            value={layer.name}
-                            onChange={(e) => handleChangeLayerName(e, index)}
-                            className="font-medium bg-transparent border-none focus:outline-none focus:ring-0"
-                          />
-                        </AccordionTrigger>
-                      </div>
-                      <AccordionContent className="text-xs border-none">
-                        <div className="flex gap-1 justify-center px-1">
-                          <Button
-                            variant={"ghost"}
-                            size="sm"
-                            onClick={() =>
-                              setLayerVisible(index, layer.visible)
-                            }
-                          >
-                            {layer.visible ? (
-                              <Eye size={"12pt"} />
-                            ) : (
-                              <EyeClosed size={"12pt"} />
-                            )}
-                          </Button>
-                          <Button
-                            variant={"ghost"}
-                            size="sm"
-                            onClick={() => {
-                              handleConvertToVector(layer);
-                            }}
-                          >
-                            <HiCubeTransparent size={"12pt"} />
-                          </Button>
-                          <Button
-                            variant={"ghost"}
-                            size="sm"
-                            onClick={() => handleZoomToLayer(index)}
-                          >
-                            <TbZoomInAreaFilled size={"12pt"} />
-                          </Button>
-                          <Button
-                            variant={"ghost"}
-                            size="sm"
-                            onClick={() => handleTableMapbox(index)}
-                          >
-                            <FiFilter size={"12pt"} />
-                          </Button>
-                          <Button
-                            variant={"ghost"}
-                            size="sm"
-                            onClick={() => handleStyleLayer(index)}
-                          >
-                            <MdOutlineStyle size={"12pt"} />
-                          </Button>
-                          <Button
-                            variant={"ghost"}
-                            size="sm"
-                            className="text-red-700"
-                            onClick={() => handleRemoveLayer(index)}
-                          >
-                            <BiTrash size={"12pt"} />
-                          </Button>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </SortableItem>
-                ))}
-              </Accordion>
-            </SortableContext>
-          </DndContext>
-        </div>
-      </div>
-      <div className="absolute top-0 mt-5 ml-5" id="search">
-        <Search onSearch={handleSearch} />
-      </div>
-      <div className="absolute top-0 mt-5 ml-[22rem] font-bold">
-        <MapMenu onSave={handleOnSave} onExit={handleOnExit}></MapMenu>
-        <div className="absolute mt-2">
-          <BookmarkDropdown
-            bookmarks={bookmarks}
-            selectedBookmark={selectedBookmark}
-            onAddBookmark={handleAddBookmark}
-            onDeleteBookmark={handleDeleteBookmark}
-            onEditBookmark={handleEditBookmark}
-            onSelectBookmark={handleSelectBookmark}
-          />
+          </div>
         </div>
       </div>
 
@@ -2013,7 +2037,7 @@ export default function MapLayout({
           </Card>
         )}
       </div>
-      <div className="absolute top-0 right-0 z-10 p-5 text-xs min-w-96">
+      {/* <div className="absolute top-0 right-0 z-10 p-5 text-xs min-w-96">
         {displayLayouts.aiChat && (
           <div className="bg-white rounded-lg max-h-[calc(100vh-9rem)] overflow-y-auto dark:bg-background">
             <div
@@ -2037,7 +2061,7 @@ export default function MapLayout({
             </div>
           </div>
         )}
-      </div>
+      </div> */}
 
       {/* BOTTOM EL */}
       <div className="absolute bottom-0">

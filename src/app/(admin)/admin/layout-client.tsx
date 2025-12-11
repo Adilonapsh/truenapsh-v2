@@ -1,169 +1,190 @@
-'use client'
+"use client";
 
-import { AppSidebar } from "@/components/app-sidebar"
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
-import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Separator } from "@/components/ui/separator"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import * as Icons from "lucide-react"
-import { SessionProvider } from "next-auth/react"
-import { ThemeProvider, useTheme } from 'next-themes'
+import { AppSidebar } from "@/components/app-sidebar";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import * as Icons from "lucide-react";
+import { SessionProvider } from "next-auth/react";
+import { ThemeProvider, useTheme } from "next-themes";
 
 // Type for the icon mapping
-type IconName = keyof typeof Icons
+type IconName = keyof typeof Icons;
 
 // Types for the data structure
 interface User {
-    name: string
-    email: string
-    avatar: string
+  name: string;
+  email: string;
+  avatar: string;
 }
 
 interface Team {
-    name: string
-    logo: string
-    plan: string
+  name: string;
+  logo: string;
+  plan: string;
 }
 
 interface NavItem {
-    title: string
-    url: string
-    icon: string
-    isActive?: boolean
-    items?: {
-        title: string
-        url: string
-    }[]
+  title: string;
+  url: string;
+  icon: string;
+  isActive?: boolean;
+  items?: {
+    title: string;
+    url: string;
+  }[];
 }
 
 interface Project {
-    name: string
-    url: string
-    icon: string
+  name: string;
+  url: string;
+  icon: string;
 }
 
 interface LayoutData {
-    user: User
-    teams: Team[]
-    navMain: NavItem[]
-    projects: Project[]
+  user: User;
+  teams: Team[];
+  navMain: NavItem[];
+  projects: Project[];
 }
 
 interface LayoutClientProps {
-    children: React.ReactNode
-    data: LayoutData
+  children: React.ReactNode;
+  data: LayoutData;
 }
 
 // Helper function to get icon component
 const getIcon = (iconName: string) => {
-    // Convert kebab-case to PascalCase
-    const pascalCase = iconName.split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join('')
+  // Convert kebab-case to PascalCase
+  const pascalCase = iconName
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join("");
 
-    return Icons[pascalCase as IconName] || Icons.HelpCircle
-}
+  return Icons[pascalCase as IconName] || Icons.HelpCircle;
+};
 
 export function LayoutClient({ children, data }: LayoutClientProps) {
-    // Transform the data to include icon components
-    const transformedData = {
-        ...data,
-        teams: data.teams.map(team => ({
-            ...team,
-            logo: getIcon(team.logo),
-        })),
-        navMain: data.navMain.map(item => ({
-            ...item,
-            icon: getIcon(item.icon),
-        })),
-        projects: data.projects.map(project => ({
-            ...project,
-            icon: getIcon(project.icon),
-        })),
-    }
+  // Transform the data to include icon components
+  const transformedData = {
+    ...data,
+    teams: data.teams.map((team) => ({
+      ...team,
+      logo: getIcon(team.logo),
+    })),
+    navMain: data.navMain.map((item) => ({
+      ...item,
+      icon: getIcon(item.icon),
+    })),
+    projects: data.projects.map((project) => ({
+      ...project,
+      icon: getIcon(project.icon),
+    })),
+  };
 
-    const { setTheme } = useTheme()
+  const { setTheme } = useTheme();
 
-    return (
-        <div>
-            <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-            >
-                <SessionProvider>
-                    <SidebarProvider>
-                        <AppSidebar data={transformedData} variant="floating" />
-                        <SidebarInset>
-                            <div className="flex justify-between items-center pr-5">
-                                <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
-                                    <div className="flex items-center gap-2 px-4">
-                                        <SidebarTrigger className="-ml-1" />
-                                        <Separator orientation="vertical" className="mr-2 h-4" />
-                                        <Breadcrumb>
-                                            <BreadcrumbList>
-                                                {window.location.pathname
-                                                    .split('/')
-                                                    .filter(segment => segment && segment !== 'admin')
-                                                    .map((segment, index, array) => {
-                                                        const path = '/' + array.slice(0, index + 1).join('/');
-                                                        const isLast = index === array.length - 1;
+  return (
+    <div>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        <SessionProvider>
+          <SidebarProvider>
+            <TooltipProvider>
+              <AppSidebar data={transformedData} variant="floating" />
+              <SidebarInset>
+                <div className="flex justify-between items-center pr-5">
+                  <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+                    <div className="flex items-center gap-2 px-4">
+                      <SidebarTrigger className="-ml-1" />
+                      <Separator orientation="vertical" className="mr-2 h-4" />
+                      <Breadcrumb>
+                        <BreadcrumbList>
+                          {window.location.pathname
+                            .split("/")
+                            .filter((segment) => segment && segment !== "admin")
+                            .map((segment, index, array) => {
+                              const path =
+                                "/" + array.slice(0, index + 1).join("/");
+                              const isLast = index === array.length - 1;
 
-                                                        return (
-                                                            <div key={path}>
-                                                                <BreadcrumbItem className="hidden md:block">
-                                                                    {isLast ? (
-                                                                        <BreadcrumbPage className="capitalize">
-                                                                            {segment}
-                                                                        </BreadcrumbPage>
-                                                                    ) : (
-                                                                        <BreadcrumbLink href={path}>
-                                                                            {segment}
-                                                                        </BreadcrumbLink>
-                                                                    )}
-                                                                </BreadcrumbItem>
-                                                                {!isLast && (
-                                                                    <BreadcrumbSeparator className="hidden md:block" />
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                            </BreadcrumbList>
-                                        </Breadcrumb>
-                                    </div>
-                                </header>
-                                <div>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="outline" size="icon">
-                                                <Icons.Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                                                <Icons.Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                                                <span className="sr-only">Toggle theme</span>
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => setTheme("light")}>
-                                                Light
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setTheme("dark")}>
-                                                Dark
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => setTheme("system")}>
-                                                System
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                              return (
+                                <div key={path}>
+                                  <BreadcrumbItem className="hidden md:block">
+                                    {isLast ? (
+                                      <BreadcrumbPage className="capitalize">
+                                        {segment}
+                                      </BreadcrumbPage>
+                                    ) : (
+                                      <BreadcrumbLink href={path}>
+                                        {segment}
+                                      </BreadcrumbLink>
+                                    )}
+                                  </BreadcrumbItem>
+                                  {!isLast && (
+                                    <BreadcrumbSeparator className="hidden md:block" />
+                                  )}
                                 </div>
-                            </div>
-                            <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-                                {children}
-                            </div>
-                        </SidebarInset>
-                    </SidebarProvider>
-                </SessionProvider>
-            </ThemeProvider>
-        </div>
-    )
+                              );
+                            })}
+                        </BreadcrumbList>
+                      </Breadcrumb>
+                    </div>
+                  </header>
+                  <div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon">
+                          <Icons.Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                          <Icons.Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                          <span className="sr-only">Toggle theme</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setTheme("light")}>
+                          Light
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("dark")}>
+                          Dark
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("system")}>
+                          System
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+                <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+                  {children}
+                </div>
+              </SidebarInset>
+            </TooltipProvider>
+          </SidebarProvider>
+        </SessionProvider>
+      </ThemeProvider>
+    </div>
+  );
 }

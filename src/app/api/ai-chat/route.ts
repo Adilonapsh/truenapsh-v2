@@ -34,7 +34,7 @@ export async function POST(req: Request) {
         const prompt = createPrompt(messages);
 
         const result = streamText({
-            model: google("gemini-2.0-flash"),
+            model: google("gemini-2.5-flash"),
             messages: [{ role: "user", content: prompt }],
             temperature: 0.8,
             maxSteps: 5,
