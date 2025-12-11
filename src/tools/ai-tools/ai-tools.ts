@@ -34,7 +34,16 @@ export class MapCommandExecutor {
         return this.mapRef.current?.getMap?.() || this.mapRef.current || null;
     }
 
-    async execute(command: MapCommand): Promise<void> {
+    async execute(
+        command: MapCommand,
+        onProgress?: (progress: {
+            status: 'start' | 'running' | 'success' | 'error';
+            action: string;
+            step?: string;
+            progress?: number;
+            detail?: string;
+        }) => void
+    ): Promise<void> {
         const map = this.getMap();
         if (!map) {
             console.warn('Map reference is not available');
@@ -42,28 +51,36 @@ export class MapCommandExecutor {
         }
 
         try {
+            onProgress?.({ status: 'start', action: command.action, step: 'Validating command' });
             const params = command.params || {};
             switch (command.action) {
                 case 'flyTo':
+                    onProgress?.({ status: 'running', action: command.action, step: 'Navigating to location' });
                     await this.flyTo(params);
                     break;
                 case 'easeTo':
+                    onProgress?.({ status: 'running', action: command.action, step: 'Panning to location' });
                     await this.easeTo(params);
                     break;
                 case 'filterLayer':
+                    onProgress?.({ status: 'running', action: command.action, step: 'Applying layer filter' });
                     await this.filterLayer(params);
                     break;
                 case 'zoomToLayer':
+                    onProgress?.({ status: 'running', action: command.action, step: 'Zooming to layer extent' });
                     await this.zoomToLayer(params);
                     break;
                 case 'toggleLayer':
+                    onProgress?.({ status: 'running', action: command.action, step: 'Updating layer visibility' });
                     await this.setLayerVisibility(params);
                     break;
                 default:
                     console.warn(`Unknown action: ${command.action}`);
             }
+            onProgress?.({ status: 'success', action: command.action, step: 'Completed' });
         } catch (error) {
             console.error('Error executing map command:', error);
+            onProgress?.({ status: 'error', action: command.action, step: 'Failed', detail: String(error) });
             throw error;
         }
     }

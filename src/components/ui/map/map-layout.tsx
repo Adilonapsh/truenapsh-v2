@@ -246,6 +246,13 @@ export default function MapLayout({
   const [drawMode, setDrawMode] = useState<string | null>(null);
   const [isDrawDone, setIsDrawDone] = useState<boolean>(true);
 
+  const [aiCommandProgress, setAiCommandProgress] = useState<{
+    status: 'idle' | 'start' | 'running' | 'success' | 'error';
+    action?: string;
+    step?: string;
+    progress?: number;
+  }>({ status: 'idle' });
+
   const [menuPosition, setMenuPosition] = useState<{
     x: number;
     y: number;
@@ -1407,7 +1414,13 @@ export default function MapLayout({
 
     if (typeof command === "object") {
       const executor = new MapCommandExecutor(mapRef, layers);
-      await executor.execute(command);
+      try {
+        await executor.execute(command, (p) => {
+          setAiCommandProgress(p);
+        });
+      } catch (e) {
+        setAiCommandProgress({ status: 'error', action: command?.action, step: 'Failed', });
+      }
     }
   };
 
@@ -1666,7 +1679,7 @@ export default function MapLayout({
               : "w-[0rem] overflow-hidden"
           } z-10`}
         >
-          <ChatWithAI onCommandReceived={handleMapboxCommand} />
+          <ChatWithAI onCommandReceived={handleMapboxCommand} commandProgress={aiCommandProgress} />
         </div>
         <div className="transition-transform duration-300 ease-in-out">
           <div className="absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto">
