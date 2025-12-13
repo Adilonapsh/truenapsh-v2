@@ -253,7 +253,7 @@ export default function AddLayerModal() {
                         <IoClose size={"13pt"} />
                     </Button>
                 </div>
-                <div className="overflow-auto px-2 py-5 h-full max-w-[80vw] w-[80vw]">
+                <div className="overflow-auto px-2 py-5 h-full max-w-[80vw] w-[80vw] transition-all duration-300">
                     <Tabs defaultValue="datasets">
                         <TabsList className="grid grid-cols-4 w-full">
                             <TabsTrigger value="datasets">Datasets</TabsTrigger>
@@ -263,7 +263,7 @@ export default function AddLayerModal() {
                         </TabsList>
                         <div className="px-2 py-5 h-full w-full">
                             <TabsContent value="datasets">
-                                <Card>
+                                <Card className="transition-[width] duration-300 ease-in-out">
                                     <CardHeader>
                                         <div className="flex justify-between items-center">
                                             <div>
@@ -283,7 +283,7 @@ export default function AddLayerModal() {
                                         <div className="h-[55vh] w-full">
                                             <div className="flex overflow-auto h-full rounded-lg border">
                                                 <ResizablePanelGroup direction="horizontal">
-                                                    <ResizablePanel defaultSize={25}>
+                                                    <ResizablePanel defaultSize={25} className="transition-[width] duration-300 ease-in-out">
                                                         <ScrollArea className="w-full h-full">
                                                             {datasets.map((dataset, index) => (
                                                                 <Button
@@ -303,7 +303,7 @@ export default function AddLayerModal() {
                                                         </ScrollArea>
                                                     </ResizablePanel>
                                                     <ResizableHandle withHandle />
-                                                    <ResizablePanel defaultSize={75}>
+                                                    <ResizablePanel defaultSize={75} className="transition-[width] duration-300 ease-in-out">
                                                         <div className="w-full h-full rounded-lg dark:bg-background">
                                                             {isLoading.dataset && (
                                                                 <div className="flex justify-center items-center w-full h-full">
@@ -363,7 +363,7 @@ export default function AddLayerModal() {
                                 </Card>
                             </TabsContent>
                             <TabsContent value="wms">
-                                <Card>
+                                <Card className="transition-[width] duration-300 ease-in-out">
                                     <CardHeader>
                                         <div className="flex justify-between items-center">
                                             <div>
@@ -494,7 +494,7 @@ export default function AddLayerModal() {
                                 </Card>
                             </TabsContent>
                             <TabsContent value="integration">
-                                <Card>
+                                <Card className="transition-[width] duration-300 ease-in-out">
                                     <CardHeader>
                                         <CardTitle>Integrations</CardTitle>
                                         <CardDescription>

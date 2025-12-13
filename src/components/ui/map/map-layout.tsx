@@ -2331,7 +2331,7 @@ export default function MapLayout({
         </div>
       )}
       {displayLayouts.addLayer && (
-        <div className="flex absolute top-1/2 left-1/2 z-10 justify-center items-center p-0 w-screen h-screen bg-opacity-50 backdrop-filter backdrop-blur-sm -translate-x-1/2 -translate-y-1/2 md:p-10 bg-slate-200">
+        <div className="flex absolute top-1/2 left-1/2 z-10 justify-center items-center p-0 w-screen h-screen bg-opacity-50 backdrop-filter backdrop-blur-sm -translate-x-1/2 -translate-y-1/2 md:p-10 bg-slate-200 transition-all duration-300">
           <AddLayerModal />
         </div>
       )}
