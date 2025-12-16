@@ -344,7 +344,11 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
           if (dash && layer.type === "line") {
             setMapboxLayerStyle((prev) => ({
               ...prev,
-              line_dasharray: Array.isArray(dash) ? dash : [],
+              line_dasharray:
+                Array.isArray(dash) &&
+                  dash.every((d) => typeof d === "number")
+                  ? (dash as number[])
+                  : [],
             }));
           }
 
@@ -760,7 +764,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
 
   const setPaint = (
     paint_type: string,
-    value: string | number | undefined | null
+    value: string | number | number[] | undefined | null
   ) => {
     const map = mapRef?.current?.getMap();
     if (selectedLayer) {
@@ -986,14 +990,14 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
     setMapboxLayerStyle({ ...mapboxLayerStyle, symbol_text_size: value });
     const map = mapRef?.current?.getMap();
     if (selectedLayer && map) {
-      map.setPaintProperty(selectedLayer.id, "text-size", value);
+      map.setLayoutProperty(selectedLayer.id, "text-size", value);
     }
   };
   const setSymbolIconSize = (value: number) => {
     setMapboxLayerStyle({ ...mapboxLayerStyle, symbol_icon_size: value });
     const map = mapRef?.current?.getMap();
     if (selectedLayer && map) {
-      map.setPaintProperty(selectedLayer.id, "icon-size", value);
+      map.setLayoutProperty(selectedLayer.id, "icon-size", value);
     }
   };
 
@@ -1296,7 +1300,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
     if (selectedLayer && map) {
       map.setPaintProperty(
         selectedLayer.id,
-        "raster-particle-opacity",
+        "raster-particle-opacity" as any,
         value / 100
       );
     }
@@ -1305,7 +1309,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
     setMapboxLayerStyle({ ...mapboxLayerStyle, raster_particle_speed: value });
     const map = mapRef?.current?.getMap();
     if (selectedLayer && map) {
-      map.setPaintProperty(selectedLayer.id, "raster-particle-speed", value);
+      map.setPaintProperty(selectedLayer.id, "raster-particle-speed" as any, value);
     }
   };
   const setRasterParticleFadeAmount = (value: number) => {
@@ -1317,7 +1321,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
     if (selectedLayer && map) {
       map.setPaintProperty(
         selectedLayer.id,
-        "raster-particle-fade-amount",
+        "raster-particle-fade-amount" as any,
         value
       );
     }
@@ -1326,7 +1330,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
     setMapboxLayerStyle({ ...mapboxLayerStyle, raster_particle_color: value });
     const map = mapRef?.current?.getMap();
     if (selectedLayer && map) {
-      map.setPaintProperty(selectedLayer.id, "raster-particle-color", value);
+      map.setPaintProperty(selectedLayer.id, "raster-particle-color" as any, value);
     }
   };
 
@@ -1357,7 +1361,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
       else if (type === "fill-extrusion") property = "fill-extrusion-color";
       else if (type === "hillshade") property = "hillshade-shadow-color";
       if (property) {
-        map.setPaintProperty(selectedLayer.id, property, expr);
+        map.setPaintProperty(selectedLayer.id, property as any, expr);
       }
     }
   };
@@ -1374,18 +1378,18 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
       const property = propertyOverride
         ? propertyOverride
         : type === "fill"
-        ? "fill-color"
-        : type === "line"
-        ? "line-color"
-        : type === "circle"
-        ? "circle-color"
-        : type === "fill-extrusion"
-        ? "fill-extrusion-color"
-        : type === "symbol"
-        ? "text-color"
-        : "";
+          ? "fill-color"
+          : type === "line"
+            ? "line-color"
+            : type === "circle"
+              ? "circle-color"
+              : type === "fill-extrusion"
+                ? "fill-extrusion-color"
+                : type === "symbol"
+                  ? "text-color"
+                  : "";
       if (property) {
-        map.setPaintProperty(selectedLayer.id, property, expr);
+        map.setPaintProperty(selectedLayer.id, property as any, expr);
       }
     }
   };
@@ -1495,27 +1499,27 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
           {(layerType === "circle" ||
             layerType === "symbol" ||
             layerType === "heatmap") && (
-            <div>
-              <Label className="text-xs">Visualization</Label>
-              <Select
-                value={circleViz}
-                onValueChange={(v) => {
-                  const val = v as "standard" | "marker" | "heatmap";
-                  setCircleViz(val);
-                  convertCircleVisualization(val);
-                }}
-              >
-                <SelectTrigger className="">
-                  <SelectValue placeholder="Select a fruit" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="marker">Marker</SelectItem>
-                  <SelectItem value="heatmap">Heatmap</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+              <div>
+                <Label className="text-xs">Visualization</Label>
+                <Select
+                  value={circleViz}
+                  onValueChange={(v) => {
+                    const val = v as "standard" | "marker" | "heatmap";
+                    setCircleViz(val);
+                    convertCircleVisualization(val);
+                  }}
+                >
+                  <SelectTrigger className="">
+                    <SelectValue placeholder="Select a fruit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="marker">Marker</SelectItem>
+                    <SelectItem value="heatmap">Heatmap</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
           <Accordion type="single" collapsible>
             <AccordionItem value="vector-item">
@@ -1667,9 +1671,9 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
                             const raw = e.target.value.trim();
                             const arr = raw.length
                               ? raw
-                                  .split(",")
-                                  .map((v) => Number(v.trim()))
-                                  .filter((n) => !Number.isNaN(n))
+                                .split(",")
+                                .map((v) => Number(v.trim()))
+                                .filter((n) => !Number.isNaN(n))
                               : [];
                             setLineDasharray(arr);
                           }}
@@ -2335,9 +2339,9 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
                           const raw = e.target.value.trim();
                           const stops = raw.length
                             ? raw.split(";").map((pair) => {
-                                const [s, c] = pair.split(",");
-                                return [Number(s), c] as [number, string];
-                              })
+                              const [s, c] = pair.split(",");
+                              return [Number(s), c] as [number, string];
+                            })
                             : [];
                           applyHeatmapColorStops(stops);
                         }}
@@ -2535,29 +2539,29 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
               <AccordionContent>
                 {selectedLayer?.map_service_vendor ==
                   MapServiceVendor.Geoserver && (
-                  <>
-                    <img
-                      src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}&LEGEND_OPTIONS=bgColor:0x09090b;fontColor:0xffffff;fontAntiAliasing:true;dpi:200;layout:vertical;columnheigh:1000;countMatched:true;hideEmptyRules:false;fontStyle:bold`}
-                      className="hidden dark:block"
-                      alt="Legend Dark"
-                    />
-                    <img
-                      src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}&LEGEND_OPTIONS=bgColor:0xffffff;fontColor:0x000000;fontAntiAliasing:true;dpi:200;layout:vertical;columnheigh:1000;countMatched:true;hideEmptyRules:false;fontStyle:bold`}
-                      className="block dark:hidden"
-                      alt="Legend Light"
-                    />
-                  </>
-                )}
+                    <>
+                      <img
+                        src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}&LEGEND_OPTIONS=bgColor:0x09090b;fontColor:0xffffff;fontAntiAliasing:true;dpi:200;layout:vertical;columnheigh:1000;countMatched:true;hideEmptyRules:false;fontStyle:bold`}
+                        className="hidden dark:block"
+                        alt="Legend Dark"
+                      />
+                      <img
+                        src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}&LEGEND_OPTIONS=bgColor:0xffffff;fontColor:0x000000;fontAntiAliasing:true;dpi:200;layout:vertical;columnheigh:1000;countMatched:true;hideEmptyRules:false;fontStyle:bold`}
+                        className="block dark:hidden"
+                        alt="Legend Light"
+                      />
+                    </>
+                  )}
                 {selectedLayer?.map_service_vendor ==
                   MapServiceVendor.ArcGIS && (
-                  <LegendEsri
-                    url={`${selectedLayer?.map_service_url}/legend?f=json`}
-                  />
-                )}
+                    <LegendEsri
+                      url={`${selectedLayer?.map_service_url}/legend?f=json`}
+                    />
+                  )}
                 {selectedLayer?.map_service_vendor ==
                   MapServiceVendor.GeoJSON && (
-                  <LegendMapbox selectedLayer={selectedLayer} mapRef={mapRef} />
-                )}
+                    <LegendMapbox selectedLayer={selectedLayer} mapRef={mapRef} />
+                  )}
               </AccordionContent>
             </AccordionItem>
           </Accordion>

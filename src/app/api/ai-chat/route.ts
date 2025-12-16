@@ -6,6 +6,7 @@ import { filterLayerAttributes } from "@/tools/ai-tools/ai-tools";
 import { Layer } from "@/types/map.types";
 import { encode as ToonEncode } from '@toon-format/toon';
 import { weatherIntegration } from "@/services/map-integrations";
+import { systemPrompt } from "@/lib/systemPrompt";
 
 export const maxDuration = 30;
 
@@ -29,15 +30,20 @@ export async function POST(req: Request) {
     }
 
     try {
-        const { messages, layers } = await req.json();
+        const { messages, layers, history } = await req.json();
 
-        const prompt = createPrompt(messages);
+        const merged = Array.isArray(history) ? [...history, ...messages] : messages;
+        const prompt = createPrompt(merged.slice(-5));
 
         const result = streamText({
+            // model: lmstudio("llama-3.1-8b-lexi-uncensored-v2"),
+            // model: lmstudio("deepseek-r1-distill-llama-8b"),
+            // model: lmstudio("meta-llama-3.1-8b-instruct"),
             model: google("gemini-2.5-flash"),
-            messages: [{ role: "user", content: prompt }],
+            system: systemPrompt,
+            messages: merged.slice(-5),
             temperature: 0.8,
-            maxSteps: 5,
+            maxSteps: 10,
             tools: {
                 get_layers: tool({
                     description: "Get the list of available layers from the system",
@@ -56,11 +62,10 @@ export async function POST(req: Request) {
                             "render_type",
                             "created_at",
                         ]);
-                        // return { layers: filteredLayers };
                         return ToonEncode({ layers: filteredLayers });
                     },
                 }),
-                get_properties_of_layer: tool({
+                get_layer_properties: tool({
                     description: "Get the fields of a specific layer",
                     parameters: z.object({
                         layerId: z.string().describe("ID of the layer to retrieve fields for"),
@@ -70,15 +75,16 @@ export async function POST(req: Request) {
                         if (!layer) {
                             return { error: `Layer with ID ${layerId} not found` };
                         }
-                        // return { properties: layer.fields };
                         return ToonEncode({ properties: layer.fields });
                     },
                 }),
                 get_time: tool({
                     description: "Get the current time",
-                    parameters: z.object({}),
-                    execute: async () => {
-                        return ToonEncode({ time: new Date().toISOString() });
+                    parameters: z.object({
+                        timezone: z.string().default("Asia/Jakarta").nullable().describe("Timezone of the location"),
+                    }),
+                    execute: async ({ timezone }) => {
+                        return ToonEncode({ time: new Date().toLocaleString("en-US", { timeZone: timezone || "Asia/Jakarta" }) });
                     },
                 }),
                 get_weather: tool({
@@ -89,12 +95,12 @@ export async function POST(req: Request) {
                         lat: z.number().describe("Latitude of the location"),
                     }),
                     execute: async ({ source, lon, lat }) => {
-                        const weatherData = await weatherIntegration( lon, lat,source || undefined,);
-                        return ToonEncode({ weather: weatherData });
+                        const weatherData = await weatherIntegration(lon, lat, source || undefined);
+                        return ToonEncode({ weather: weatherData.weather.data });
                     },
                 }),
             },
-            maxTokens: 1000, // Consider adding this
+            maxTokens: 2000,
         });
         return result.toDataStreamResponse();
     } catch (error) {

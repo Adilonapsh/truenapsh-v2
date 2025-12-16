@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { decrypt } from "@/lib/crypt";
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
     if (!token?.accessToken) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
     if (!token?.accessToken) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
