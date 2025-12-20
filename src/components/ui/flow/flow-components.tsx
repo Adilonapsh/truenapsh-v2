@@ -500,15 +500,15 @@ function FlowDiagram() {
         nds.map((node) =>
           node.id === nodeId
             ? {
-                ...node,
-                data: {
-                  ...node.data,
-                  state: {
-                    ...(node.data as any).state,
-                    is_enabled: !((node.data as any).state?.is_enabled ?? true),
-                  },
+              ...node,
+              data: {
+                ...node.data,
+                state: {
+                  ...(node.data as any).state,
+                  is_enabled: !((node.data as any).state?.is_enabled ?? true),
                 },
-              }
+              },
+            }
             : node
         )
       );
@@ -553,18 +553,28 @@ function FlowDiagram() {
           type,
           position,
           data: {
-            label: `${nodeData.label.charAt(0).toUpperCase() + type.slice(1)}`,
-            desc: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+            parameters: {
+              label: `${nodeData.label.charAt(0).toUpperCase() + type.slice(1)}`,
+              desc: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+            },
             onGroupNameChange: (newName: string) => {
               setNodes((nds) =>
                 nds.map((node) =>
                   node.id === newNode.id
-                    ? { ...node, data: { ...node.data, label: newName } }
+                    ? {
+                      ...node,
+                      data: {
+                        ...node.data,
+                        parameters: {
+                          ...(node.data.parameters || {}),
+                          label: newName,
+                        },
+                      },
+                    }
                     : node
                 )
               );
             },
-            parameters: {},
           },
           style: {
             width: 400,
@@ -579,14 +589,15 @@ function FlowDiagram() {
           type,
           position,
           data: {
-            label: `${nodeData.label}`,
-            desc: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
             action: nodeData.action,
             onDuplicateNode: () => duplicateNode(id),
             onDeleteNode: () => deleteNode(id),
             onRunNode: () => runNode(id),
             toggleEnabled: () => toggleEnabled(id),
-            parameters: {},
+            parameters: {
+              label: `${nodeData.label}`,
+              desc: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+            },
             state: { is_enabled: true, is_loading: false },
           },
           zIndex: 1,
@@ -705,12 +716,12 @@ function FlowDiagram() {
           nds.map((n) =>
             n.id === nodeId
               ? {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    state: { ...(n.data as any).state, is_loading: true },
-                  },
-                }
+                ...n,
+                data: {
+                  ...n.data,
+                  state: { ...(n.data as any).state, is_loading: true },
+                },
+              }
               : n
           )
         );
@@ -723,12 +734,12 @@ function FlowDiagram() {
           nds.map((n) =>
             n.id === nodeId
               ? {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    state: { ...(n.data as any).state, is_loading: false },
-                  },
-                }
+                ...n,
+                data: {
+                  ...n.data,
+                  state: { ...(n.data as any).state, is_loading: false },
+                },
+              }
               : n
           )
         );
@@ -781,12 +792,12 @@ function FlowDiagram() {
       prevNodes.map((n) =>
         n.id === nodeToUpdate.id
           ? {
-              ...n,
-              position: newPosition,
-              parentNode: newParent,
-              extent: newParent ? "parent" : undefined,
-              zIndex: n.type === "group-node" ? 0 : 1,
-            }
+            ...n,
+            position: newPosition,
+            parentNode: newParent,
+            extent: newParent ? "parent" : undefined,
+            zIndex: n.type === "group-node" ? 0 : 1,
+          }
           : n
       )
     );
@@ -1043,11 +1054,13 @@ function FlowDiagram() {
                         <div>
                           <h3 className="text-xl font-bold">
                             {String(
-                              selectedNode?.data?.label || selectedNode?.id
+                              (selectedNode?.data as any)?.parameters?.label ||
+                              (selectedNode?.data as any)?.label ||
+                              selectedNode?.id
                             )}
                           </h3>
                           <h4 className="text-sm text-muted-foreground">
-                            {String(selectedNode?.data?.desc ?? "")}
+                            {String((selectedNode?.data as any)?.parameters?.desc ?? selectedNode?.data?.desc ?? "")}
                           </h4>
                         </div>
                       </div>

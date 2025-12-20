@@ -1,12 +1,11 @@
 import { streamText, tool } from "ai";
 import { google, lmstudio } from "@/lib/lmstudio";
 import { createPrompt } from "@/lib/promptTemplate";
-import { z } from 'zod';
-import { filterLayerAttributes } from "@/tools/ai-tools/ai-tools";
-import { Layer } from "@/types/map.types";
-import { encode as ToonEncode } from '@toon-format/toon';
-import { weatherIntegration } from "@/services/map-integrations";
+
 import { systemPrompt } from "@/lib/systemPrompt";
+import callTools from "@/tools/ai-tools/mcp-tools";
+import { getToken } from "next-auth/jwt";
+import { decrypt } from "@/lib/crypt";
 
 export const maxDuration = 30;
 
@@ -30,9 +29,42 @@ export async function POST(req: Request) {
     }
 
     try {
-        const { messages, layers, history } = await req.json();
+        const { messages, layers, tools, sessionId } = await req.json();
 
-        const merged = Array.isArray(history) ? [...history, ...messages] : messages;
+        // 1. Persist user message if sessionId is provided
+        if (sessionId) {
+            try {
+                const token = await getToken({ req: req as any, secret: process.env.NEXTAUTH_SECRET });
+                if (token?.accessToken) {
+                    const plain = decrypt(token.accessToken);
+                    const baseURL = process.env.NEXT_AUTH_URL;
+
+                    // Get only the most recent user message from current interaction
+                    const lastMessage = messages[messages.length - 1];
+                    if (lastMessage && lastMessage.role === "user") {
+                        await fetch(`${baseURL}/chat/sessions/${sessionId}/messages`, {
+                            method: "POST",
+                            headers: {
+                                Authorization: `Bearer ${plain}`,
+                                Accept: "application/json",
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                                role: "user",
+                                content: lastMessage.content
+                            }),
+                        });
+                    }
+                }
+            } catch (persistErr) {
+                console.error("Failed to persist user message server-side:", persistErr);
+            }
+        }
+
+
+        messages?.forEach((m: any) => delete m.parts);
+
+        const merged = messages;
         const prompt = createPrompt(merged.slice(-5));
 
         const result = streamText({
@@ -44,63 +76,8 @@ export async function POST(req: Request) {
             messages: merged.slice(-5),
             temperature: 0.8,
             maxSteps: 10,
-            tools: {
-                get_layers: tool({
-                    description: "Get the list of available layers from the system",
-                    parameters: z.object({
-                        layerType: z.string().default("all").nullable().describe("Type of layers to retrieve"),
-                    }),
-                    execute: async ({ layerType }) => {
-                        const filteredLayers = filterLayerAttributes(layers, [
-                            "id",
-                            "name",
-                            "description",
-                            "map_service_url",
-                            "map_service_layer_name",
-                            "map_service_vendor",
-                            "metadata.version",
-                            "render_type",
-                            "created_at",
-                        ]);
-                        return ToonEncode({ layers: filteredLayers });
-                    },
-                }),
-                get_layer_properties: tool({
-                    description: "Get the fields of a specific layer",
-                    parameters: z.object({
-                        layerId: z.string().describe("ID of the layer to retrieve fields for"),
-                    }),
-                    execute: async ({ layerId }) => {
-                        const layer = layers.find((l: Layer) => l.id === layerId);
-                        if (!layer) {
-                            return { error: `Layer with ID ${layerId} not found` };
-                        }
-                        return ToonEncode({ properties: layer.fields });
-                    },
-                }),
-                get_time: tool({
-                    description: "Get the current time",
-                    parameters: z.object({
-                        timezone: z.string().default("Asia/Jakarta").nullable().describe("Timezone of the location"),
-                    }),
-                    execute: async ({ timezone }) => {
-                        return ToonEncode({ time: new Date().toLocaleString("en-US", { timeZone: timezone || "Asia/Jakarta" }) });
-                    },
-                }),
-                get_weather: tool({
-                    description: "Get the weather forecast for a specific location",
-                    parameters: z.object({
-                        source: z.string().default("bmkg").nullable().describe("Source of the weather data (bmkg or open-meteo)"),
-                        lon: z.number().describe("Longitude of the location"),
-                        lat: z.number().describe("Latitude of the location"),
-                    }),
-                    execute: async ({ source, lon, lat }) => {
-                        const weatherData = await weatherIntegration(lon, lat, source || undefined);
-                        return ToonEncode({ weather: weatherData.weather.data });
-                    },
-                }),
-            },
-            maxTokens: 2000,
+            tools: callTools(tools, layers),
+            maxTokens: 5000,
         });
         return result.toDataStreamResponse();
     } catch (error) {

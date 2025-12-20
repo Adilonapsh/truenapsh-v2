@@ -14,6 +14,16 @@ import {
     CardDescription,
     CardContent
 } from '../card'
+import {
+    Accordion,
+    AccordionContent,
+    AccordionItem,
+    AccordionTrigger,
+} from "../accordion"
+import { Checkbox } from "../checkbox"
+import { RadioGroup, RadioGroupItem } from "../radio-group"
+import { DynamicTable } from '../dynamic-table'
+import { LuTrash2, LuFileJson, LuFileStack, LuPlus } from 'react-icons/lu'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../resizable'
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { ScrollArea } from '../scroll-area'
@@ -37,6 +47,35 @@ import { useMapStore } from '@/stores/map'
 import { getWMSServices } from '@/services/map-services'
 import { findLayerConfigByGeometryType } from '@/tools/map-tools'
 import toast from 'react-hot-toast'
+import { addGeojsonToMap } from '@/tools/map-tools'
+import { processCSV, csvToGeoJSON, getFileHandler } from '@/tools/map-utility'
+import { Label } from '../label'
+import { LuUpload } from 'react-icons/lu'
+
+interface UploadedFileConfig {
+    id: string;
+    file: File;
+    name: string;
+    ext: string;
+    options: {
+        encoding: string;
+        delimiter: string;
+        headerLinesToDiscard: number;
+        firstRecordHasFieldNames: boolean;
+        detectFieldTypes: boolean;
+        decimalSeparatorIsComma: boolean;
+        trimFields: boolean;
+        discardEmptyFields: boolean;
+        geometryType: 'point' | 'wkt' | 'none';
+        latField: string;
+        lngField: string;
+        wktField: string;
+        crs: string;
+    };
+    headers: string[];
+    rows: any[];
+    rawData: string[][];
+}
 
 export default function AddLayerModal() {
 
@@ -44,6 +83,175 @@ export default function AddLayerModal() {
     const { datasets, selectedDatasets, setSelectedDatasets, datasetProperties, activeDataset, setActiveDataset, datasetResult, setDatasetResult, setDatasetProperties } = useDatasetStore();
     const { isLoading, setIsLoading, displayLayouts, setDisplayLayouts } = useMapStore();
     const { map } = useMapStore();
+
+    const [uploadedFiles, setUploadedFiles] = React.useState<UploadedFileConfig[]>([]);
+    const [selectedFileId, setSelectedFileId] = React.useState<string | null>(null);
+
+    const selectedFile = uploadedFiles.find(f => f.id === selectedFileId);
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        const newFiles: UploadedFileConfig[] = [];
+
+        for (const file of files) {
+            const ext = file.name.split('.').pop()?.toLowerCase() || '';
+            const id = v4();
+
+            let headers: string[] = [];
+            let rows: any[] = [];
+            let rawData: string[][] = [];
+
+            if (ext === 'csv' || ext === 'txt') {
+                try {
+                    const result = await processCSV(file);
+                    headers = result.headers;
+                    rows = result.rows;
+                    rawData = result.rawData;
+                } catch (err: any) {
+                    toast.error(`Failed to parse ${file.name}: ` + err.message);
+                    continue;
+                }
+            }
+
+            const lat = headers.find(h => h.toLowerCase().includes('lat') || h.toLowerCase().includes('y'));
+            const lng = headers.find(h => h.toLowerCase().includes('lon') || h.toLowerCase().includes('lng') || h.toLowerCase().includes('x'));
+            const wktField = headers.find(h => h.toLowerCase() === 'wkt' || h.toLowerCase().includes('geometry'));
+
+            newFiles.push({
+                id,
+                file,
+                name: file.name,
+                ext,
+                options: {
+                    encoding: 'UTF-8',
+                    delimiter: ',',
+                    headerLinesToDiscard: 0,
+                    firstRecordHasFieldNames: true,
+                    detectFieldTypes: true,
+                    decimalSeparatorIsComma: false,
+                    trimFields: false,
+                    discardEmptyFields: false,
+                    geometryType: wktField ? 'wkt' : (lat && lng ? 'point' : 'none'),
+                    latField: lat || '',
+                    lngField: lng || '',
+                    wktField: wktField || '',
+                    crs: 'EPSG:4326 - WGS 84'
+                },
+                headers,
+                rows,
+                rawData
+            });
+        }
+
+        setUploadedFiles(prev => [...prev, ...newFiles]);
+        if (!selectedFileId && newFiles.length > 0) {
+            setSelectedFileId(newFiles[0].id);
+        }
+    }
+
+    const updateFileOptions = async (id: string, newOptions: Partial<UploadedFileConfig['options']>) => {
+        const fileConfig = uploadedFiles.find(f => f.id === id);
+        if (!fileConfig) return;
+
+        const updatedOptions = { ...fileConfig.options, ...newOptions };
+
+        let headers = fileConfig.headers;
+        let rows = fileConfig.rows;
+        let rawData = fileConfig.rawData;
+
+        // If file is CSV/TXT and delimiter or header options changed, re-parse
+        if (fileConfig.ext === 'csv' || fileConfig.ext === 'txt') {
+            if (newOptions.delimiter !== undefined ||
+                newOptions.headerLinesToDiscard !== undefined ||
+                newOptions.firstRecordHasFieldNames !== undefined) {
+                try {
+                    const result = await processCSV(fileConfig.file, {
+                        delimiter: updatedOptions.delimiter,
+                        headerLinesToDiscard: updatedOptions.headerLinesToDiscard,
+                        firstRecordHasFieldNames: updatedOptions.firstRecordHasFieldNames
+                    });
+                    headers = result.headers;
+                    rows = result.rows;
+                    rawData = result.rawData;
+                } catch (err: any) {
+                    toast.error("Failed to re-parse CSV: " + err.message);
+                }
+            }
+        }
+
+        setUploadedFiles(prev => prev.map(f =>
+            f.id === id ? { ...f, options: updatedOptions, headers, rows, rawData } : f
+        ));
+    }
+
+    const removeFile = (id: string) => {
+        setUploadedFiles(prev => prev.filter(f => f.id !== id));
+        if (selectedFileId === id) {
+            setSelectedFileId(uploadedFiles.find(f => f.id !== id)?.id || null);
+        }
+    }
+
+    const handleAddUploadedLayer = async () => {
+        if (uploadedFiles.length === 0) return;
+
+        let successCount = 0;
+
+        for (const fileConfig of uploadedFiles) {
+            try {
+                let geojson: GeoJSON.GeoJSON;
+
+                if (fileConfig.ext === 'csv' || fileConfig.ext === 'txt') {
+                    if (fileConfig.options.geometryType === 'point') {
+                        if (!fileConfig.options.latField || !fileConfig.options.lngField) {
+                            toast.error(`Please select latitude and longitude columns for ${fileConfig.name}`);
+                            continue;
+                        }
+                        geojson = csvToGeoJSON(fileConfig.rows, {
+                            latField: fileConfig.options.latField,
+                            lngField: fileConfig.options.lngField
+                        });
+                    } else if (fileConfig.options.geometryType === 'wkt') {
+                        if (!fileConfig.options.wktField) {
+                            toast.error(`Please select WKT column for ${fileConfig.name}`);
+                            continue;
+                        }
+                        geojson = csvToGeoJSON(fileConfig.rows, {
+                            wktField: fileConfig.options.wktField
+                        });
+                    } else {
+                        toast.error(`Geometry definition not set for ${fileConfig.name}`);
+                        continue;
+                    }
+                } else {
+                    const handler = getFileHandler(fileConfig.name);
+                    if (!handler) {
+                        toast.error(`Unsupported file type: ${fileConfig.name}`);
+                        continue;
+                    }
+                    const data = await handler.handler(fileConfig.file);
+                    geojson = data as GeoJSON.GeoJSON;
+                }
+
+                await addGeojsonToMap({
+                    mapRef: map,
+                    layerName: fileConfig.name.split('.')[0],
+                    data: geojson
+                });
+                successCount++;
+            } catch (error: any) {
+                toast.error(`Error adding ${fileConfig.name}: ` + error.message);
+            }
+        }
+
+        if (successCount > 0) {
+            toast.success(`Successfully added ${successCount} layer(s)`);
+            if (successCount === uploadedFiles.length) {
+                setDisplayLayouts({ ...displayLayouts, addLayer: false });
+            }
+        }
+    }
 
 
     const handleDatasets = async () => {
@@ -506,7 +714,330 @@ export default function AddLayerModal() {
                                     </CardContent>
                                 </Card>
                             </TabsContent>
-                            <TabsContent value="upload"></TabsContent>
+                            <TabsContent value="upload" className="h-[70vh] flex flex-col gap-4">
+                                <div className="flex-1 flex gap-4 overflow-hidden mt-2">
+                                    {/* Left Side: File List and Upload */}
+                                    <div className="w-[280px] flex flex-col gap-4 border rounded-lg p-4 bg-muted/30">
+                                        <div className="flex-1 overflow-auto space-y-2 pr-2">
+                                            {uploadedFiles.length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground border-2 border-dashed rounded-lg p-4">
+                                                    <LuUpload className="h-8 w-8 mb-2 opacity-50" />
+                                                    <p className="text-xs text-center">No files uploaded yet</p>
+                                                </div>
+                                            ) : (
+                                                uploadedFiles.map(file => (
+                                                    <div
+                                                        key={file.id}
+                                                        onClick={() => setSelectedFileId(file.id)}
+                                                        className={cn(
+                                                            "group relative flex items-center gap-2 p-2 rounded-md cursor-pointer border transition-all",
+                                                            selectedFileId === file.id ? "bg-primary/10 border-primary ring-1 ring-primary/20" : "bg-background hover:bg-muted border-transparent"
+                                                        )}
+                                                    >
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-semibold truncate pr-6">{file.name}</p>
+                                                            <p className="text-xs text-muted-foreground uppercase">{file.ext}</p>
+                                                        </div>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-6 w-6 text-destructive opacity-0 group-hover:opacity-100 absolute right-1"
+                                                            onClick={(e) => { e.stopPropagation(); removeFile(file.id); }}
+                                                        >
+                                                            <LuTrash2 className="h-3 w-3" />
+                                                        </Button>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+
+                                        <input
+                                            id="file-upload-multiple"
+                                            type="file"
+                                            className="hidden"
+                                            onChange={handleFileUpload}
+                                            accept=".geojson,.kml,.kmz,.topojson,.wkt,.zip,.csv,.txt"
+                                            multiple
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            className="w-full h-9 border-dashed text-xs"
+                                            onClick={() => document.getElementById('file-upload-multiple')?.click()}
+                                        >
+                                            <LuPlus className="mr-2 h-3 w-3" /> Add Files
+                                        </Button>
+                                    </div>
+
+                                    {/* Right Side: Configuration */}
+                                    <div className="flex-1 border rounded-lg overflow-hidden flex flex-col bg-background">
+                                        {selectedFile ? (
+                                            <ScrollArea className="flex-1">
+                                                <div className="p-4 space-y-6">
+                                                    <div className="flex items-center justify-between pb-2 border-b">
+                                                        <h3 className="font-bold text-sm">Configure {selectedFile.name}</h3>
+                                                        <div className="flex items-center gap-2">
+                                                            <Label className="text-xs font-medium">Encoding</Label>
+                                                            <Select
+                                                                value={selectedFile.options.encoding}
+                                                                onValueChange={(v) => updateFileOptions(selectedFile.id, { encoding: v })}
+                                                            >
+                                                                <SelectTrigger className="h-8 text-xs w-32">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="UTF-8">UTF-8</SelectItem>
+                                                                    <SelectItem value="UTF-16">UTF-16</SelectItem>
+                                                                    <SelectItem value="ISO-8859-1">ISO-8859-1</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </div>
+
+                                                    {(selectedFile.ext === 'csv' || selectedFile.ext === 'txt') ? (
+                                                        <Accordion type="multiple" defaultValue={["format", "record", "geometry", "preview"]} className="space-y-3">
+                                                            {/* File Format */}
+                                                            <AccordionItem value="format" className="border rounded-md px-3 bg-muted/5">
+                                                                <AccordionTrigger className="py-2 text-xs hover:no-underline font-bold">
+                                                                    File Format
+                                                                </AccordionTrigger>
+                                                                <AccordionContent className="space-y-4 pt-1">
+                                                                    <RadioGroup
+                                                                        value={selectedFile.options.delimiter === ',' ? 'csv' : 'custom'}
+                                                                        onValueChange={(v) => updateFileOptions(selectedFile.id, { delimiter: v === 'csv' ? ',' : ';' })}
+                                                                        className="space-y-2"
+                                                                    >
+                                                                        <div className="flex items-center space-x-3">
+                                                                            <RadioGroupItem value="csv" id="csv-fmt" className="h-4 w-4" />
+                                                                            <Label htmlFor="csv-fmt" className="text-sm font-normal">CSV (comma separated values)</Label>
+                                                                        </div>
+                                                                        <div className="flex items-center space-x-3">
+                                                                            <RadioGroupItem value="custom" id="custom-fmt" className="h-4 w-4" />
+                                                                            <Label htmlFor="custom-fmt" className="text-sm font-normal">Custom delimiters</Label>
+                                                                        </div>
+                                                                    </RadioGroup>
+
+                                                                    {selectedFile.options.delimiter !== ',' && (
+                                                                        <div className="flex items-center gap-2 pl-7">
+                                                                            <Label className="text-xs">Other delimiter</Label>
+                                                                            <Input
+                                                                                className="h-8 w-12 text-xs text-center"
+                                                                                value={selectedFile.options.delimiter}
+                                                                                onChange={(e) => updateFileOptions(selectedFile.id, { delimiter: e.target.value })}
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                </AccordionContent>
+                                                            </AccordionItem>
+
+                                                            {/* Record Options */}
+                                                            <AccordionItem value="record" className="border rounded-md px-3 bg-muted/5">
+                                                                <AccordionTrigger className="py-2 text-xs hover:no-underline font-bold">
+                                                                    Record and Fields Options
+                                                                </AccordionTrigger>
+                                                                <AccordionContent className="grid grid-cols-2 gap-x-12 gap-y-4 pt-1">
+                                                                    <div className="space-y-4">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <Label className="text-xs">Header lines to discard</Label>
+                                                                            <Input
+                                                                                type="number"
+                                                                                className="h-8 w-16 text-xs"
+                                                                                value={selectedFile.options.headerLinesToDiscard}
+                                                                                onChange={(e) => updateFileOptions(selectedFile.id, { headerLinesToDiscard: parseInt(e.target.value) || 0 })}
+                                                                            />
+                                                                        </div>
+                                                                        <div className="flex items-center space-x-3">
+                                                                            <Checkbox
+                                                                                id="first-header"
+                                                                                className="h-4 w-4"
+                                                                                checked={selectedFile.options.firstRecordHasFieldNames}
+                                                                                onCheckedChange={(c) => updateFileOptions(selectedFile.id, { firstRecordHasFieldNames: !!c })}
+                                                                            />
+                                                                            <Label htmlFor="first-header" className="text-xs">First record has field names</Label>
+                                                                        </div>
+                                                                        <div className="flex items-center space-x-3">
+                                                                            <Checkbox
+                                                                                id="detect-types"
+                                                                                className="h-4 w-4"
+                                                                                checked={selectedFile.options.detectFieldTypes}
+                                                                                onCheckedChange={(c) => updateFileOptions(selectedFile.id, { detectFieldTypes: !!c })}
+                                                                            />
+                                                                            <Label htmlFor="detect-types" className="text-xs">Detect field types</Label>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="space-y-4">
+                                                                        <div className="flex items-center space-x-3">
+                                                                            <Checkbox
+                                                                                id="dec-comma"
+                                                                                className="h-4 w-4"
+                                                                                checked={selectedFile.options.decimalSeparatorIsComma}
+                                                                                onCheckedChange={(c) => updateFileOptions(selectedFile.id, { decimalSeparatorIsComma: !!c })}
+                                                                            />
+                                                                            <Label htmlFor="dec-comma" className="text-xs">Decimal separator is comma</Label>
+                                                                        </div>
+                                                                        <div className="flex items-center space-x-3">
+                                                                            <Checkbox
+                                                                                id="trim-fields"
+                                                                                className="h-4 w-4"
+                                                                                checked={selectedFile.options.trimFields}
+                                                                                onCheckedChange={(c) => updateFileOptions(selectedFile.id, { trimFields: !!c })}
+                                                                            />
+                                                                            <Label htmlFor="trim-fields" className="text-xs">Trim fields</Label>
+                                                                        </div>
+                                                                    </div>
+                                                                </AccordionContent>
+                                                            </AccordionItem>
+
+                                                            {/* Geometry Definition */}
+                                                            <AccordionItem value="geometry" className="border rounded-md px-3 bg-muted/5">
+                                                                <AccordionTrigger className="py-2 text-xs hover:no-underline font-bold">
+                                                                    Geometry Definition
+                                                                </AccordionTrigger>
+                                                                <AccordionContent className="space-y-5 pt-1">
+                                                                    <RadioGroup
+                                                                        value={selectedFile.options.geometryType}
+                                                                        onValueChange={(v) => updateFileOptions(selectedFile.id, { geometryType: v as any })}
+                                                                        className="grid grid-cols-2 gap-8"
+                                                                    >
+                                                                        <div className="space-y-4">
+                                                                            <div className="flex items-center space-x-3">
+                                                                                <RadioGroupItem value="point" id="point-geo" className="h-4 w-4" />
+                                                                                <Label htmlFor="point-geo" className="text-sm font-medium">Point coordinates</Label>
+                                                                            </div>
+
+                                                                            {selectedFile.options.geometryType === 'point' && (
+                                                                                <div className="pl-7 space-y-3 pb-2">
+                                                                                    <div className="grid grid-cols-2 items-center gap-3">
+                                                                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">X field (Long)</Label>
+                                                                                        <Select
+                                                                                            value={selectedFile.options.lngField}
+                                                                                            onValueChange={(v) => updateFileOptions(selectedFile.id, { lngField: v })}
+                                                                                        >
+                                                                                            <SelectTrigger className="h-8 text-xs">
+                                                                                                <SelectValue placeholder="Select X" />
+                                                                                            </SelectTrigger>
+                                                                                            <SelectContent>
+                                                                                                {selectedFile.headers.filter(h => h.trim() !== '').map((h, idx) => <SelectItem key={`${h}-${idx}`} value={h}>{h}</SelectItem>)}
+                                                                                                <SelectItem value="_manual">Enter manually...</SelectItem>
+                                                                                            </SelectContent>
+                                                                                        </Select>
+                                                                                    </div>
+                                                                                    <div className="grid grid-cols-2 items-center gap-3">
+                                                                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Y field (Lat)</Label>
+                                                                                        <Select
+                                                                                            value={selectedFile.options.latField}
+                                                                                            onValueChange={(v) => updateFileOptions(selectedFile.id, { latField: v })}
+                                                                                        >
+                                                                                            <SelectTrigger className="h-8 text-xs">
+                                                                                                <SelectValue placeholder="Select Y" />
+                                                                                            </SelectTrigger>
+                                                                                            <SelectContent>
+                                                                                                {selectedFile.headers.filter(h => h.trim() !== '').map((h, idx) => <SelectItem key={`${h}-${idx}`} value={h}>{h}</SelectItem>)}
+                                                                                                <SelectItem value="_manual">Enter manually...</SelectItem>
+                                                                                            </SelectContent>
+                                                                                        </Select>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div className="space-y-4">
+                                                                            <div className="flex items-center space-x-3">
+                                                                                <RadioGroupItem value="wkt" id="wkt-geo" className="h-4 w-4" />
+                                                                                <Label htmlFor="wkt-geo" className="text-sm font-medium">Well known text (WKT)</Label>
+                                                                            </div>
+
+                                                                            {selectedFile.options.geometryType === 'wkt' && (
+                                                                                <div className="pl-7 space-y-3 pb-2">
+                                                                                    <div className="grid grid-cols-2 items-center gap-3">
+                                                                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Geometry field</Label>
+                                                                                        <Select
+                                                                                            value={selectedFile.options.wktField}
+                                                                                            onValueChange={(v) => updateFileOptions(selectedFile.id, { wktField: v })}
+                                                                                        >
+                                                                                            <SelectTrigger className="h-8 text-xs">
+                                                                                                <SelectValue placeholder="Select WKT" />
+                                                                                            </SelectTrigger>
+                                                                                            <SelectContent>
+                                                                                                {selectedFile.headers.filter(h => h.trim() !== '').map((h, idx) => <SelectItem key={`${h}-${idx}`} value={h}>{h}</SelectItem>)}
+                                                                                            </SelectContent>
+                                                                                        </Select>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+
+                                                                            <div className="flex items-center space-x-3">
+                                                                                <RadioGroupItem value="none" id="no-geo" className="h-4 w-4" />
+                                                                                <Label htmlFor="no-geo" className="text-sm font-medium">No geometry (attribute only table)</Label>
+                                                                            </div>
+                                                                        </div>
+                                                                    </RadioGroup>
+
+                                                                    <div className="flex items-center gap-3 pt-3 border-t mt-4">
+                                                                        <Label className="text-xs font-bold">Geometry CRS</Label>
+                                                                        <Select value={selectedFile.options.crs} onValueChange={(v) => updateFileOptions(selectedFile.id, { crs: v })}>
+                                                                            <SelectTrigger className="h-8 text-xs flex-1">
+                                                                                <SelectValue />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="EPSG:4326 - WGS 84">EPSG:4326 - WGS 84</SelectItem>
+                                                                                <SelectItem value="EPSG:3857 - Web Mercator">EPSG:3857 - Web Mercator</SelectItem>
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                    </div>
+                                                                </AccordionContent>
+                                                            </AccordionItem>
+
+                                                            {/* Sample Data Preview */}
+                                                            <AccordionItem value="preview" className="border rounded-md px-3 bg-muted/5">
+                                                                <AccordionTrigger className="py-2 text-xs hover:no-underline font-bold">
+                                                                    Sample Data
+                                                                </AccordionTrigger>
+                                                                <AccordionContent className="pt-1">
+                                                                    <div className="h-48 overflow-auto border rounded-md bg-background">
+                                                                        <DynamicTable
+                                                                            headers={selectedFile.headers}
+                                                                            data={selectedFile.rawData.slice(selectedFile.options.firstRecordHasFieldNames ? 1 : 0, 11)}
+                                                                            isLoading={false}
+                                                                        />
+                                                                    </div>
+                                                                </AccordionContent>
+                                                            </AccordionItem>
+                                                        </Accordion>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center justify-center h-64 border rounded-md bg-muted/20">
+                                                            <LuFileJson className="h-12 w-12 text-muted-foreground mb-4 opacity-40" />
+                                                            <p className="text-xs font-bold">{selectedFile.name}</p>
+                                                            <p className="text-[10px] text-muted-foreground uppercase">{selectedFile.ext} FILE DETECTED</p>
+                                                            <p className="text-[9px] mt-4 text-muted-foreground max-w-[200px] text-center italic">
+                                                                Standard geospatial file detected. No additional parsing configuration required.
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </ScrollArea>
+                                        ) : (
+                                            <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 bg-muted/5">
+                                                <LuFileStack className="h-12 w-12 mb-4 opacity-10" />
+                                                <p className="text-xs font-bold">Select a file to configure</p>
+                                                <p className="text-[10px] text-center mt-2 max-w-[200px]">
+                                                    You can configure delimiters, header offsets, and coordinate fields for each file.
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {uploadedFiles.length > 0 && (
+                                            <div className="p-3 border-t flex justify-between bg-muted/20 items-center">
+                                                <div className="text-xs text-muted-foreground">
+                                                    <span className="font-bold text-primary">{uploadedFiles.length}</span> file(s) ready
+                                                </div>
+                                                <Button size="sm" className="h-9 text-xs px-6" onClick={handleAddUploadedLayer}>
+                                                    Add All to Map
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </TabsContent>
                             <div className="flex justify-end mt-2">
                                 <Button className="" onClick={() => handleAddLayerToMap()}>
                                     Add To Map

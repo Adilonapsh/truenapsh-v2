@@ -50,9 +50,13 @@ export class MapCommandExecutor {
             return;
         }
 
+        console.log("Ini command", command)
+
         try {
             onProgress?.({ status: 'start', action: command.action, step: 'Validating command' });
             const params = command.params || {};
+            console.log("Ini params", params)
+
             switch (command.action) {
                 case 'flyTo':
                     onProgress?.({ status: 'running', action: command.action, step: 'Navigating to location' });

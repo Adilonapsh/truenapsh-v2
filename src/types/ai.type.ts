@@ -17,6 +17,7 @@ export type ChatMessage = {
   user_id: string | null;
   role: "user" | "assistant" | "system";
   content: string;
+  parts?: any[];
   metadata?: Record<string, any> | null;
   created_at: string;
   updated_at: string;

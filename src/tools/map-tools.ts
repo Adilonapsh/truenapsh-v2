@@ -33,8 +33,10 @@ const searchPlaces = async (search: string, lang: string = "EN-en") => {
   } else {
     try {
       if (search) {
+        const baseUrl =
+          typeof window === "undefined" ? process.env.NEXT_TRUMAP_API : "";
         const response = await fetch(
-          "/api/maps/location?" + new URLSearchParams({ search, lang }),
+          `${baseUrl}/api/maps/location?` + new URLSearchParams({ search, lang }),
           { mode: "no-cors" }
         );
         const data = await response.json();
@@ -65,7 +67,9 @@ const searchAlternatives = async (from: number[], to: number[]) => {
         y: to[1],
       },
     };
-    const response = await fetch("/api/maps/alternatives", {
+    const baseUrl =
+      typeof window === "undefined" ? process.env.NEXT_TRUMAP_API : "";
+    const response = await fetch(`${baseUrl}/api/maps/alternatives`, {
       method: "POST",
       body: JSON.stringify(body),
       headers: {

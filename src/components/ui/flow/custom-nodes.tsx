@@ -4,6 +4,8 @@ import { Tooltip } from "react-tooltip";
 import { widgets } from "./widget-node";
 import { LoadingBar } from "../loading-bar";
 import { useCallback, useState } from "react";
+import React from "react";
+
 
 const handleStyle = { width: 10, height: 10 };
 
@@ -84,7 +86,7 @@ export function GroupNode({
   data: any;
   selected: boolean;
 }) {
-  const [groupName, setGroupName] = useState(data.label);
+  const [groupName, setGroupName] = useState(data.parameters?.label || data.label);
 
   const onGroupNameChange = useCallback(
     (evt: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,7 +116,6 @@ export function GroupNode({
   );
 }
 
-import React from "react";
 
 export const nodeTypes = Object.values(widgets)
   .flat()
@@ -126,7 +127,6 @@ export const nodeTypes = Object.values(widgets)
           if (type.includes("group")) {
             return <GroupNode {...props} />;
           }
-          // You should return a fallback element here
           return <div>Unknown node type</div>;
         } else {
           const isDisabled = props?.data?.state?.is_enabled === false;
@@ -171,14 +171,15 @@ export const nodeTypes = Object.values(widgets)
                 <widget.icon className={`mr-2 ${iconColorClass}`} size={24} />
                 <div>
                   <div className={`font-bold text-sm ${labelTextClass}`}>
-                    {props.data.label}
+                    {props.data.parameters?.label || props.data.label}
                   </div>
                   <div className={`font-normal text-sm ${descTextClass}`}>
-                    {props.data.desc}
+                    {props.data.parameters?.desc || props.data.desc}
                   </div>
                   <div className="mt-1 space-y-0.5">
-                    {Object.entries(props.data?.parameters || {}).map(
-                      ([key, value]) => (
+                    {Object.entries(props.data?.parameters || {})
+                      .filter(([key]) => !["label", "desc", "enabledOptions"].includes(key))
+                      .map(([key, value]) => (
                         <p
                           key={key}
                           className="text-xs text-gray-500 flex items-center gap-1"
@@ -186,8 +187,7 @@ export const nodeTypes = Object.values(widgets)
                           <span className="font-medium capitalize">{key}:</span>
                           <span>{String(value)}</span>
                         </p>
-                      )
-                    )}
+                      ))}
                   </div>
                 </div>
               </div>

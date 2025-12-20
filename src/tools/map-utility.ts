@@ -43,10 +43,16 @@ const processGeoJSON = async (file: File): Promise<GeoJSON.GeoJSON> => {
     return JSON.parse(text);
 };
 
-const processShapefile = async (file: File): Promise<GeoJSON.GeoJSON> => {
+const processShapefile = async (file: File): Promise<GeoJSON.FeatureCollection> => {
     const buffer = await file.arrayBuffer();
     const shapeData = await shp(buffer);
-    return shapeData as GeoJSON.GeoJSON;
+    if (Array.isArray(shapeData)) {
+        return {
+            type: "FeatureCollection",
+            features: shapeData.flatMap(collection => collection.features)
+        };
+    }
+    return shapeData as GeoJSON.FeatureCollection;
 };
 
 const processKML = async (file: File): Promise<GeoJSON.GeoJSON> => {
@@ -107,6 +113,124 @@ const processImage = async (file: File): Promise<string> => {
     return await readFileAsDataURL(file);
 };
 
+export interface CSVOptions {
+    delimiter?: string;
+    headerLinesToDiscard?: number;
+    firstRecordHasFieldNames?: boolean;
+}
+
+export const processCSV = async (file: File, options: CSVOptions = {}): Promise<{ headers: string[], rows: any[], rawData: string[][] }> => {
+    const text = await readFileAsText(file);
+    const {
+        delimiter = ",",
+        headerLinesToDiscard = 0,
+        firstRecordHasFieldNames = true
+    } = options;
+
+    const allLines = text.split(/\r?\n/).filter(line => line.trim() !== "");
+    const lines = allLines.slice(headerLinesToDiscard);
+
+    if (lines.length === 0) throw new Error("CSV is empty after applying offset");
+
+    const parseLine = (line: string, delim: string) => {
+        const result = [];
+        let cur = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+                inQuotes = !inQuotes;
+            } else if (char === delim && !inQuotes) {
+                result.push(cur.trim());
+                cur = "";
+            } else {
+                cur += char;
+            }
+        }
+        result.push(cur.trim());
+        return result;
+    };
+
+    const sanitizeHeaders = (rawHeaders: string[]) => {
+        const counts: { [key: string]: number } = {};
+        return rawHeaders.map((h, i) => {
+            let name = h.trim();
+            if (name === "") name = `Field ${i + 1}`;
+
+            if (counts[name] !== undefined) {
+                counts[name]++;
+                const newName = `${name}_${counts[name]}`;
+                return newName;
+            } else {
+                counts[name] = 0;
+                return name;
+            }
+        });
+    };
+
+    const rawData = lines.map(line => parseLine(line, delimiter));
+    let headers: string[] = [];
+    let rows: any[] = [];
+
+    if (firstRecordHasFieldNames) {
+        headers = sanitizeHeaders(rawData[0]);
+        rows = rawData.slice(1).map(row => {
+            const obj: any = {};
+            headers.forEach((header, i) => {
+                obj[header] = row[i];
+            });
+            return obj;
+        });
+    } else {
+        const maxCols = Math.max(...rawData.map(r => r.length));
+        headers = Array.from({ length: maxCols }, (_, i) => `Column ${i + 1}`);
+        rows = rawData.map(row => {
+            const obj: any = {};
+            headers.forEach((header, i) => {
+                obj[header] = row[i];
+            });
+            return obj;
+        });
+    }
+
+    return { headers, rows, rawData };
+};
+
+export const csvToGeoJSON = (rows: any[], options: { latField?: string, lngField?: string, wktField?: string }): GeoJSON.FeatureCollection => {
+    const { latField, lngField, wktField } = options;
+
+    return {
+        type: "FeatureCollection",
+        features: rows.map(row => {
+            if (wktField && row[wktField]) {
+                try {
+                    const geometry = wkt.parse(row[wktField]);
+                    return {
+                        type: "Feature",
+                        geometry: geometry,
+                        properties: row
+                    };
+                } catch (e) {
+                    return null;
+                }
+            } else if (latField && lngField) {
+                const lat = parseFloat(row[latField]);
+                const lng = parseFloat(row[lngField]);
+                if (isNaN(lat) || isNaN(lng)) return null;
+                return {
+                    type: "Feature",
+                    geometry: {
+                        type: "Point",
+                        coordinates: [lng, lat]
+                    },
+                    properties: row
+                };
+            }
+            return null;
+        }).filter(f => f !== null) as GeoJSON.Feature[]
+    };
+};
+
 // File type mapping
 const fileHandlers: FileHandler[] = [
     { extensions: ['.geojson'], handler: processGeoJSON },
@@ -115,9 +239,17 @@ const fileHandlers: FileHandler[] = [
     { extensions: ['.kmz'], handler: processKMZ },
     { extensions: ['.topojson'], handler: processTopoJSON },
     { extensions: ['.wkt'], handler: processWKT },
+    {
+        extensions: ['.csv', '.txt'], handler: async (file) => {
+            const { rows } = await processCSV(file);
+            // Default conversion attempt if lat/lng found in headers
+            // This is a fallback for handleSingleFile, but AddLayerModal will use specific mapping
+            return csvToGeoJSON(rows, { latField: "lat", lngField: "lng" });
+        }
+    },
 ];
 
-const getFileHandler = (filename: string): FileHandler | null => {
+export const getFileHandler = (filename: string): FileHandler | null => {
     const lowerFilename = filename.toLowerCase();
     return fileHandlers.find(handler =>
         handler.extensions.some(ext => lowerFilename.includes(ext))
