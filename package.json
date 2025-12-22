@@ -64,6 +64,7 @@
     "clsx": "^2.1.1",
     "crypto-js": "^4.2.0",
     "framer-motion": "^11.18.1",
+    "geotiff": "^2.1.4-beta.1",
     "hls.js": "^1.5.20",
     "jszip": "^3.10.1",
     "lucide-react": "^0.548.0",

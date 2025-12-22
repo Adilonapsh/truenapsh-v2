@@ -57,6 +57,7 @@ interface UploadedFileConfig {
     file: File;
     name: string;
     ext: string;
+    fileType: 'csv' | 'geojson' | 'geotiff' | 'image' | 'video' | 'other';
     options: {
         encoding: string;
         delimiter: string;
@@ -75,6 +76,7 @@ interface UploadedFileConfig {
     headers: string[];
     rows: any[];
     rawData: string[][];
+    preview?: string; // For image/video preview
 }
 
 export default function AddLayerModal() {
@@ -102,8 +104,12 @@ export default function AddLayerModal() {
             let headers: string[] = [];
             let rows: any[] = [];
             let rawData: string[][] = [];
+            let fileType: 'csv' | 'geojson' | 'geotiff' | 'image' | 'video' | 'other' = 'other';
+            let preview: string | undefined;
 
+            // Determine file type
             if (ext === 'csv' || ext === 'txt') {
+                fileType = 'csv';
                 try {
                     const result = await processCSV(file);
                     headers = result.headers;
@@ -113,6 +119,18 @@ export default function AddLayerModal() {
                     toast.error(`Failed to parse ${file.name}: ` + err.message);
                     continue;
                 }
+            } else if (ext === 'geojson') {
+                fileType = 'geojson';
+            } else if (['tif', 'tiff', 'geotiff'].includes(ext)) {
+                fileType = 'geotiff';
+            } else if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(ext)) {
+                fileType = 'image';
+                // Create preview for images
+                preview = URL.createObjectURL(file);
+            } else if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) {
+                fileType = 'video';
+                // Create preview for videos
+                preview = URL.createObjectURL(file);
             }
 
             const lat = headers.find(h => h.toLowerCase().includes('lat') || h.toLowerCase().includes('y'));
@@ -124,6 +142,7 @@ export default function AddLayerModal() {
                 file,
                 name: file.name,
                 ext,
+                fileType,
                 options: {
                     encoding: 'UTF-8',
                     delimiter: ',',
@@ -141,7 +160,8 @@ export default function AddLayerModal() {
                 },
                 headers,
                 rows,
-                rawData
+                rawData,
+                preview
             });
         }
 
@@ -197,49 +217,217 @@ export default function AddLayerModal() {
         if (uploadedFiles.length === 0) return;
 
         let successCount = 0;
+        const mapInstance = map?.current?.getMap();
+        if (!mapInstance) {
+            toast.error("Map is not ready");
+            return;
+        }
 
         for (const fileConfig of uploadedFiles) {
             try {
-                let geojson: GeoJSON.GeoJSON;
-
-                if (fileConfig.ext === 'csv' || fileConfig.ext === 'txt') {
-                    if (fileConfig.options.geometryType === 'point') {
-                        if (!fileConfig.options.latField || !fileConfig.options.lngField) {
-                            toast.error(`Please select latitude and longitude columns for ${fileConfig.name}`);
-                            continue;
-                        }
-                        geojson = csvToGeoJSON(fileConfig.rows, {
-                            latField: fileConfig.options.latField,
-                            lngField: fileConfig.options.lngField
-                        });
-                    } else if (fileConfig.options.geometryType === 'wkt') {
-                        if (!fileConfig.options.wktField) {
-                            toast.error(`Please select WKT column for ${fileConfig.name}`);
-                            continue;
-                        }
-                        geojson = csvToGeoJSON(fileConfig.rows, {
-                            wktField: fileConfig.options.wktField
-                        });
-                    } else {
-                        toast.error(`Geometry definition not set for ${fileConfig.name}`);
-                        continue;
-                    }
-                } else {
+                // Handle GeoTIFF files
+                if (fileConfig.fileType === 'geotiff') {
                     const handler = getFileHandler(fileConfig.name);
                     if (!handler) {
                         toast.error(`Unsupported file type: ${fileConfig.name}`);
                         continue;
                     }
-                    const data = await handler.handler(fileConfig.file);
-                    geojson = data as GeoJSON.GeoJSON;
+                    const geotiffData: any = await handler.handler(fileConfig.file);
+
+                    const layerId = v4();
+                    const layerName = fileConfig.name.split('.')[0];
+
+                    mapInstance.addSource(layerId, {
+                        type: 'image',
+                        url: geotiffData.imageUrl,
+                        coordinates: geotiffData.bounds
+                    });
+
+                    mapInstance.addLayer({
+                        id: layerId,
+                        type: 'raster',
+                        source: layerId,
+                        paint: {
+                            'raster-opacity': 0.85
+                        }
+                    });
+
+                    addLayer({
+                        id: layerId,
+                        name: layerName,
+                        map_service_url: '',
+                        map_service_layer_name: layerName,
+                        map_service_vendor: MapServiceVendor.Image,
+                        type: 'raster',
+                        visible: true,
+                        min_zoom: 0,
+                        max_zoom: 24,
+                        status: 'Local',
+                        rendered: 1
+                    } as Layer);
+
+                    successCount++;
+                    continue;
                 }
 
-                await addGeojsonToMap({
-                    mapRef: map,
-                    layerName: fileConfig.name.split('.')[0],
-                    data: geojson
-                });
-                successCount++;
+                // Handle image files
+                if (fileConfig.fileType === 'image') {
+                    const imageUrl = fileConfig.preview || URL.createObjectURL(fileConfig.file);
+                    const layerId = v4();
+                    const layerName = fileConfig.name.split('.')[0];
+
+                    // Get map center and calculate bounds
+                    const center = mapInstance.getCenter();
+                    const zoom = mapInstance.getZoom();
+                    const offset = 0.01 * (20 - zoom); // Adjust size based on zoom
+
+                    const bounds: [[number, number], [number, number], [number, number], [number, number]] = [
+                        [center.lng - offset, center.lat + offset], // top-left
+                        [center.lng + offset, center.lat + offset], // top-right
+                        [center.lng + offset, center.lat - offset], // bottom-right
+                        [center.lng - offset, center.lat - offset]  // bottom-left
+                    ];
+
+                    mapInstance.addSource(layerId, {
+                        type: 'image',
+                        url: imageUrl,
+                        coordinates: bounds
+                    });
+
+                    mapInstance.addLayer({
+                        id: layerId,
+                        type: 'raster',
+                        source: layerId,
+                        paint: {
+                            'raster-opacity': 0.85
+                        }
+                    });
+
+                    addLayer({
+                        id: layerId,
+                        name: layerName,
+                        map_service_url: imageUrl,
+                        map_service_layer_name: layerName,
+                        map_service_vendor: MapServiceVendor.Image,
+                        type: 'raster',
+                        visible: true,
+                        min_zoom: 0,
+                        max_zoom: 24,
+                        status: 'Local',
+                        rendered: 1
+                    } as Layer);
+
+                    successCount++;
+                    continue;
+                }
+
+                // Handle video files
+                if (fileConfig.fileType === 'video') {
+                    const videoUrl = fileConfig.preview || URL.createObjectURL(fileConfig.file);
+                    const layerId = v4();
+                    const layerName = fileConfig.name.split('.')[0];
+
+                    // Create video element
+                    const video = document.createElement('video');
+                    video.src = videoUrl;
+                    video.loop = true;
+                    video.muted = true;
+                    video.play();
+
+                    // Get map center and calculate bounds
+                    const center = mapInstance.getCenter();
+                    const zoom = mapInstance.getZoom();
+                    const offset = 0.01 * (20 - zoom);
+
+                    const bounds: [[number, number], [number, number], [number, number], [number, number]] = [
+                        [center.lng - offset, center.lat + offset],
+                        [center.lng + offset, center.lat + offset],
+                        [center.lng + offset, center.lat - offset],
+                        [center.lng - offset, center.lat - offset]
+                    ];
+
+                    // Wait for video metadata to load
+                    await new Promise((resolve) => {
+                        video.addEventListener('loadedmetadata', resolve);
+                    });
+
+                    mapInstance.addSource(layerId, {
+                        type: 'video',
+                        urls: [videoUrl],
+                        coordinates: bounds
+                    });
+
+                    mapInstance.addLayer({
+                        id: layerId,
+                        type: 'raster',
+                        source: layerId,
+                        paint: {
+                            'raster-opacity': 0.85
+                        }
+                    });
+
+                    addLayer({
+                        id: layerId,
+                        name: layerName,
+                        map_service_url: videoUrl,
+                        map_service_layer_name: layerName,
+                        map_service_vendor: MapServiceVendor.Image,
+                        type: 'raster',
+                        visible: true,
+                        min_zoom: 0,
+                        max_zoom: 24,
+                        status: 'Local',
+                        rendered: 1
+                    } as Layer);
+
+                    successCount++;
+                    continue;
+                }
+
+                // Handle CSV/TXT and other geospatial files (not media)
+                if (fileConfig.fileType === 'csv' || fileConfig.fileType === 'geojson' || fileConfig.fileType === 'other') {
+                    let geojson: GeoJSON.GeoJSON;
+
+                    if (fileConfig.ext === 'csv' || fileConfig.ext === 'txt') {
+                        if (fileConfig.options.geometryType === 'point') {
+                            if (!fileConfig.options.latField || !fileConfig.options.lngField) {
+                                toast.error(`Please select latitude and longitude columns for ${fileConfig.name}`);
+                                continue;
+                            }
+                            geojson = csvToGeoJSON(fileConfig.rows, {
+                                latField: fileConfig.options.latField,
+                                lngField: fileConfig.options.lngField
+                            });
+                        } else if (fileConfig.options.geometryType === 'wkt') {
+                            if (!fileConfig.options.wktField) {
+                                toast.error(`Please select WKT column for ${fileConfig.name}`);
+                                continue;
+                            }
+                            geojson = csvToGeoJSON(fileConfig.rows, {
+                                wktField: fileConfig.options.wktField
+                            });
+                        } else {
+                            toast.error(`Geometry definition not set for ${fileConfig.name}`);
+                            continue;
+                        }
+                    } else {
+                        // Handle other geospatial files (GeoJSON, KML, etc.)
+                        const handler = getFileHandler(fileConfig.name);
+                        if (!handler) {
+                            toast.error(`Unsupported file type: ${fileConfig.name}`);
+                            continue;
+                        }
+                        const data = await handler.handler(fileConfig.file);
+                        geojson = data as GeoJSON.GeoJSON;
+                    }
+
+                    await addGeojsonToMap({
+                        mapRef: map,
+                        layerName: fileConfig.name.split('.')[0],
+                        data: geojson
+                    });
+                    successCount++;
+                }
             } catch (error: any) {
                 toast.error(`Error adding ${fileConfig.name}: ` + error.message);
             }
@@ -717,7 +905,7 @@ export default function AddLayerModal() {
                             <TabsContent value="upload" className="h-[70vh] flex flex-col gap-4">
                                 <div className="flex-1 flex gap-4 overflow-hidden mt-2">
                                     {/* Left Side: File List and Upload */}
-                                    <div className="w-[280px] flex flex-col gap-4 border rounded-lg p-4 bg-muted/30">
+                                    <div className="w-[700px] flex flex-col gap-4 border rounded-lg p-4 bg-muted/30">
                                         <div className="flex-1 overflow-auto space-y-2 pr-2">
                                             {uploadedFiles.length === 0 ? (
                                                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground border-2 border-dashed rounded-lg p-4">
@@ -756,7 +944,7 @@ export default function AddLayerModal() {
                                             type="file"
                                             className="hidden"
                                             onChange={handleFileUpload}
-                                            accept=".geojson,.kml,.kmz,.topojson,.wkt,.zip,.csv,.txt"
+                                            accept=".geojson,.kml,.kmz,.topojson,.wkt,.zip,.csv,.txt,.tif,.tiff,.geotiff,.png,.jpg,.jpeg,.gif,.webp,.bmp,.mp4,.webm,.ogg,.mov"
                                             multiple
                                         />
                                         <Button

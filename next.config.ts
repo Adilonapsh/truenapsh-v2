@@ -7,18 +7,6 @@ const nextConfig: NextConfig = {
       { hostname: "api.dicebear.com", protocol: "https", port: "" },
     ],
   },
-  async rewrites() {
-    return [
-      {
-        source: "/api/maps/location",
-        destination: "https://trueapi.truenapsh.my.id/api/maps/location",
-      },
-      {
-        source: "/api/maps/alternatives",
-        destination: "https://trueapi.truenapsh.my.id/api/maps/alternatives",
-      },
-    ];
-  },
   // experimental: {
   //     reactCompiler: true,
   // },

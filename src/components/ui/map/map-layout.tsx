@@ -151,6 +151,8 @@ import { StylePanel } from "./style-panel";
 import { CursorData } from "@/types/collaboration.types";
 import IconTooltip from "../icon-tooltip";
 import { MapCommandExecutor } from "@/tools/ai-tools/ai-tools";
+import { DrawPropertiesEditor } from "./draw-properties-editor";
+import { PropertyValueType } from "@/types/map.types";
 
 export default function MapLayout({
     layersFetch,
@@ -279,6 +281,11 @@ export default function MapLayout({
         headers: [],
         data: [],
     });
+
+    const [selectedFeature, setSelectedFeature] = useState<GeoJSON.Feature | null>(
+        null
+    );
+    const propertySchemaRef = useRef<Record<string, PropertyValueType>>({});
 
     // MAP FUNCTIONS
     const handleSearch = (place_result: Place) => {
@@ -539,16 +546,44 @@ export default function MapLayout({
             // Load Draw Styles
             map.on("draw.create", (e: { features: GeoJSON.Feature[] }) => {
                 setIsDrawDone(false);
+                // Apply last used schema to new features
+                const currentSchema = propertySchemaRef.current;
+                if (Object.keys(currentSchema).length > 0 && drawRef.current) {
+                    e.features.forEach((f) => {
+                        Object.entries(currentSchema).forEach(([key, type]) => {
+                            let defaultValue: any = "";
+                            if (type === "number") defaultValue = 0;
+                            else if (type === "boolean") defaultValue = false;
+                            else if (type === "array") defaultValue = [];
+
+                            drawRef.current!.setFeatureProperty(f.id as string, key, defaultValue);
+                        });
+                    });
+                }
             });
 
             map.on("draw.update", (e: { features: GeoJSON.Feature[] }) => {
                 setIsDrawDone(false);
             });
 
-            map.on("draw.delete", (e: { features: GeoJSON.Feature[] }) => { });
+            map.on("draw.delete", (e: { features: GeoJSON.Feature[] }) => {
+                if (drawRef.current && drawRef.current.getAll().features.length === 0) {
+                    setIsDrawDone(true);
+                }
+            });
 
             map.on("draw.modechange", (e: { mode: string }) => {
                 setDrawMode(e.mode);
+            });
+
+            map.on("draw.selectionchange", (e: { features: GeoJSON.Feature[] }) => {
+                if (e.features.length > 0) {
+                    setSelectedFeature(e.features[0]);
+                    setDisplayLayouts({ drawProperties: true });
+                } else {
+                    setSelectedFeature(null);
+                    setDisplayLayouts({ drawProperties: false });
+                }
             });
 
             map.on("dragstart", () => {
@@ -616,7 +651,7 @@ export default function MapLayout({
         const latLng: Location = event.lngLat;
         setInfoFeatures([]);
         setIsLoading({ ...isLoading, featureInfo: true });
-        if (map && mode == "simple_select") {
+        if (map && mode == "simple_select" && isDrawDone) {
             addOrUpdateMarker(latLng.lng, latLng.lat);
             setCurrentMapClick({ lng: latLng.lng, lat: latLng.lat });
             setDisplayLayouts({ ...displayLayouts, layerInfo: true });
@@ -1088,6 +1123,7 @@ export default function MapLayout({
                 data: features,
             });
             setIsDrawDone(true);
+            propertySchemaRef.current = {}; // Reset schema after save as per user request
         }
     };
 
@@ -1604,6 +1640,7 @@ export default function MapLayout({
             );
         } else if (drawMode === "clear") {
             drawRef.current?.deleteAll();
+            setIsDrawDone(true);
         } else {
             drawRef.current?.changeMode("simple_select");
         }
@@ -1921,6 +1958,43 @@ export default function MapLayout({
                             <StylePanel handleEditFeatures={handleEditFeatures} />
                         </CardContent>
                     </Card>
+                )}
+                {displayLayouts.drawProperties && selectedFeature && (
+                    <div className="mt-4">
+                        <DrawPropertiesEditor
+                            feature={selectedFeature}
+                            onClose={() => setDisplayLayouts({ drawProperties: false })}
+                            onUpdate={(props) => {
+                                if (drawRef.current && selectedFeature.id) {
+                                    const featureId = selectedFeature.id as string;
+                                    const currentFeature = drawRef.current.get(featureId);
+                                    if (currentFeature) {
+                                        // Clear existing properties that are not in props
+                                        Object.keys(currentFeature.properties || {}).forEach((key) => {
+                                            if (!(key in props)) {
+                                                drawRef.current!.setFeatureProperty(featureId, key, undefined);
+                                            }
+                                        });
+                                        // Set all new properties
+                                        Object.entries(props).forEach(([key, value]) => {
+                                            drawRef.current!.setFeatureProperty(featureId, key, value);
+                                        });
+
+                                        // Update schema for next features
+                                        const newSchema: Record<string, PropertyValueType> = {};
+                                        Object.entries(props).forEach(([key, value]) => {
+                                            let type: PropertyValueType = "string";
+                                            if (Array.isArray(value)) type = "array";
+                                            else if (typeof value === "number") type = "number";
+                                            else if (typeof value === "boolean") type = "boolean";
+                                            newSchema[key] = type;
+                                        });
+                                        propertySchemaRef.current = newSchema;
+                                    }
+                                }
+                            }}
+                        />
+                    </div>
                 )}
                 {displayLayouts.routes && (
                     <Card>

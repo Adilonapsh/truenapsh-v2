@@ -203,7 +203,10 @@ type LayoutDisplay = {
   routes: boolean;
   tools: boolean;
   table: boolean;
+  drawProperties: boolean;
 };
+
+export type PropertyValueType = "string" | "number" | "boolean" | "array";
 
 export type {
   Place,

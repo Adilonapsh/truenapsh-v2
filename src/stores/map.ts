@@ -39,6 +39,7 @@ export const useMapStore = create<MapStore>((set) => ({
         routes: false,
         tools: false,
         table: false,
+        drawProperties: false,
     },
     setDisplayLayouts: (layouts) =>
         set((state) => ({

@@ -6,6 +6,7 @@ import JSZip from "jszip";
 import * as toGeoJSON from "@tmcw/togeojson";
 import * as topojson from "topojson-client";
 import * as wkt from "wkt";
+import { fromBlob } from "geotiff";
 
 
 // File type handlers
@@ -111,6 +112,92 @@ const processWKT = async (file: File): Promise<GeoJSON.GeoJSON> => {
 
 const processImage = async (file: File): Promise<string> => {
     return await readFileAsDataURL(file);
+};
+
+const processVideo = async (file: File): Promise<string> => {
+    return await readFileAsDataURL(file);
+};
+
+export interface GeoTIFFData {
+    type: 'geotiff';
+    imageUrl: string;
+    bounds: [[number, number], [number, number], [number, number], [number, number]];
+    width: number;
+    height: number;
+}
+
+const processGeoTIFF = async (file: File): Promise<GeoTIFFData> => {
+    try {
+        const tiff = await fromBlob(file);
+        const image = await tiff.getImage();
+        const bbox = image.getBoundingBox();
+        const width = image.getWidth();
+        const height = image.getHeight();
+
+        // Check if file is too large
+        const maxPixels = 4096 * 4096; // 16 megapixels max
+        if (width * height > maxPixels) {
+            throw new Error(`GeoTIFF is too large (${width}x${height}). Maximum supported size is 4096x4096 pixels. Please use a smaller file or create a thumbnail version.`);
+        }
+
+        // Read the raster data and convert to canvas
+        const rasters = await image.readRasters();
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        if (ctx) {
+            const imageData = ctx.createImageData(width, height);
+            const data = imageData.data;
+
+            // Convert raster data to RGBA
+            // Convert TypedArrays to regular arrays for easier indexing
+            const rasterArrays = (rasters as any[]).map((r: any) => Array.isArray(r) ? r : Array.from(r as ArrayLike<number>));
+
+            for (let i = 0; i < width * height; i++) {
+                const idx = i * 4;
+                if (rasterArrays.length >= 3) {
+                    // RGB image
+                    data[idx] = rasterArrays[0][i];     // R
+                    data[idx + 1] = rasterArrays[1][i]; // G
+                    data[idx + 2] = rasterArrays[2][i]; // B
+                    data[idx + 3] = 255;           // A
+                } else if (rasterArrays.length === 1) {
+                    // Grayscale image
+                    const val = rasterArrays[0][i];
+                    data[idx] = val;
+                    data[idx + 1] = val;
+                    data[idx + 2] = val;
+                    data[idx + 3] = 255;
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        const imageUrl = canvas.toDataURL();
+
+        // Convert bbox to Mapbox coordinates format
+        // bbox format: [minX, minY, maxX, maxY]
+        const bounds: [[number, number], [number, number], [number, number], [number, number]] = [
+            [bbox[0], bbox[3]], // top-left
+            [bbox[2], bbox[3]], // top-right
+            [bbox[2], bbox[1]], // bottom-right
+            [bbox[0], bbox[1]]  // bottom-left
+        ];
+
+        return {
+            type: 'geotiff',
+            imageUrl,
+            bounds,
+            width,
+            height
+        };
+    } catch (error) {
+        console.error('Error processing GeoTIFF:', error);
+        throw new Error(`Failed to process GeoTIFF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 };
 
 export interface CSVOptions {
@@ -239,6 +326,9 @@ const fileHandlers: FileHandler[] = [
     { extensions: ['.kmz'], handler: processKMZ },
     { extensions: ['.topojson'], handler: processTopoJSON },
     { extensions: ['.wkt'], handler: processWKT },
+    { extensions: ['.tif', '.tiff', '.geotiff'], handler: processGeoTIFF as any },
+    { extensions: ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'], handler: processImage },
+    { extensions: ['.mp4', '.webm', '.ogg', '.mov'], handler: processVideo },
     {
         extensions: ['.csv', '.txt'], handler: async (file) => {
             const { rows } = await processCSV(file);
@@ -257,7 +347,15 @@ export const getFileHandler = (filename: string): FileHandler | null => {
 };
 
 const isImageFile = (file: File): boolean => {
-    return file.type.startsWith("image/");
+    return file.type.startsWith("image/") || file.name.toLowerCase().match(/\.(png|jpg|jpeg|gif|webp|bmp)$/) !== null;
+};
+
+const isVideoFile = (file: File): boolean => {
+    return file.type.startsWith("video/") || file.name.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) !== null;
+};
+
+const isGeoTIFFFile = (file: File): boolean => {
+    return file.name.toLowerCase().match(/\.(tif|tiff|geotiff)$/) !== null;
 };
 
 // const addImageToMap = (imageUrl: string, lngLat: mapboxgl.LngLat) => {
