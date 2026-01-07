@@ -1,6 +1,6 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
 export const lmstudio = createOpenAICompatible({
     name: 'lmstudio',
@@ -11,3 +11,6 @@ export const google = createGoogleGenerativeAI({
     apiKey: process.env.NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY
 })
 
+export const openrouter = createOpenRouter({
+    apiKey: process.env.NEXT_OPENROUTER_API_KEY,
+});

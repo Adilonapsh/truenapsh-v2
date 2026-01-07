@@ -1,0 +1,132 @@
+import React, { useMemo } from 'react';
+import CodeMirror from '@uiw/react-codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { autocompletion, CompletionContext } from '@codemirror/autocomplete';
+import { oneDark } from '@codemirror/theme-one-dark';
+import { EditorView } from '@codemirror/view';
+import { useTheme } from 'next-themes';
+
+interface ExpressionEditorProps {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    className?: string;
+}
+
+export const ExpressionEditor: React.FC<ExpressionEditorProps> = ({
+    value,
+    onChange,
+    placeholder,
+    className
+}) => {
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
+
+    // Custom autocomplete logic
+    const expressionCompletions = useMemo(() => {
+        return autocompletion({
+            override: [
+                (context: CompletionContext) => {
+                    const word = context.matchBefore(/\$?[a-zA-Z]*/);
+                    if (!word) return null;
+                    if (word.from === word.to && !context.explicit) return null;
+
+                    const options = [
+                        { label: '$input', type: 'variable', detail: 'Workflow input data' },
+                        { label: '$nodes', type: 'variable', detail: 'Access data from other nodes by ID' },
+                        { label: '$node', type: 'function', detail: 'Helper to access node data: $node("id")' },
+                        { label: 'all()', type: 'method', detail: 'Return all input data' },
+                        { label: 'first()', type: 'method', detail: 'Return first item' },
+                        { label: 'last()', type: 'method', detail: 'Return last item' },
+                    ];
+
+                    return {
+                        from: word.from,
+                        options: options.map(opt => ({
+                            ...opt,
+                            apply: opt.label.endsWith('()') ? opt.label : opt.label
+                        }))
+                    };
+                }
+            ]
+        });
+    }, []);
+
+    return (
+        <div className={`flex h-9 w-full rounded-md border border-input bg-transparent py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm ${className}`}>
+            <CodeMirror
+                value={value}
+                width="100%"
+                theme={isDark ? oneDark : 'light'}
+                placeholder={placeholder}
+                extensions={[
+                    javascript(),
+                    expressionCompletions,
+                    EditorView.lineWrapping,
+                    EditorView.theme({
+                        "&": {
+                            fontSize: "12px",
+                            backgroundColor: "var(--background)",
+                            color: "var(--foreground)",
+                            border: "1px solid var(--input)",
+                            borderRadius: "calc(var(--radius) - 2px)",
+                            minHeight: "32px",
+                        },
+                        "&.cm-focused": {
+                            outline: "2px solid var(--ring)",
+                            outlineOffset: "-1px",
+                        },
+                        ".cm-content": {
+                            fontFamily: "JetBrains Mono, Menlo, Monaco, Consolas, monospace",
+                            padding: "4px 8px"
+                        },
+                        ".cm-gutters": { display: "none" }, // Hide line numbers
+                        ".cm-activeLine": { backgroundColor: "transparent" },
+                        ".cm-activeLineGutter": { backgroundColor: "transparent" },
+                        ".cm-tooltip-autocomplete": {
+                            zIndex: "1000 !important",
+                        },
+                    }),
+                    EditorView.domEventHandlers({
+                        drop(event, view) {
+                            const payload = event.dataTransfer?.getData("application/variable");
+                            if (payload) {
+                                event.preventDefault();
+                                // Insert at cursor position
+                                const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+                                if (pos !== null) {
+                                    view.dispatch({
+                                        changes: { from: pos, insert: payload },
+                                        selection: { anchor: pos + payload.length }
+                                    });
+                                } else {
+                                    // Fallback to appending if position can't be determined
+                                    const length = view.state.doc.length;
+                                    view.dispatch({
+                                        changes: { from: length, insert: payload },
+                                        selection: { anchor: length + payload.length }
+                                    });
+                                }
+                                return true;
+                            }
+                            return false;
+                        },
+                        dragover(event) {
+                            if (event.dataTransfer?.types.includes("application/variable")) {
+                                event.preventDefault();
+                                return true;
+                            }
+                            return false;
+                        }
+                    })
+                ]}
+                onChange={onChange}
+                basicSetup={{
+                    lineNumbers: false,
+                    foldGutter: false,
+                    highlightActiveLine: false,
+                }}
+            />
+        </div>
+    );
+};

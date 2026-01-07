@@ -15,6 +15,22 @@ export const settingsInputs: Record<string, SettingInput[]> = {
         { id: "url", label: "URL", type: "url" },
         { id: "body", label: "Body", type: "switch" },
     ],
+    webhook: [
+        { id: "url", label: "Webhook URL", type: "url", tooltip: "The URL to send the webhook to" },
+        {
+            id: "method",
+            label: "Method",
+            type: "select",
+            options: ["POST", "GET", "PUT"],
+            defaultValue: "POST"
+        },
+        {
+            id: "payload",
+            label: "Payload",
+            type: "key-value-list",
+            tooltip: "Data to send in the webhook"
+        },
+    ],
     // Input/Output
     import: [
         { id: "file", label: "File", type: "file" },
@@ -36,6 +52,14 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             defaultValue: "Text",
         },
     ],
+    layer: [
+        {
+            id: "layer-input",
+            label: "Layer Input",
+            type: "select",
+            tooltip: "Layer to be boundary",
+        },
+    ],
     map: [
         {
             id: "type",
@@ -44,24 +68,55 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             options: [
                 "filter",
                 "change_style",
-                "change_data",
-                "change_source",
                 "change_source_data",
-                "change_layer_name",
+                "get_layers",
+                "get_sources",
+                "get_styles",
+                "get_layer",
+                "add_layer"
             ],
         },
         {
             id: "data",
             label: "Data",
             type: "text",
-            tooltip: "Data GEOJSON to be mapped",
-            showIf: (p) => p.type === "change_data",
+            tooltip: "Data GEOJSON or URL",
+            showIf: (p) => ["change_data", "change_source", "change_source_data"].includes(p.type),
         },
         {
-            id: "output",
-            label: "Output",
+            id: "geojson",
+            label: "Geojson",
             type: "text",
-            tooltip: "Output GEOJSON",
+            tooltip: "Geojson or URL",
+            showIf: (p) => ["add_layer"].includes(p.type),
+        },
+        {
+            id: "layer-id",
+            label: "Layer ID",
+            type: "text",
+            tooltip: "The ID of the Mapbox layer (supports multiple comma-separated IDs for get_layers)",
+            showIf: (p) => ["filter", "get_layers", "get_layer"].includes(p.type),
+        },
+        {
+            id: "source-id",
+            label: "Source ID",
+            type: "text",
+            tooltip: "The ID of the Mapbox source",
+            showIf: (p) => ["change_data", "change_source", "change_source_data"].includes(p.type),
+        },
+        {
+            id: "style-url",
+            label: "Style URL",
+            type: "text",
+            tooltip: "Mapbox style URL",
+            showIf: (p) => p.type === "change_style",
+        },
+        {
+            id: "layer-name",
+            label: "New Layer Name",
+            type: "text",
+            tooltip: "New name for the layer",
+            showIf: (p) => p.type === "change_layer_name",
         },
         {
             id: "expression",
@@ -76,6 +131,12 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             type: "text",
             tooltip: "Filter to be applied",
             showIf: (p) => p.type === "filter",
+        },
+        {
+            id: "output",
+            label: "Output",
+            type: "text",
+            tooltip: "Output GEOJSON",
         },
     ],
     analytics: [
@@ -374,6 +435,19 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             type: "select",
             tooltip: "Layer to be boundary",
         },
+        {
+            id: "interval",
+            label: "Interval",
+            type: "number",
+            tooltip: "Interval between points",
+        },
+        {
+            id: "unit",
+            label: "Unit",
+            type: "select",
+            options: ["Meter", "Kilometer", "Mile"],
+            defaultValue: "Kilometer",
+        },
     ],
     simplify: [
         {
@@ -381,6 +455,13 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+        },
+        {
+            id: "tolerance",
+            label: "Tolerance",
+            type: "number",
+            tooltip: "Simplification tolerance",
+            defaultValue: "0.01",
         },
     ],
     // Analysis
@@ -390,6 +471,19 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+        },
+        {
+            id: "cell_side",
+            label: "Cell Side",
+            type: "number",
+            tooltip: "Side length of hexagons",
+        },
+        {
+            id: "unit",
+            label: "Unit",
+            type: "select",
+            options: ["Meter", "Kilometer", "Mile"],
+            defaultValue: "Kilometer",
         },
     ],
     // Integration
@@ -407,6 +501,13 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+        },
+        {
+            id: "source",
+            label: "Source",
+            type: "select",
+            options: ["Open Elevation", "Map Toolkit", "GPXZ"],
+            defaultValue: "Open Elevation",
         },
     ],
 };

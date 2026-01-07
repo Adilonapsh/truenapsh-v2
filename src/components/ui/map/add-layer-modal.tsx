@@ -634,7 +634,7 @@ export default function AddLayerModal() {
 
     return (
         <div>
-            <div className="overflow-scroll relative p-5 w-full bg-white rounded-lg lg:max-h-screen dark:bg-background">
+            <div className="overflow-scroll relative p-5 w-full bg-white rounded-lg dark:bg-background">
                 <div className="flex justify-between items-center">
                     <div>
                         <p className="font-semibold">Add Layer</p>
@@ -649,7 +649,7 @@ export default function AddLayerModal() {
                         <IoClose size={"13pt"} />
                     </Button>
                 </div>
-                <div className="overflow-auto px-2 py-5 h-full max-w-[80vw] w-[80vw] transition-all duration-300">
+                <div className="overflow-auto px-2 py-5 h-[80vh] max-w-[80vw] w-[80vw] transition-all duration-300">
                     <Tabs defaultValue="datasets">
                         <TabsList className="grid grid-cols-4 w-full">
                             <TabsTrigger value="datasets">Datasets</TabsTrigger>
@@ -757,6 +757,11 @@ export default function AddLayerModal() {
                                         </div>
                                     </CardContent>
                                 </Card>
+                                  <div className="flex justify-end mt-4">
+                                <Button className="" onClick={() => handleAddLayerToMap()}>
+                                    Add To Map
+                                </Button>
+                            </div>
                             </TabsContent>
                             <TabsContent value="wms">
                                 <Card className="transition-[width] duration-300 ease-in-out">
@@ -888,6 +893,11 @@ export default function AddLayerModal() {
                                         </div>
                                     </CardContent>
                                 </Card>
+                                  <div className="flex justify-end mt-4">
+                                <Button className="" onClick={() => handleAddLayerToMap()}>
+                                    Add To Map
+                                </Button>
+                            </div>
                             </TabsContent>
                             <TabsContent value="integration">
                                 <Card className="transition-[width] duration-300 ease-in-out">
@@ -902,7 +912,7 @@ export default function AddLayerModal() {
                                     </CardContent>
                                 </Card>
                             </TabsContent>
-                            <TabsContent value="upload" className="h-[70vh] flex flex-col gap-4">
+                            <TabsContent value="upload" className="flex flex-col gap-4">
                                 <div className="flex-1 flex gap-4 overflow-hidden mt-2">
                                     {/* Left Side: File List and Upload */}
                                     <div className="w-[700px] flex flex-col gap-4 border rounded-lg p-4 bg-muted/30">
@@ -1226,11 +1236,11 @@ export default function AddLayerModal() {
                                     </div>
                                 </div>
                             </TabsContent>
-                            <div className="flex justify-end mt-2">
+                            {/* <div className="flex justify-end mt-2">
                                 <Button className="" onClick={() => handleAddLayerToMap()}>
                                     Add To Map
                                 </Button>
-                            </div>
+                            </div> */}
                         </div>
                     </Tabs>
                 </div>

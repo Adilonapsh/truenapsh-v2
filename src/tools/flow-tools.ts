@@ -27,7 +27,8 @@ const convertToWorkflow = (nodes: any[], edges: any[]) => {
             output = await processActions(
                 node.data.action as string,
                 node.data.input,
-                node.data.parameters
+                node.data.parameters,
+                nodes
             );
             console.log(`Processing Node (${node.id}):`, { input: node.data.input, output });
 

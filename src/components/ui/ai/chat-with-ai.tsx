@@ -72,6 +72,7 @@ interface ChatWithAIProps {
         step?: string;
         progress?: number;
     };
+    projectId?: string;
 }
 
 // Memoized Message Component to prevent unnecessary re-renders
@@ -201,7 +202,8 @@ export function ChatWithAI({
     placeholder = "Type your message...",
     className = "",
     onCommandReceived,
-    commandProgress,
+    commandProgress,    
+    projectId = "",
 }: ChatWithAIProps) {
     const { layers } = useLayerStore();
     const [activeTab, setActiveTab] = useState("Build");
@@ -307,6 +309,8 @@ export function ChatWithAI({
     };
 
     const fetchSessions = async (projectId?: string) => {
+        console.log("Ini Project ID", projectId);
+
         const url = projectId ? `${baseURL}?project_id=${projectId}` : `${baseURL}`;
         const res = await fetch(url, { headers });
         if (!res.ok) return;
@@ -374,7 +378,7 @@ export function ChatWithAI({
             body: JSON.stringify({ title }),
         });
         if (!res.ok) return;
-        await fetchSessions();
+        await fetchSessions(projectId);
         setSelectedSession((prev) =>
             prev && prev.id === id ? { ...prev, title } : prev
         );
@@ -387,7 +391,7 @@ export function ChatWithAI({
             body: JSON.stringify({ id }), // Assuming body might be needed or just empty
         });
         if (!res.ok) return;
-        await fetchSessions();
+        await fetchSessions(projectId);
         if (selectedSession?.id === id) {
             setSelectedSession(null);
             setSessionMessages([]);
@@ -396,8 +400,8 @@ export function ChatWithAI({
     };
 
     useEffect(() => {
-        fetchSessions();
-    }, []);
+        fetchSessions(projectId);
+    }, [projectId]);
 
 
 
@@ -452,7 +456,7 @@ export function ChatWithAI({
         try {
             if (!currentSession) {
                 const autoTitle = content.slice(0, 60);
-                const newSession = await createSession(autoTitle || undefined);
+                const newSession = await createSession(autoTitle || undefined, projectId);
                 if (newSession) {
                     currentSession = newSession;
                 }

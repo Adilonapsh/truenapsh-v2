@@ -40,15 +40,32 @@ const weatherIntegration = async (lon: number, lat: number, source?: string) => 
     try {
         if (!source) { source = 'bmkg' }
         let response;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
         if (source === 'bmkg') {
-            response = await fetch(`https://weather.bmkg.go.id/api/presentwx/coord?lon=${lon}&lat=${lat}`);
+            try {
+                response = await fetch(`https://weather.bmkg.go.id/api/presentwx/coord?lon=${lon}&lat=${lat}`, {
+                    signal: controller.signal
+                });
+            } finally {
+                clearTimeout(timeoutId);
+            }
         } else {
             throw new Error(`Source ${source} not supported`);
         }
-        if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`) }
+
+        if (!response.ok) {
+            throw new Error(`Weather API HTTP error! status: ${response.status}`)
+        }
+
         const weatherData = await response.json();
         return weatherData;
-    } catch (error) {
+    } catch (error: any) {
+        if (error.name === 'AbortError') {
+            console.error('Weather API request timed out');
+            throw new Error('Weather API request timed out after 10 seconds');
+        }
         console.error('Error fetching weather data:', error);
         throw error;
     }

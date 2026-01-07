@@ -5,9 +5,24 @@ import { fetchLayerBbox } from "@/services/map-services";
 import useLayerStore from "@/stores/layer";
 
 // MAP EXECUTOR
+export const mapParams = z.object({
+    center: z.tuple([z.number(), z.number()]).optional().describe("Center of the map [longitude, latitude], "),
+    zoom: z.number().optional().describe("Zoom level"),
+    pitch: z.number().optional().describe("Pitch of the map"),
+    bearing: z.number().optional().describe("Bearing of the map"),
+    duration: z.number().optional().describe("Duration of the animation"),
+    bbox: z.array(z.number()).optional().describe("Bounding box of the map [minLongitude, minLatitude, maxLongitude, maxLatitude]"),
+    padding: z.number().optional().describe("Padding of the map"),
+    layerId: z.string().optional().describe("ID of the layer, required if layerName is not provided"),
+    layerName: z.string().optional().describe("Name of the layer, required if layerId is not provided"),
+    filter: z.array(z.string()).optional().describe("Filter for the layer it can be Mapbox Expression or CQL Expression"),
+    map_service_vendor: z.string().optional().describe("Vendor of the map service it can be Null, Geoserver, ArcGIS, GeoJSON, XYZ, Image, Text, Icon"),
+    visible: z.boolean().optional().describe("Visibility of the layer, required if action is toggleLayer"),
+}).optional().describe("Parameters for the action");
+
 export interface MapCommand {
     action: 'flyTo' | 'easeTo' | 'filterLayer' | 'zoomToLayer' | 'toggleLayer';
-    params?: any;
+    params?: z.infer<typeof mapParams> | any;
     layerId?: any;
     center?: [number, number];
     zoom?: number;
@@ -93,15 +108,31 @@ export class MapCommandExecutor {
         const map = this.getMap();
         if (!map) return;
 
-        const { center, zoom, pitch, bearing, speed = 1.2 } = command;
+        const run = () => {
+            const { center, zoom, pitch, bearing, speed = 1.2, duration } = command;
+            const current = map.getCenter();
+            const hasValidCenter =
+                Array.isArray(center) &&
+                center.length === 2 &&
+                typeof center[0] === "number" &&
+                typeof center[1] === "number" &&
+                Number.isFinite(center[0]) &&
+                Number.isFinite(center[1]);
+            const safeCenter: [number, number] = hasValidCenter ? center as [number, number] : [current.lng, current.lat];
+            const opts: any = { center: safeCenter, speed: Number.isFinite(speed) ? speed : 1.2 };
+            if (typeof zoom === "number" && Number.isFinite(zoom)) opts.zoom = zoom;
+            if (typeof pitch === "number" && Number.isFinite(pitch)) opts.pitch = pitch;
+            if (typeof bearing === "number" && Number.isFinite(bearing)) opts.bearing = bearing;
+            if (typeof duration === "number" && Number.isFinite(duration)) opts.duration = duration;
+            map.flyTo(opts);
+        };
 
-        map.flyTo({
-            center,
-            zoom,
-            pitch,
-            bearing,
-            speed,
-        });
+        if (!map.isStyleLoaded()) {
+            map.once("load", run);
+            return;
+        }
+
+        run();
     }
 
     private async easeTo(command: MapCommand): Promise<void> {
@@ -109,23 +140,33 @@ export class MapCommandExecutor {
         if (!map) return;
 
         const { center, zoom, pitch, bearing, duration = 1000 } = command;
-
-        map.easeTo({
-            center,
-            zoom,
-            pitch,
-            bearing,
-            duration,
-        });
+        const current = map.getCenter();
+        const hasValidCenter =
+            Array.isArray(center) &&
+            center.length === 2 &&
+            typeof center[0] === "number" &&
+            typeof center[1] === "number" &&
+            Number.isFinite(center[0]) &&
+            Number.isFinite(center[1]);
+        const safeCenter: [number, number] = hasValidCenter ? center as [number, number] : [current.lng, current.lat];
+        const opts: any = { center: safeCenter, duration: Number.isFinite(duration) ? duration : 1000 };
+        if (typeof zoom === "number" && Number.isFinite(zoom)) opts.zoom = zoom;
+        if (typeof pitch === "number" && Number.isFinite(pitch)) opts.pitch = pitch;
+        if (typeof bearing === "number" && Number.isFinite(bearing)) opts.bearing = bearing;
+        map.easeTo(opts);
     }
 
     private async filterLayer(command: MapCommand): Promise<void> {
         const map = this.getMap();
-        if (!map || !command.layerName) return;
+        if (!map || (!command.layerId && !command.layerName)) return;
 
-        const layer = this.layers.find(l => l.name === command.layerName);
+        const layer = this.layers.find(l =>
+            (command.layerId && l.id === command.layerId) ||
+            (command.layerName && l.name === command.layerName)
+        );
+
         if (!layer) {
-            console.warn(`Layer not found: ${command.layerName}`);
+            console.warn(`Layer not found: ${command.layerId || command.layerName}`);
             return;
         }
 

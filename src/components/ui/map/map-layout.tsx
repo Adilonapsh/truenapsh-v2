@@ -28,7 +28,6 @@ import {
     Place,
 } from "@/types/map.types";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
-import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
 import {
     ArrowUp,
     Eye,
@@ -127,6 +126,7 @@ import {
     DropdownMenuContent,
     DropdownMenuGroup,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuShortcut,
     DropdownMenuTrigger,
 } from "../dropdown-menu";
@@ -286,6 +286,11 @@ export default function MapLayout({
         null
     );
     const propertySchemaRef = useRef<Record<string, PropertyValueType>>({});
+
+    // Selection Tools State
+    const drawIntent = useRef<'draw' | 'select_lasso' | 'select_square'| 'select_point'>('draw');
+    const [boxSelectStart, setBoxSelectStart] = useState<mapboxgl.Point | null>(null);
+    const [boxSelectEnd, setBoxSelectEnd] = useState<mapboxgl.Point | null>(null);
 
     // MAP FUNCTIONS
     const handleSearch = (place_result: Place) => {
@@ -455,11 +460,17 @@ export default function MapLayout({
 
         const key = e.key.toLowerCase();
         if (key === "p") {
-            drawRef.current.changeMode("draw_point");
+            handleDraw("point");
         } else if (key === "l") {
-            drawRef.current.changeMode("draw_line_string");
+            handleDraw("line");
         } else if (key === "g") {
-            drawRef.current.changeMode("draw_polygon");
+            handleDraw("polygon");
+        } else if (key === "s") {
+            handleDraw("select_lasso");
+        } else if (key === "b") {
+            handleDraw("select_square");
+        } else if (key === "v") {
+            handleDraw("select_point");
         } else if (e.key === "Escape") {
             drawRef.current.changeMode("simple_select");
         } else if (e.ctrlKey && e.key === "s") {
@@ -545,6 +556,17 @@ export default function MapLayout({
 
             // Load Draw Styles
             map.on("draw.create", (e: { features: GeoJSON.Feature[] }) => {
+                if (drawIntent.current === 'select_lasso') {
+                    if (e.features.length > 0) {
+                        selectFeaturesInPolygon(e.features[0]);
+                        // Delete the lasso polygon after selection
+                        if (drawRef.current) {
+                             drawRef.current.delete(e.features[0].id as string);
+                        }
+                    }
+                    return;
+                }
+
                 setIsDrawDone(false);
                 // Apply last used schema to new features
                 const currentSchema = propertySchemaRef.current;
@@ -1615,13 +1637,161 @@ export default function MapLayout({
         setIsLoading({ ...isLoading, layerTable: false });
     };
 
+    const selectFeaturesInPolygon = (polygonFeature: any) => {
+        const map = mapRef.current?.getMap();
+        if (!map) return;
+
+        // Get all layers from the style to query against
+        // We prefer to query only layers that are "interactive" or added by user
+        // But for simplicity, let's query layers present in our `layers` store
+        const targetLayerIds = layers.filter(l => l.visible).map(l => l.id);
+        
+        if (targetLayerIds.length === 0) {
+             toast("No visible layers to select from.");
+             return;
+        }
+
+        const features = map.queryRenderedFeatures({ layers: targetLayerIds });
+        
+        const selected = features.filter((f) => {
+            if (f.geometry.type === 'Point') {
+                return turf.booleanPointInPolygon(f.geometry as any, polygonFeature);
+            } else {
+                 return turf.booleanIntersects(f as any, polygonFeature);
+            }
+        });
+
+        console.log(selected);
+
+        if (selected.length > 0) {
+             // Remove duplicates
+             const uniqueFeatures = Array.from(new Map(selected.map(f => [f.id || JSON.stringify(f.properties), f])).values());
+            
+             console.log(uniqueFeatures);
+            const infos: InfoFeature[] = uniqueFeatures.map((f) => {
+                const layerId = f.layer?.id;
+                const layer = layers.find((l) => l.id === layerId);
+                return {
+                    // id: f.id?.toString() || v4(),
+                    layer_name: layer?.name || layerId || "Unknown Layer",
+                    properties: f.properties || {},
+                };
+            });
+             setInfoFeatures(infos);
+             setDisplayLayouts({ ...displayLayouts, layerInfo: true });
+            //  toast.success(`Selected ${uniqueFeatures.length} features`);
+        } else {
+             toast("No features found in area");
+        }
+    };
+
+    useEffect(() => {
+        if (!mapRef.current) return;
+        const map = mapRef.current.getMap();
+
+        const onMouseDown = (e: MapMouseEvent) => {
+            if (drawIntent.current !== 'select_square') return;
+            e.preventDefault();
+            map.dragPan.disable();
+            
+            // Store start point in both state (for UI) and ref (for logic)
+            setBoxSelectStart(e.point);
+            setBoxSelectEnd(e.point);
+            boxSelectStartRef.current = e.point;
+
+            map.on('mousemove', onMouseMove);
+            map.once('mouseup', onMouseUp);
+        };
+
+        const onMouseMove = (e: MapMouseEvent) => {
+            setBoxSelectEnd(e.point);
+        };
+
+        const onMouseUp = (e: MapMouseEvent) => {
+            map.off('mousemove', onMouseMove);
+            map.dragPan.enable();
+
+            setBoxSelectEnd(e.point); // Final update
+            
+            // Perform selection
+            if (boxSelectStartRef.current) {
+                const start = boxSelectStartRef.current;
+                const end = e.point;
+                
+                // Avoid selecting if box is too small (accidental click)
+                if (Math.abs(start.x - end.x) < 5 && Math.abs(start.y - end.y) < 5) {
+                    setBoxSelectStart(null);
+                    setBoxSelectEnd(null);
+                    boxSelectStartRef.current = null;
+                    return;
+                }
+
+                const startLngLat = map.unproject(start);
+                const endLngLat = map.unproject(end);
+
+                const polygonFeature = turf.polygon([[
+                    [startLngLat.lng, startLngLat.lat],
+                    [endLngLat.lng, startLngLat.lat],
+                    [endLngLat.lng, endLngLat.lat],
+                    [startLngLat.lng, endLngLat.lat],
+                    [startLngLat.lng, startLngLat.lat]
+                ]]);
+
+                selectFeaturesInPolygon(polygonFeature);
+            }
+            
+            // Reset selection box after a short delay
+            setTimeout(() => {
+                setBoxSelectStart(null);
+                setBoxSelectEnd(null);
+                boxSelectStartRef.current = null;
+            }, 300);
+        };
+
+        map.on('mousedown', onMouseDown);
+
+        return () => {
+            map.off('mousedown', onMouseDown);
+            map.off('mousemove', onMouseMove);
+        }
+    }, [layers]); // Re-bind if layers change
+
+    const boxSelectStartRef = useRef<mapboxgl.Point | null>(null);
+
     const handleDraw = (drawMode: string) => {
+        // Reset defaults
+        drawIntent.current = 'draw';
+        const map = mapRef.current?.getMap();
+        if (map) {
+             map.getCanvas().style.cursor = '';
+             map.dragPan.enable();
+        }
+        
         if (drawMode === "point") {
             drawRef.current?.changeMode("draw_point");
         } else if (drawMode === "line") {
             drawRef.current?.changeMode("draw_line_string");
         } else if (drawMode === "polygon") {
             drawRef.current?.changeMode("draw_polygon");
+        } else if (drawMode === "select_point") {
+            drawIntent.current = 'select_point';
+            if (map) {
+                map.getCanvas().style.cursor = 'pointer';
+                map.dragPan.enable();
+            }
+            drawRef.current?.changeMode("simple_select");
+            toast("Click to select a feature (Shortcut: V)", { icon: "👆" });
+        } else if (drawMode === "select_lasso") {
+            drawIntent.current = 'select_lasso';
+            drawRef.current?.changeMode("draw_polygon");
+            toast("Click points to draw a lasso area", { icon: "🖌️" });
+        } else if (drawMode === "select_square") {
+            drawIntent.current = 'select_square';
+            if (map) {
+                map.getCanvas().style.cursor = 'crosshair';
+                map.dragPan.disable();
+            }
+            toast("Click and drag to select features", { icon: "⛶" });
         } else if (drawMode === "single_delete") {
             const allFeatures = drawRef.current?.getAll().features;
             const lastFeature = allFeatures?.[allFeatures.length - 1];
@@ -1698,6 +1868,22 @@ export default function MapLayout({
                     </ContextMenuContent>
                 )}
             </ContextMenu>
+            {/* Box Selection UI */}
+            {boxSelectStart && boxSelectEnd && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        left: Math.min(boxSelectStart.x, boxSelectEnd.x),
+                        top: Math.min(boxSelectStart.y, boxSelectEnd.y),
+                        width: Math.abs(boxSelectStart.x - boxSelectEnd.x),
+                        height: Math.abs(boxSelectStart.y - boxSelectEnd.y),
+                        border: '2px solid #3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        pointerEvents: 'none',
+                        zIndex: 50
+                    }}
+                />
+            )}
             {showLoading && (
                 <div
                     className={`absolute top-0 h-screen w-screen flex justify-center items-center z-10 ${isLoading.initLoading ? "" : "opacity-0"
@@ -1715,7 +1901,7 @@ export default function MapLayout({
                         : "w-[0rem] overflow-hidden"
                         } z-10`}
                 >
-                    <ChatWithAI onCommandReceived={handleMapboxCommand} commandProgress={aiCommandProgress} />
+                    <ChatWithAI onCommandReceived={handleMapboxCommand} commandProgress={aiCommandProgress} projectId={projectIdParams} />
                 </div>
                 <div className="transition-transform duration-300 ease-in-out">
                     <div className="absolute top-0 mt-20 ml-5 max-h-[calc(100vh-9rem)] overflow-y-auto">
@@ -2221,6 +2407,20 @@ export default function MapLayout({
                                             Polygon
                                             <DropdownMenuShortcut>G</DropdownMenuShortcut>
                                         </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => handleDraw("select_point")}>
+                                            Select (Point)
+                                            <DropdownMenuShortcut>V</DropdownMenuShortcut>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleDraw("select_lasso")}>
+                                            Select (Lasso)
+                                            <DropdownMenuShortcut>S</DropdownMenuShortcut>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleDraw("select_square")}>
+                                            Select (Square)
+                                            <DropdownMenuShortcut>B</DropdownMenuShortcut>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
                                         <DropdownMenuItem
                                             onClick={() => handleDraw("single_delete")}
                                         >
@@ -2317,7 +2517,7 @@ export default function MapLayout({
                                         <X className="w-4 h-4" />
                                     </Button>
                                 </div>
-                                <div className="h-[50vh] w-full overflow-auto">
+                                <div className="h-[50vh] w-full">
                                     <DynamicTable
                                         headers={tableData.headers}
                                         data={tableData.data}

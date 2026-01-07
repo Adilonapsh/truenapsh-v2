@@ -1,4 +1,4 @@
-import { Building2, Combine, Hexagon, LineChart, Link, ListOrdered, Pentagon, PenTool, Radio, Scissors, Settings, Square, SquareDashedBottom, SquareStack, Trash2 } from "lucide-react";
+import { Building2, Combine, Hexagon, Layers, LineChart, Link, ListOrdered, Pentagon, PenTool, Radio, Scissors, Settings, Square, SquareDashedBottom, SquareStack, Trash2 } from "lucide-react";
 import { Input } from "../input";
 import { ChartBar, Database, FileInputIcon, FileOutput, Filter, MapIcon } from 'lucide-react'
 
@@ -17,6 +17,7 @@ export const widgets = {
     ],
     "Trigger": [
         { id: "websocket", type: 'websocket', label: 'Websocket', icon: Radio, color: 'blue', handleSource: Position.Right, handleTarget: null },
+        { id: "webhook", type: 'webhook', label: 'Webhook', icon: Link, color: 'orange', handleSource: Position.Right, handleTarget: null, action: 'webhook' },
     ],
     "Input/Output": [
         { id: "import", type: 'import', label: 'Import', icon: FileInputIcon, color: 'blue', handleSource: Position.Right, handleTarget: null, action: 'import' },
@@ -25,6 +26,7 @@ export const widgets = {
         { id: "database", type: 'database', label: 'Database', icon: Database, color: 'purple', handleSource: Position.Right, handleTarget: Position.Left, action: 'database' },
         { id: "analytics", type: 'analytics', label: 'Analytics', icon: ChartBar, color: 'indigo', handleSource: Position.Right, handleTarget: Position.Left, action: 'analytics' },
         { id: "http-request", type: 'http-request', label: 'Http Request', icon: Link, color: 'red', handleSource: Position.Right, handleTarget: Position.Left, action: 'http-request' },
+        { id: "layer", type: 'layer', label: 'Layer', icon: Layers, color: 'blue', handleSource: Position.Right, handleTarget: null, action: 'layer' },
     ],
     "Operation": [
         { id: "forloop", type: 'forloop', label: 'Loop', icon: MdLoop, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'forloop' },
@@ -65,7 +67,13 @@ export const widgets = {
     ]
 }
 
-export function WidgetNode({ onDragStart }: { onDragStart: (event: React.DragEvent<Element>, nodeType: string, nodeData: any) => void }) {
+export function WidgetNode({
+    onDragStart,
+    onDoubleClick
+}: {
+    onDragStart: (event: React.DragEvent<Element>, nodeType: string, nodeData: any) => void;
+    onDoubleClick?: (nodeType: string, nodeData: any) => void;
+}) {
     const [search, setSearch] = useState('');
 
     return (
@@ -92,8 +100,9 @@ export function WidgetNode({ onDragStart }: { onDragStart: (event: React.DragEve
                                     {filteredWidgets.map((widget) => (
                                         <div key={widget.id} className="flex flex-col items-center justify-start">
                                             <div
-                                                className="bg-gray-50 cursor-move h-10 w-10 border flex flex-col items-center justify-center rounded-lg"
+                                                className="bg-gray-50 cursor-move h-10 w-10 border flex flex-col items-center justify-center rounded-lg hover:border-primary/50 transition-colors"
                                                 onDragStart={(event) => onDragStart(event, widget.type, widget)}
+                                                onDoubleClick={() => onDoubleClick?.(widget.type, widget)}
                                                 draggable
                                             >
                                                 <widget.icon className={`text-${widget.color}-500`} size={20} />

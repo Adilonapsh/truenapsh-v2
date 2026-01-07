@@ -15,7 +15,7 @@ import {
 import { MapRef } from "react-map-gl";
 import { v4 } from "uuid";
 
-const searchPlaces = async (search: string, lang: string = "EN-en") => {
+const searchPlaces = async (search: string, lang: string = "EN-en", useBaseUrl: boolean = false) => {
     if (isCoordinates(search)) {
         const place: Place[] = [
             {
@@ -32,10 +32,12 @@ const searchPlaces = async (search: string, lang: string = "EN-en") => {
     } else {
         try {
             if (search) {
-                const response = await fetch(
-                    `/api/maps/location?` + new URLSearchParams({ search, lang }),
-                    { mode: "cors" }
-                );
+                const params = new URLSearchParams({
+                    search,
+                    lang,
+                });
+                const baseUrl = useBaseUrl ? "https://trueapi.truenapsh.my.id/api/maps/location" : "/api/maps/location";
+                const response = await fetch(`${baseUrl}?${params.toString()}`);
                 const data = await response.json();
                 return data.data;
             } else {
@@ -315,6 +317,8 @@ const clipLayers = (
     }
 };
 
+const intersectionLayers = clipLayers;
+
 const bufferLayers = (
     featureCollection: FeatureCollection<Geometry>,
     radius: number,
@@ -415,6 +419,19 @@ const centroidLayers = (
         );
     } catch (error) {
         console.error("Error clipping layers:", error);
+        return null;
+    }
+};
+
+const bboxPolygonLayers = (
+    featureCollection: FeatureCollection<Geometry>
+): FeatureCollection<Polygon> | null => {
+    try {
+        const bbox = turf.bbox(featureCollection);
+        const poly = turf.bboxPolygon(bbox);
+        return turf.featureCollection([poly]);
+    } catch (error) {
+        console.error("Error calculating bbox polygon:", error);
         return null;
     }
 };
@@ -781,6 +798,7 @@ const elevationLayers = async (
 
 export {
     addGeojsonToMap,
+    bboxPolygonLayers,
     bufferLayers,
     buildingLayers,
     calculateCoordinatesWithAspectRatio,
@@ -791,6 +809,7 @@ export {
     findLayerConfigByGeometryType,
     getBBOX,
     hexagonLayer,
+    intersectionLayers,
     isCoordinates,
     linesToPolygonLayers,
     pointAlongLinesLayers,

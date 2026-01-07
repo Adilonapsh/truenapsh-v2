@@ -71,21 +71,25 @@ const callTools = (section: string, layers: Layer[]) => {
                     lat: z.number().describe("Latitude of the location"),
                 }),
                 execute: async ({ source, lon, lat }) => {
-                    const weatherData = await weatherIntegration(lon, lat, source || "bmkg");
-                    if (weatherData) {
-                        return ToonEncode({ weather: weatherData.weather.data });
+                    try {
+                        const weatherData = await weatherIntegration(lon, lat, source || "bmkg");
+                        if (weatherData && weatherData.data) {
+                            return ToonEncode({ weather: weatherData.data });
+                        }
+                        return ToonEncode({ error: "Weather data not found or invalid format", status: "error" });
+                    } catch (error: any) {
+                        return ToonEncode({ error: error.message || "Failed to fetch weather data", status: "error" });
                     }
-                    return null;
                 },
             }),
             find_location: tool({
-                description: "Find the location of a address",
+                description: "Find the location of a address, use this tool if you dont know the exact location",
                 parameters: z.object({
                     address: z.string().describe("Address to find the location for"),
                     limit: z.number().max(10).default(5).nullable().describe("Limit of the results"),
                 }),
                 execute: async ({ address, limit }) => {
-                    const location = await searchPlaces(address);
+                    const location = await searchPlaces(address, "EN-en", true);
                     const results = location.slice(0, limit || 5);
                     return ToonEncode({ location: results });
                 },
@@ -115,7 +119,7 @@ const callTools = (section: string, layers: Layer[]) => {
                 parameters: z.object({
                     action: z.string().describe("Action to perform (flyTo, easeTo, toggleLayer, filterLayer, zoomToLayer"),
                     parameters: z.object({
-                        center: z.array(z.number()).optional().describe("Center of the map [longitude, latitude]"),
+                        center: z.tuple([z.number(), z.number()]).optional().describe("Center of the map"),
                         zoom: z.number().optional().describe("Zoom level"),
                         pitch: z.number().optional().describe("Pitch of the map"),
                         bearing: z.number().optional().describe("Bearing of the map"),
@@ -124,7 +128,7 @@ const callTools = (section: string, layers: Layer[]) => {
                         padding: z.number().optional().describe("Padding of the map"),
                         layerId: z.string().optional().describe("ID of the layer, required if layerName is not provided"),
                         layerName: z.string().optional().describe("Name of the layer, required if layerId is not provided"),
-                        filter: z.array(z.string()).optional().describe("Filter for the layer it can be Mapbox Expression or CQL Expression"),
+                        filter: z.array(z.string()).optional().describe("Filter for the layer it can be Mapbox Expression or CQL Expression. Check if the layer is GeoJSON or GeoServer or ArcGIS from map_service_vendor. if it is GeoJSON, use Mapbox Expression. if it is GeoServer, use CQL Expression. If it is ArcGIS, use CQL Expression"),
                         map_service_vendor: z.string().optional().describe("Vendor of the map service it can be Null, Geoserver, ArcGIS, GeoJSON, XYZ, Image, Text, Icon"),
                         visible: z.boolean().optional().describe("Visibility of the layer, required if action is toggleLayer"),
                     }).optional().describe("Parameters for the action"),
