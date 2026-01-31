@@ -151,20 +151,163 @@ interface SkyStyle {
   skyOpacity: number;
 }
 
-type LayerStyle =
-  | FillStyle
-  | LineStyle
-  | CircleStyle
-  | FillExtrusionStyle
-  | SymbolStyle
-  | HeatmapStyle
-  | RasterStyle
-  | HillshadeStyle
-  | BackgroundStyle
-  | ModelStyle
-  | SkyStyle;
+interface LayerConfig {
+  radiusMode: "static" | "attribute";
+  fillColorMode: "static" | "attribute";
+  strokeColorMode: "static" | "attribute";
+  lineColorMode: "static" | "attribute";
+
+  // Attribute configs
+  fillColorField: string;
+  fillColorItems: Array<{ id: string; value: string; color: string }>;
+  fillColorDefault: string;
+
+  strokeColorField: string;
+  strokeColorItems: Array<{ id: string; value: string; color: string }>;
+  strokeColorDefault: string;
+
+  lineColorField: string;
+  lineColorItems: Array<{ id: string; value: string; color: string }>;
+  lineColorDefault: string;
+
+  radiusField: string;
+  radiusValueMin: number;
+  radiusValueMax: number;
+  radiusMin: number;
+  radiusMax: number;
+
+  // Symbol attribute configs
+  symbolTextSizeMode: "static" | "attribute";
+  symbolTextSizeField: string;
+  symbolTextValueMin: number;
+  symbolTextValueMax: number;
+  symbolTextSizeMin: number;
+  symbolTextSizeMax: number;
+
+  symbolIconSizeMode: "static" | "attribute";
+  symbolIconSizeField: string;
+  symbolIconValueMin: number;
+  symbolIconValueMax: number;
+  symbolIconSizeMin: number;
+  symbolIconSizeMax: number;
+
+  // Heatmap attribute configs
+  heatmapWeightField: string;
+  heatmapWeightMin: number;
+  heatmapWeightMax: number;
+
+  circleViz: "standard" | "marker" | "heatmap";
+
+  // Persistent static values
+  staticStyles: {
+    fill: string;
+    stroke: string;
+    stroke_width: number;
+    line_width: number;
+    line_dasharray: number[];
+    circle_radius: number;
+    opacity: number;
+    contrast: number;
+    saturation: number;
+    brightness: [number, number];
+    zoom: [number, number];
+    model_color: string;
+    model_opacity: number;
+    heatmap_intensity: number;
+    heatmap_radius: number;
+    heatmap_opacity: number;
+    heatmap_color_stops: Array<[number, string]>;
+    model_emissive_strength: number;
+    model_rotation: number[];
+    fill_extrusion_color: string;
+    fill_extrusion_opacity: number;
+    fill_extrusion_height: number;
+    fill_extrusion_base: number;
+    fill_extrusion_vertical_gradient: boolean;
+
+    // Visibility
+    visibility: "visible" | "none";
+
+    // Symbol - Icon
+    icon_allow_overlap: boolean;
+    icon_anchor: "center" | "left" | "right" | "top" | "bottom" | "top-left" | "top-right" | "bottom-left" | "bottom-right";
+    icon_color: string;
+    icon_color_brightness_max: number;
+    icon_color_brightness_min: number;
+    icon_color_contrast: number;
+    icon_color_saturation: number;
+    icon_emissive_strength: number;
+    icon_halo_blur: number;
+    icon_halo_color: string;
+    icon_halo_width: number;
+    icon_ignore_placement: boolean;
+    icon_image: string;
+    icon_image_cross_fade: number;
+    icon_keep_upright: boolean;
+    icon_occlusion_opacity: number;
+    icon_offset: [number, number];
+    icon_opacity: number;
+    icon_optional: boolean;
+    icon_padding: number;
+    icon_pitch_alignment: "map" | "viewport" | "auto";
+    icon_rotate: number;
+    icon_rotation_alignment: "map" | "viewport" | "auto";
+    icon_size: number;
+    icon_text_fit: "none" | "width" | "height" | "both";
+    icon_text_fit_padding: [number, number, number, number];
+    icon_translate: [number, number];
+    icon_translate_anchor: "map" | "viewport";
+
+    // Symbol - Layout Properties
+    symbol_avoid_edges: boolean;
+    symbol_elevation_reference: "sea" | "ground";
+    symbol_placement: "point" | "line" | "line-center";
+    symbol_sort_key: number;
+    symbol_spacing: number;
+    symbol_z_elevate: boolean;
+    symbol_z_offset: number;
+    symbol_z_order: "auto" | "viewport-y" | "source";
+
+    // Symbol - Text
+    text_allow_overlap: boolean;
+    text_anchor: "center" | "left" | "right" | "top" | "bottom" | "top-left" | "top-right" | "bottom-left" | "bottom-right";
+    text_color: string;
+    text_emissive_strength: number;
+    text_field: string; // The property name to use
+    text_font: string[];
+    text_halo_blur: number;
+    text_halo_color: string;
+    text_halo_width: number;
+    text_ignore_placement: boolean;
+    text_justify: "auto" | "left" | "center" | "right";
+    text_keep_upright: boolean;
+    text_letter_spacing: number;
+    text_line_height: number;
+    text_max_angle: number;
+    text_max_width: number;
+    text_occlusion_opacity: number;
+    text_offset: [number, number];
+    text_opacity: number;
+    text_optional: boolean;
+    text_padding: number;
+    text_pitch_alignment: "map" | "viewport" | "auto";
+    text_radial_offset: number;
+    text_rotate: number;
+    text_rotation_alignment: "map" | "viewport" | "auto";
+    text_size: number;
+    text_transform: "none" | "uppercase" | "lowercase";
+    text_translate: [number, number];
+    text_translate_anchor: "map" | "viewport";
+    text_variable_anchor: Array<"center" | "left" | "right" | "top" | "bottom" | "top-left" | "top-right" | "bottom-left" | "bottom-right">;
+    text_writing_mode: Array<"horizontal" | "vertical">;
+  };
+}
 
 interface MapboxStyleState {
+  layerConfigs: Record<string, LayerConfig>;
+  getLayerConfig: (layerId: string) => LayerConfig;
+  updateLayerConfig: (layerId: string, updates: Partial<LayerConfig>) => void;
+
   // Styles for different layer types
   fillStyle: FillStyle;
   lineStyle: LineStyle;
@@ -469,10 +612,163 @@ const defaultSkyStyle: SkyStyle = {
   skyOpacity: 1,
 };
 
+export const defaultLayerConfig: LayerConfig = {
+  radiusMode: "static",
+  fillColorMode: "static",
+  strokeColorMode: "static",
+  lineColorMode: "static",
+  fillColorField: "",
+  fillColorItems: [],
+  fillColorDefault: "#000000",
+  strokeColorField: "",
+  strokeColorItems: [],
+  strokeColorDefault: "#000000",
+  lineColorField: "",
+  lineColorItems: [],
+  lineColorDefault: "#000000",
+  radiusField: "",
+  radiusValueMin: 0,
+  radiusValueMax: 100,
+  radiusMin: 2,
+  radiusMax: 12,
+  symbolTextSizeMode: "static",
+  symbolTextSizeField: "",
+  symbolTextValueMin: 0,
+  symbolTextValueMax: 100,
+  symbolTextSizeMin: 12,
+  symbolTextSizeMax: 24,
+  symbolIconSizeMode: "static",
+  symbolIconSizeField: "",
+  symbolIconValueMin: 0,
+  symbolIconValueMax: 100,
+  symbolIconSizeMin: 0.5,
+  symbolIconSizeMax: 2,
+  heatmapWeightField: "",
+  heatmapWeightMin: 0,
+  heatmapWeightMax: 1,
+  circleViz: "standard",
+  staticStyles: {
+    fill: "#000000",
+    stroke: "#000000",
+    stroke_width: 0,
+    line_width: 0,
+    line_dasharray: [],
+    circle_radius: 5,
+    opacity: 100,
+    contrast: 0,
+    saturation: 0,
+    brightness: [0, 1],
+    zoom: [0, 24],
+    model_color: "#000000",
+    model_opacity: 100,
+    heatmap_intensity: 1,
+    heatmap_radius: 20,
+    heatmap_opacity: 100,
+    heatmap_color_stops: [],
+    model_emissive_strength: 0,
+    model_rotation: [0, 0, 0],
+    fill_extrusion_color: "#000000",
+    fill_extrusion_opacity: 100,
+    fill_extrusion_height: 0,
+    fill_extrusion_base: 0,
+    fill_extrusion_vertical_gradient: true,
+    visibility: "visible",
+
+    // Icon defaults
+    icon_allow_overlap: false,
+    icon_anchor: "center",
+    icon_color: "#000000",
+    icon_color_brightness_max: 1,
+    icon_color_brightness_min: 0,
+    icon_color_contrast: 0,
+    icon_color_saturation: 0,
+    icon_emissive_strength: 0,
+    icon_halo_blur: 0,
+    icon_halo_color: "rgba(0,0,0,0)",
+    icon_halo_width: 0,
+    icon_ignore_placement: false,
+    icon_image: "",
+    icon_image_cross_fade: 0,
+    icon_keep_upright: false,
+    icon_occlusion_opacity: 0,
+    icon_offset: [0, 0],
+    icon_opacity: 100,
+    icon_optional: false,
+    icon_padding: 2,
+    icon_pitch_alignment: "auto",
+    icon_rotate: 0,
+    icon_rotation_alignment: "auto",
+    icon_size: 1,
+    icon_text_fit: "none",
+    icon_text_fit_padding: [0, 0, 0, 0],
+    icon_translate: [0, 0],
+    icon_translate_anchor: "map",
+
+    // Symbol layout defaults
+    symbol_avoid_edges: false,
+    symbol_elevation_reference: "ground",
+    symbol_placement: "point",
+    symbol_sort_key: 0,
+    symbol_spacing: 250,
+    symbol_z_elevate: true,
+    symbol_z_offset: 0,
+    symbol_z_order: "auto",
+
+    // Text defaults
+    text_allow_overlap: false,
+    text_anchor: "center",
+    text_color: "#000000",
+    text_emissive_strength: 0,
+    text_field: "",
+    text_font: ["Open Sans Regular", "Arial Unicode MS Regular"],
+    text_halo_blur: 0,
+    text_halo_color: "rgba(0,0,0,0)",
+    text_halo_width: 0,
+    text_ignore_placement: false,
+    text_justify: "center",
+    text_keep_upright: true,
+    text_letter_spacing: 0,
+    text_line_height: 1.2,
+    text_max_angle: 45,
+    text_max_width: 10,
+    text_occlusion_opacity: 0,
+    text_offset: [0, 0],
+    text_opacity: 100,
+    text_optional: false,
+    text_padding: 2,
+    text_pitch_alignment: "auto",
+    text_radial_offset: 0,
+    text_rotate: 0,
+    text_rotation_alignment: "auto",
+    text_size: 16,
+    text_transform: "none",
+    text_translate: [0, 0],
+    text_translate_anchor: "map",
+    text_variable_anchor: [],
+    text_writing_mode: ["horizontal"],
+  },
+};
+
 const mapRef = useMapStore.getState().map;
 const selectedLayer = useMapStore.getState().selectedLayer;
 
 export const useMapboxStyleStore = create<MapboxStyleState>((set, get) => ({
+  layerConfigs: {},
+  getLayerConfig: (layerId) => {
+    return get().layerConfigs[layerId] || defaultLayerConfig;
+  },
+  updateLayerConfig: (layerId, updates) => {
+    set((state) => ({
+      layerConfigs: {
+        ...state.layerConfigs,
+        [layerId]: {
+          ...(state.layerConfigs[layerId] || defaultLayerConfig),
+          ...updates,
+        },
+      },
+    }));
+  },
+
   // Initial state
   fillStyle: defaultFillStyle,
   lineStyle: defaultLineStyle,

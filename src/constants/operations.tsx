@@ -144,6 +144,7 @@ export const getOperationDetails = (layers: Layer[]): Record<string, OperationDe
             { id: "targetLayer", name: "Target Layer", type: "select", value: layers?.map((layer) => ({ key: layer.id, value: layer.name })), info: true },
             { id: "cellSize", name: "Cell Size", type: "number", value: "10", info: true },
             { id: "units", name: "Units", type: "select", value: ["meters", "kilometers", "miles", "feet", "degrees"], info: false },
+            { id: "gridCode", name: "Grid Code", type: "text", value: "Grid-001", info: true },
             { id: "outputGeometry", name: "Output Geometry", type: "select", value: ["Polygon"], info: true },
             { id: "keepGeometry", name: "Keep Attributes", type: "select", value: ["All", "Selected", "None"], info: false },
         ],

@@ -36,7 +36,7 @@ const MapMenu = (
             onExit?: () => void
         }
 ) => {
-    
+
     const handleOnNewTab = () => {
         window.open(window.location.href, '_blank');
     }
@@ -48,6 +48,31 @@ const MapMenu = (
     const { theme, setTheme } = useTheme();
     const { displayLayouts, setDisplayLayouts } = useMapStore();
 
+
+    const handleToggleFullscreen = () => {
+        const isFullscreen = !!document.fullscreenElement;
+
+        if (!isFullscreen) {
+            document.documentElement.requestFullscreen().catch((err) => {
+                console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
+            });
+        } else {
+            document.exitFullscreen().catch((err) => {
+                console.error(`Error attempting to exit full-screen mode: ${err.message} (${err.name})`);
+            });
+        }
+
+        if (displayLayouts) {
+            setDisplayLayouts({
+                ...displayLayouts,
+                fullscreen: !isFullscreen
+            });
+        }
+    }
+
+    const handleReload = () => {
+        window.location.reload();
+    }
 
     return (
         <div>
@@ -117,16 +142,31 @@ const MapMenu = (
                             Always Show Full URLs
                         </MenubarCheckboxItem>
                         <MenubarSeparator />
-                        <MenubarItem inset>
+                        <MenubarItem inset onClick={handleReload}>
                             Reload <MenubarShortcut>⌘R</MenubarShortcut>
                         </MenubarItem>
                         <MenubarItem disabled inset>
                             Force Reload <MenubarShortcut>⇧⌘R</MenubarShortcut>
                         </MenubarItem>
                         <MenubarSeparator />
-                        <MenubarItem inset>Toggle Fullscreen</MenubarItem>
+                        <MenubarCheckboxItem
+                            checked={displayLayouts?.fullscreen ?? true}
+                            onClick={() => handleToggleFullscreen()}
+                        >
+                            Fullscreen
+                        </MenubarCheckboxItem>
                         <MenubarSeparator />
-                        <MenubarCheckboxItem checked>
+                        <MenubarCheckboxItem
+                            checked={displayLayouts?.showTeamCursors ?? true}
+                            onClick={() => {
+                                if (displayLayouts) {
+                                    setDisplayLayouts({
+                                        ...displayLayouts,
+                                        showTeamCursors: !displayLayouts.showTeamCursors
+                                    });
+                                }
+                            }}
+                        >
                             Show Team Cursors
                         </MenubarCheckboxItem>
                         <MenubarItem inset>Hide Sidebar</MenubarItem>

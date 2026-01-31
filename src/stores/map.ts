@@ -13,6 +13,8 @@ interface MapStore {
     setDisplayLayouts: (layouts: Partial<LayoutDisplay>) => void;
     selectedLayer: Layer | null;
     setSelectedLayer: (layer: Layer | null) => void;
+    openStyleAccordions: string[];
+    setOpenStyleAccordions: (items: string[]) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
@@ -40,6 +42,8 @@ export const useMapStore = create<MapStore>((set) => ({
         tools: false,
         table: false,
         drawProperties: false,
+        showTeamCursors: true,
+        fullscreen: false,
     },
     setDisplayLayouts: (layouts) =>
         set((state) => ({
@@ -47,4 +51,6 @@ export const useMapStore = create<MapStore>((set) => ({
         })),
     selectedLayer: null,
     setSelectedLayer: (layer) => set({ selectedLayer: layer }),
+    openStyleAccordions: ["label-settings"],
+    setOpenStyleAccordions: (items) => set({ openStyleAccordions: items }),
 }));

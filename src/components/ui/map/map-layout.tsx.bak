@@ -109,8 +109,6 @@ import {
     useSensor,
     useSensors,
     useDroppable,
-    pointerWithin,
-    rectIntersection,
 } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
@@ -324,7 +322,8 @@ const LayerTreeItem = ({
     ScanSearch,
     FiFilter,
     MdOutlineStyle,
-    BiTrash, nestingFolderId }: {
+    BiTrash,
+}: {
     node: LayerTreeNode;
     level: number;
     openItems: string[];
@@ -352,7 +351,6 @@ const LayerTreeItem = ({
     FiFilter: any;
     MdOutlineStyle: any;
     BiTrash: any;
-    nestingFolderId?: string | null;
 }) => {
     // Local editing state
     if (node.type === 'folder') {
@@ -360,10 +358,6 @@ const LayerTreeItem = ({
         const [editName, setEditName] = React.useState(node.name);
         const folderPath = node.id.replace('folder-', '');
         const isOpen = openItems.includes(node.id);
-        const { setNodeRef: setNestRef } = useDroppable({
-            id: 'nest-' + node.id,
-            data: { type: 'folder-nest' } // Helps id filtering if needed
-        });
 
         const handleRename = () => {
             if (editName && editName !== node.name) {
@@ -380,7 +374,7 @@ const LayerTreeItem = ({
             <SortableItem id={node.id}>
                 <div className="mb-1">
                     <div
-                        className={`flex gap-2 items-center py-1 hover:bg-slate-50 dark:hover:bg-slate-900 rounded group pr-2 transition-opacity ${nestingFolderId === folderPath ? 'border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''} ${!node.visible ? 'opacity-50' : ''}`}
+                        className={`flex gap-2 items-center py-1 hover:bg-slate-50 dark:hover:bg-slate-900 rounded group pr-2`}
                         style={{ paddingLeft: `${level * 12}px` }}
                     >
                         <div className="flex items-center gap-1 cursor-pointer" onClick={() => {
@@ -391,7 +385,7 @@ const LayerTreeItem = ({
                                 setOpenItems(newOpenItems);
                             }
                         }}>
-                            {isOpen ? <FolderOpen className={`${node.visible ? 'text-blue-500' : 'text-muted-foreground'}`} size="14pt" /> : <Folder className={`${node.visible ? 'text-blue-500' : 'text-muted-foreground'}`} size="14pt" />}
+                            {isOpen ? <FolderOpen className="text-blue-500" size="14pt" /> : <Folder className="text-blue-500" size="14pt" />}
                         </div>
                         {isEditing ? (
                             <input
@@ -408,7 +402,7 @@ const LayerTreeItem = ({
                             />
                         ) : (
                             <span
-                                className={`text-sm font-semibold flex-1 cursor-text transition-colors ${!node.visible ? 'text-muted-foreground' : ''}`}
+                                className="text-sm font-semibold flex-1 cursor-text"
                                 onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
                             >
                                 {node.name}
@@ -444,7 +438,7 @@ const LayerTreeItem = ({
                                 setOpenItems(newOpenItems);
                             }
                         }}>
-                            <div className={`${!node.visible ? 'opacity-60' : ''}`}>{isOpen ? <ChevronDown size="12pt" /> : <ChevronRight size="12pt" />}</div>
+                            {isOpen ? <ChevronDown size="12pt" /> : <ChevronRight size="12pt" />}
                         </div>
                     </div>
                 </div>
@@ -465,7 +459,7 @@ const LayerTreeItem = ({
                             <input
                                 value={layer.name}
                                 onChange={(e) => handleChangeLayerName(e, layerIndex)}
-                                className={`font-medium bg-transparent border-none focus:outline-none focus:ring-0 w-full transition-colors ${!layer.visible ? 'text-muted-foreground' : ''}`}
+                                className="font-medium bg-transparent border-none focus:outline-none focus:ring-0 w-full"
                                 onClick={(e) => e.stopPropagation()}
                             />
                         </AccordionTrigger>
@@ -620,266 +614,158 @@ export default function MapLayout({
         useLayerStore();
     const [activeBasemap, setActiveBasemap] = useState(0);
 
-    // const [selectedDatasets, setSelectedDatasets] = useState<ParsedLayer[]>([]);
-    const {
-        setDatasets,
-        selectedDatasets,
-        setSelectedDatasets,
-        datasetProperties,
-        setDatasetResult,
-        setActiveDataset,
-    } = useDatasetStore();
-
-    const [infoFeatures, setInfoFeatures] = useState<InfoFeature[]>([]);
-    const [toggleEdit, setToggleEdit] = useState<boolean>(false);
-
-    const [zoom, setZoom] = useState<number>(0);
-    const [compass, setCompass] = useState({ rotate: 0, pitch: 0 });
-
-    const [drawMode, setDrawMode] = useState<string | null>(null);
-    const [isDrawDone, setIsDrawDone] = useState<boolean>(true);
-    const [isDndActive, setIsDndActive] = useState(false);
-
-    const [aiCommandProgress, setAiCommandProgress] = useState<{
-        status: 'idle' | 'start' | 'running' | 'success' | 'error';
-        action?: string;
-        step?: string;
-        progress?: number;
-    }>({ status: 'idle' });
-
-        const [nestingFolderId, setNestingFolderId] = useState<string | null>(null);
-    const [menuPosition, setMenuPosition] = useState<{
-        x: number;
-        y: number;
-        lng: number;
-        lat: number;
-    } | null>(null);
-
-    const [routeCoordinates, setRouteCoordinates] = useState<{
-        origin?: number[] | undefined;
-        destination?: number[] | undefined;
-    } | null>(null);
-    const [activeRoutes, setActiveRoutes] = useState<{
-        origin?: number[] | undefined;
-        destination?: number[] | undefined;
-        properties?: Record<string, any>;
-    } | null>(null);
-
-    const [bookmarks, setBookmarks] = useState<Bookmark[]>(bookmarkFetch);
-    const [selectedBookmark, setSelectedBookmark] = useState<Bookmark | null>(
-        null
-    );
-
-    const [tableData, setTableData] = useState<TableProps>({
-        headers: [],
-        data: [],
-    });
-
-    // Drag and drop sensors
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 8,
-            },
-        })
-    );
+    // ... (other state)
 
     // Memoize tree structure for Drag & Drop lookups
     const rootNodes = useMemo(() => buildLayerTree(layers, folders, layerOrder), [layers, folders, layerOrder]);
     const flattenedNodes = useMemo(() => flattenLayerTree(rootNodes, openItems), [rootNodes, openItems]);
 
     // Handle drag end for layers and folders
-        const handleDragMove = (event: any) => {
-        const { over, delta } = event;
-        if (!over) {
-            if (nestingFolderId) setNestingFolderId(null);
-            return;
-        }
-        
-        const overId = over.id.toString();
-        const overNode = flattenedNodes.find(n => n.id === overId);
-        
-        // Check for nesting intent (hovering folder + indent > 10px)
-        if (overNode && overNode.type === 'folder' && delta.x > 10) {
-            const folderId = overId.replace('folder-', '');
-            if (nestingFolderId !== folderId) {
-                setNestingFolderId(folderId);
-            }
-        } else {
-            if (nestingFolderId) setNestingFolderId(null);
-        }
-    };
-
-    
-    const customCollisionDetection = useCallback((args: any) => {
-        // Simple collision detection
-        return closestCorners(args);
-    }, []);
-
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over, delta } = event;
-        // Fetch fresh state to avoid closure staleness
-        const state = useLayerStore.getState();
-        const { layerOrder, layers, folders } = state;
-        // Rebuild flattenedNodes based on fresh state? 
-        // Technically flattenedNodes is memoized. 
-        // If we use fresh layerOrder, we should be safe.
-        // But flattenedNodes lookup logic uses 'flattenedNodes' from closure.
-        // If flattenedNodes is stale, 'activeNode' might be stale.
-        // Let's assume flattenedNodes is reasonably fresh or node structures don't change often during drag.
-        // BUT 'layerOrder' is critical for the logic below.
-        
-
 
         if (!over) return;
         if (active.id === over.id) return;
 
         const activeId = active.id.toString();
-        let overId = over.id.toString();
-        
-        let wasNestTarget = false;
-        // Handle Nest Target
-        if (overId.startsWith('nest-')) {
-            overId = overId.replace('nest-', '');
-            wasNestTarget = true;
-        }
-
+        const overId = over.id.toString();
         const activeNode = flattenedNodes.find(n => n.id === activeId);
         const overNode = flattenedNodes.find(n => n.id === overId);
 
-        if (!activeNode) return;
-
-        // Helper to get parent ID of a node (returns '' for root)
-        const getParentId = (node: LayerTreeNode) => {
-             if (node.type === 'folder') {
-                 const path = node.id.replace('folder-', '');
-                 const parts = path.split('/');
-                 parts.pop();
-                 if (parts.length === 0) return 'root';
-                 return parts.join('/');
-             } else {
-                 return node.layer?.folder || 'root';
-             }
-        };
-
-        const activeParentId = getParentId(activeNode);
-        
-        // 1. Handle Drop to Root Zone
-        if (overId === 'root-drop-zone') {
-            if (activeNode.type === 'folder') {
-                const activePath = activeId.replace('folder-', '');
-                const pathParts = activePath.split('/');
-                const oldName = pathParts[pathParts.length - 1]; 
-                renameFolder(activePath, oldName);
-            } else {
-                updateLayerFolder(activeId, undefined);
+        if (!activeNode || !overNode) {
+            // Check for Loop Drop Zone
+            if (overId === 'root-drop-zone') {
+                if (activeNode?.type === 'folder') {
+                    const activePath = activeId.replace('folder-', '');
+                    const pathParts = activePath.split('/');
+                    const oldName = pathParts[pathParts.length - 1]; // Keep name
+                    // Rename to root (just name)
+                    renameFolder(activePath, oldName);
+                    return;
+                }
+                if (activeNode?.type === 'layer') {
+                    updateLayerFolder(activeId, undefined);
+                    return;
+                }
             }
-            // Use helper to cleanup old order
-            const oldOrder = layerOrder[activeParentId] || [];
-            const newOldOrder = oldOrder.filter(id => id !== activeId);
-            setLayerOrder(activeParentId, newOldOrder);
             return;
         }
 
-        if (!overNode) return;
+        const isIndent = delta.x > 15;
+        const isOutdent = delta.x < -15;
 
-        const isIndent = delta.x > 10; // Lowered threshold for easier nesting
-        const isOutdent = delta.x < -10;
+        // --- CASE 1: Dragging a FOLDER ---
+        if (activeNode.type === 'folder') {
+            const activePath = activeId.replace('folder-', '');
+            const overPath = overId.startsWith('folder-') ? overId.replace('folder-', '') : overNode.layer?.folder || "";
 
-        // 2. Determine Target Parent and Insertion Logic
-        let targetParentId = '';
-        let structuralMove = false;
-
-        // Case A: SIMPLE - Drop on Folder -> Always Nest
-        if (overNode.type === 'folder') {
-            targetParentId = overNode.id.replace('folder-', '');
-            structuralMove = true;
-            
-            // Auto-expand folder to show nested item
-            setOpenItems((prev) => {
-                 if (prev.includes(overNode.id)) return prev;
-                 return [...prev, overNode.id];
-            });
-        } 
-        // Case B: Outdent -> Move to Grandparent
-        else if (isOutdent) {
-             if (activeParentId === 'root') return; 
-             const parts = activeParentId.split('/');
-             parts.pop();
-             targetParentId = parts.length === 0 ? 'root' : parts.join('/');
-             structuralMove = true;
-        } 
-        // Case C: Standard Drop (Reorder or Cross-Folder Drop)
-        else {
-            targetParentId = getParentId(overNode);
-            if (activeParentId !== targetParentId) {
-                structuralMove = true;
+            // Nesting (Indent)
+            if (isIndent && overNode.type === 'folder') {
+                const newPath = `${overPath}/${activeNode.name}`;
+                // Avoid self-nesting or invalid paths if needed (renameFolder handles basics)
+                renameFolder(activePath, newPath);
+                return;
             }
-        }
 
-        // 3. Calculate New Order for Target Parent
-        let newOrderIds = [...(layerOrder[targetParentId] || [])];
-        
-        // Remove activeId if it's already there (e.g. reordering same list)
-        newOrderIds = newOrderIds.filter(id => id !== activeId);
+            // Reordering (Sibling)
+            // Only reorder if we are dealing with explicit folders
+            if (overNode.type === 'folder') {
+                const overPath = overId.replace('folder-', '');
 
-        if (structuralMove) {
-            // Cleanup Old Parent Order
-            const oldOrder = layerOrder[activeParentId] || [];
-            const newOldOrder = oldOrder.filter(id => id !== activeId);
-            setLayerOrder(activeParentId, newOldOrder);
+                // Collect all currently visible folders (explicit + implicit from layers) to ensure we can reorder anything visible
+                const currentFoldersSet = new Set(folders);
+                layers.forEach(l => {
+                    if (l.folder) {
+                        const parts = l.folder.split('/');
+                        let path = '';
+                        parts.forEach(p => {
+                            path = path ? `${path}/${p}` : p;
+                            currentFoldersSet.add(path);
+                        });
+                    }
+                });
 
-            // Find insertion index relative to overNode
-            const overIndex = newOrderIds.indexOf(overId);
-            
-            if (overIndex !== -1) {
-                if (targetParentId === overId.replace('folder-', '')) {
-                     // Dropped ON the folder header (indenting). Append.
-                     newOrderIds.push(activeId);
-                } else {
-                     // Sibling insertion
-                     newOrderIds.splice(overIndex, 0, activeId);
+                // We use the rendered order (flattenedNodes) to find relative positions
+                const renderedFolders = flattenedNodes
+                    .filter(n => n.type === 'folder')
+                    .map(n => n.id.replace('folder-', ''));
+
+                const oldIndex = renderedFolders.indexOf(activePath);
+                const newIndex = renderedFolders.indexOf(overPath);
+
+                if (oldIndex !== -1 && newIndex !== -1) {
+                    const newOrder = arrayMove(renderedFolders, oldIndex, newIndex);
+                    setFolders(newOrder);
                 }
-            } else {
-                newOrderIds.push(activeId);
             }
-        } else {
-            // Reordering within same list
-            const overIndex = newOrderIds.indexOf(overId);
-            if (overIndex !== -1) {
-                 const currentOrder = layerOrder[targetParentId] || [];
-                 const oldIndex = currentOrder.indexOf(activeId);
-                 const newIndex = currentOrder.indexOf(overId);
-                 if (oldIndex !== -1 && newIndex !== -1) {
-                     newOrderIds = arrayMove(currentOrder, oldIndex, newIndex);
-                 } else {
-                     newOrderIds.splice(overIndex, 0, activeId);
-                 }
-            } else {
-                 newOrderIds.push(activeId);
-            }
+            return;
         }
 
-        // 4. Apply Updates
-        setLayerOrder(targetParentId, newOrderIds);
-        
-        if (structuralMove) {
-            const targetFolder = targetParentId === 'root' ? undefined : targetParentId;
-            
-            if (activeNode.type === 'layer') {
+        // --- CASE 2: Dragging a LAYER ---
+        if (activeNode.type === 'layer') {
+            // Outdent (Move to Parent)
+            if (isOutdent) {
+                const currentFolder = activeNode.layer?.folder;
+                if (currentFolder) {
+                    const pathParts = currentFolder.split('/');
+                    pathParts.pop(); // Remove last segment
+                    const newFolder = pathParts.length > 0 ? pathParts.join('/') : undefined;
+                    updateLayerFolder(activeId, newFolder);
+                }
+                return;
+            }
+
+            // Indent (Move to Folder)
+            if (isIndent) {
+                if (overNode.type === 'folder') {
+                    const targetFolder = overId.replace('folder-', '');
+                    updateLayerFolder(activeId, targetFolder);
+                }
+                // If over layer, ignore indent "into layer" (unless we want to group, but simple is better)
+                return;
+            }
+
+            // Neutral (Drop)
+            if (overNode.type === 'folder') {
+                // Dropping LAYER on FOLDER -> Nest
+                const targetFolder = overId.replace('folder-', '');
                 updateLayerFolder(activeId, targetFolder);
-            } else {
-                const activePath = activeId.replace('folder-', '');
-                const pathParts = activePath.split('/');
-                const name = pathParts[pathParts.length - 1];
-                const newPath = targetFolder ? `${targetFolder}/${name}` : name;
-                
-                if (activePath !== newPath) {
-                    renameFolder(activePath, newPath);
+                return;
+            }
+
+            if (overNode.type === 'layer') {
+                // Reorder Layer
+                const oldIndex = layers.findIndex(l => l.id === activeId);
+                const newIndex = layers.findIndex(l => l.id === overId);
+
+                // Also adopt the folder of the target layer
+                const targetFolder = overNode.layer?.folder;
+
+                if (oldIndex !== -1 && newIndex !== -1) {
+                    const updatedLayers = [...layers];
+                    updatedLayers[oldIndex] = { ...updatedLayers[oldIndex], folder: targetFolder };
+                    const newLayers = arrayMove(updatedLayers, oldIndex, newIndex);
+                    setLayers(newLayers);
+
+                    // Map sync
+                    const map = mapRef.current?.getMap();
+                    if (map) {
+                        newLayers.forEach((layer, index) => {
+                            const beforeId = index === 0 ? undefined : newLayers[index - 1].id;
+                            try {
+                                if (map.getLayer(layer.id)) {
+                                    map.moveLayer(layer.id, beforeId);
+                                }
+                            } catch (err) {
+                                console.warn("Error moving layer:", err);
+                            }
+                        });
+                    }
                 }
             }
         }
     };
+
     // Sync layer visibility with map
     useEffect(() => {
         const map = mapRef.current?.getMap();
@@ -2663,8 +2549,7 @@ export default function MapLayout({
                             )}
                             <DndContext
                                 sensors={sensors}
-                                collisionDetection={customCollisionDetection}
-                                onDragMove={handleDragMove}
+                                collisionDetection={closestCorners}
                                 onDragEnd={(e) => {
                                     setIsDndActive(false);
                                     handleDragEnd(e);
@@ -2710,7 +2595,6 @@ export default function MapLayout({
                                                             FiFilter={FiFilter}
                                                             MdOutlineStyle={MdOutlineStyle}
                                                             BiTrash={BiTrash}
-                                                            nestingFolderId={nestingFolderId}
                                                         />
                                                     ))}
                                                 </Accordion>

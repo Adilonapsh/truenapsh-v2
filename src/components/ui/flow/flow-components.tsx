@@ -16,7 +16,10 @@ import {
     XYPosition,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { DragEvent, useCallback, useMemo, useRef, useState } from "react";
+import { polyfill } from "mobile-drag-drop";
+import { scrollBehaviourDragImageTranslateOverride } from "mobile-drag-drop/scroll-behaviour";
+import "mobile-drag-drop/default.css";
+import { DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { nodeTypes } from "./custom-nodes";
 import ButtonEdge from "./button-edge";
 import { WidgetNode, widgets } from "./widget-node";
@@ -171,7 +174,7 @@ const DraggableChip = ({
     const type = typeOfValue(value);
     return (
         <span
-            className="inline-flex items-center rounded border px-2 py-1 mr-2 mb-2 text-xs bg-white cursor-move"
+            className="inline-flex items-center rounded border px-2 py-1 mr-2 mb-2 text-xs bg-white dark:bg-background/60 cursor-move touch-none"
             draggable
             onDragStart={(e) => {
                 e.dataTransfer.setData("application/variable", payload);
@@ -460,12 +463,23 @@ function FlowDiagram() {
     const { theme } = useTheme();
     const timeoutsRef = useRef<number[]>([]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const handleInsert = (e: any) => {
             setInsertionData(e.detail);
         };
         window.addEventListener("edge-insert-node", handleInsert);
         return () => window.removeEventListener("edge-insert-node", handleInsert);
+    }, []);
+
+    useEffect(() => {
+        polyfill({
+            dragImageTranslateOverride: scrollBehaviourDragImageTranslateOverride,
+            holdToDrag: 200,
+            defaultActionOverride: (event) => {
+                event.preventDefault();
+            },
+        });
+        window.addEventListener('touchmove', function () { }, { passive: false });
     }, []);
     // const { getIntersectingNodes } = useReactFlow();
 

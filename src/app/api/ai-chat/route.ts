@@ -1,5 +1,5 @@
 import { streamText, tool } from "ai";
-import { google, lmstudio } from "@/lib/lmstudio";
+import { google, lmstudio, openrouter } from "@/lib/lmstudio";
 import { createPrompt } from "@/lib/promptTemplate";
 
 import { systemPrompt } from "@/lib/systemPrompt";
@@ -61,7 +61,6 @@ export async function POST(req: Request) {
             }
         }
 
-
         messages?.forEach((m: any) => delete m.parts);
 
         const merged = messages;
@@ -71,7 +70,8 @@ export async function POST(req: Request) {
             // model: lmstudio("llama-3.1-8b-lexi-uncensored-v2"),
             // model: lmstudio("deepseek-r1-distill-llama-8b"),
             // model: lmstudio("meta-llama-3.1-8b-instruct"),
-            model: google("gemini-2.5-flash"),
+            // model: google("gemini-2.5-flash"),
+            model: openrouter("google/gemini-2.5-flash"),
             system: systemPrompt,
             messages: merged.slice(-5),
             temperature: 0.8,

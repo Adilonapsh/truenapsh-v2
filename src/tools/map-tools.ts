@@ -530,7 +530,8 @@ const removeDuplicatesLayers = (featureClip: FeatureCollection<Geometry>) => {
 const hexagonLayer = (
     featureClip: FeatureCollection<Polygon | MultiPolygon>,
     cellSide: number,
-    units: turf.Units = "kilometers"
+    units: turf.Units = "kilometers",
+    gridCode?: string
 ): FeatureCollection<Polygon> | null => {
     try {
         if (
@@ -594,7 +595,7 @@ const hexagonLayer = (
             );
         }
 
-        const processedHexagons = hexagons.map((hex) => {
+        const processedHexagons = hexagons.map((hex, index) => {
             const area = turf.area(hex) / 1e6; // Convert to km²
             return {
                 ...hex,
@@ -602,11 +603,12 @@ const hexagonLayer = (
                     size: cellSide,
                     units: units,
                     area: parseFloat(area.toFixed(4)), // Bulatkan ke 4 desimal
+                    code: gridCode ? `${gridCode}-${index}` : `Grid-${index}`,
                 },
             };
         });
 
-        return turf.featureCollection(hexagons);
+        return turf.featureCollection(processedHexagons);
     } catch (error) {
         console.error("Error creating hexagon layer:", error);
         return null;

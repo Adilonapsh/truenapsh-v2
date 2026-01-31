@@ -121,10 +121,10 @@ export const executeOperation = async (
         }
 
         case "hexagon grid": {
-            const { targetLayer, cellSize, units } = options;
+            const { targetLayer, cellSize, units, gridCode } = options;
             const source = map?.getLayer(targetLayer)?.source;
             const data = source ? map?.getSource(source)?.serialize().data : undefined;
-            const result = await hexagonLayer(data, Number(cellSize), units);
+            const result = await hexagonLayer(data, Number(cellSize), units, gridCode);
             if (result) {
                 await addGeojsonToMap({
                     mapRef,

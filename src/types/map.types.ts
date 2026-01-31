@@ -75,6 +75,7 @@ type Layer = {
   | "raster-particle"
   | "sky"
   | "symbol";
+  folder?: string;
 };
 
 enum MapServiceVendor {
@@ -163,7 +164,29 @@ type MapboxLayerStyle = {
   symbol_icon_color?: string | ColorSpecification | undefined;
   symbol_text_size?: number | undefined;
   symbol_icon_size?: number | undefined;
-  // Raster extras
+  text_field?: string | any | undefined;
+  text_size?: number | any | undefined;
+  text_color?: string | ColorSpecification | undefined;
+  text_halo_color?: string | ColorSpecification | undefined;
+  text_halo_width?: number | undefined;
+  text_anchor?: string | undefined;
+  text_justify?: string | undefined;
+  text_allow_overlap?: boolean | undefined;
+  text_ignore_placement?: boolean | undefined;
+  text_rotate?: number | undefined;
+  text_letter_spacing?: number | undefined;
+  icon_image?: string | undefined;
+  icon_color?: string | ColorSpecification | undefined;
+  icon_size?: number | any | undefined;
+  icon_allow_overlap?: boolean | undefined;
+  icon_optional?: boolean | undefined;
+  icon_anchor?: string | undefined;
+  icon_text_fit?: string | undefined;
+  symbol_placement?: string | undefined;
+  symbol_z_order?: string | undefined;
+  symbol_spacing?: number | undefined;
+  symbol_avoid_edges?: boolean | undefined;
+  visibility?: "visible" | "none" | undefined;
   raster_hue_rotate?: number | undefined;
   raster_fade_duration?: number | undefined;
   // Raster-particle (fallback unknowns)
@@ -204,6 +227,8 @@ type LayoutDisplay = {
   tools: boolean;
   table: boolean;
   drawProperties: boolean;
+  showTeamCursors: boolean;
+  fullscreen: boolean;
 };
 
 export type PropertyValueType = "string" | "number" | "boolean" | "array";
