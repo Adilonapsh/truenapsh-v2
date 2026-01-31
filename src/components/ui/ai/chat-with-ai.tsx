@@ -60,6 +60,8 @@ import { Textarea } from "../textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../tooltip";
 import { Skeleton } from "../skeleton";
 import { Label } from "../label";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface ChatWithAIProps {
     title?: string;
@@ -202,7 +204,7 @@ export function ChatWithAI({
     placeholder = "Type your message...",
     className = "",
     onCommandReceived,
-    commandProgress,    
+    commandProgress,
     projectId = "",
 }: ChatWithAIProps) {
     const { layers } = useLayerStore();
@@ -1087,6 +1089,19 @@ export function ChatWithAI({
                     {statusMessage}
                 </TextShimmer>
             )}
+
+            {error && (
+                <div className="px-4 pb-2">
+                    <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Error</AlertTitle>
+                        <AlertDescription className="text-xs">
+                            {error}
+                        </AlertDescription>
+                    </Alert>
+                </div>
+            )}
+
             <div className="border-t border-border/50 bg-background/80 backdrop-blur-sm p-4 sticky bottom-0">
                 <div className="max-w-4xl mx-auto">
                     <div className="relative group">

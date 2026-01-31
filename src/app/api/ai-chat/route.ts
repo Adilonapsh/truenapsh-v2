@@ -80,12 +80,25 @@ export async function POST(req: Request) {
             maxTokens: 5000,
         });
         return result.toDataStreamResponse();
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error in chat API:", error);
+
+        // Check for specific error types (e.g., API limit, rate limit)
+        let errorMessage = "Terjadi kesalahan saat memproses permintaan";
+        let statusCode = 500;
+
+        if (error.status === 429 || error.message?.includes("429") || error.message?.includes("quota") || error.message?.includes("limit")) {
+            errorMessage = "API Limit Exceeded. Silakan coba beberapa saat lagi atau upgrade plan.";
+            statusCode = 429;
+        } else if (error.message) {
+            // Use the actual error message if safe/available, or fallback
+            errorMessage = `Error: ${error.message}`;
+        }
+
         return new Response(
-            JSON.stringify({ error: "Terjadi kesalahan saat memproses permintaan" }),
+            JSON.stringify({ error: errorMessage }),
             {
-                status: 500,
+                status: statusCode,
                 headers: { "Content-Type": "application/json" },
             }
         );
