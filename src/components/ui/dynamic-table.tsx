@@ -58,6 +58,9 @@ import {
     Save,
     AreaChart,
     Radar,
+    Sparkles,
+    ArrowUp,
+    ArrowDown,
 } from "lucide-react";
 import {
     DndContext,
@@ -97,7 +100,11 @@ import {
     DropdownMenuTrigger,
     DropdownMenuSeparator,
     DropdownMenuItem,
+    DropdownMenuSub,
+    DropdownMenuSubTrigger,
+    DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
+import * as XLSX from "xlsx";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -203,6 +210,13 @@ interface ChartCustomizationOptions {
     xAxisTitle: string;
     yAxisTitle: string;
     theme: "light" | "dark";
+}
+
+// Column display type configuration
+export type ColumnDisplayType = 'text' | 'image' | 'video' | 'link' | 'download' | 'auto';
+
+export interface ColumnDisplayConfig {
+    [columnName: string]: ColumnDisplayType;
 }
 
 // Conditional Format Dialog Component
@@ -1772,12 +1786,11 @@ function DraggableColumnHeader({
 }
 
 // Function to apply conditional formatting to a cell
-function applyCellFormatting(
+function applyCellFormattingResults(
     value: any,
-    column: string,
-    rules: ConditionalFormatRule[]
+    matchingRules: ConditionalFormatRule[] | undefined
 ): { backgroundColor?: string; textColor?: string } {
-    const matchingRules = rules.filter((rule) => rule.column === column);
+    if (!matchingRules || matchingRules.length === 0) return {};
 
     for (const rule of matchingRules) {
         const cellValue = String(value);
@@ -1829,6 +1842,16 @@ function applyCellFormatting(
     }
 
     return {};
+}
+
+// Keep original function for backward compatibility if used elsewhere, but internally use the new version
+function applyCellFormatting(
+    value: any,
+    column: string,
+    rules: ConditionalFormatRule[]
+): { backgroundColor?: string; textColor?: string } {
+    const matchingRules = rules.filter((rule) => rule.column === column);
+    return applyCellFormattingResults(value, matchingRules);
 }
 
 // Media renderer component
@@ -1949,10 +1972,17 @@ function detectColumnDataType(
         };
     }
 
-    // Get all non-null values from the column
-    const values = data
-        .map((row) => row[columnId])
-        .filter((val) => val !== null && val !== undefined && val !== "");
+    // Get non-null values from the column (sample up to 100 items for performance)
+    const values = [];
+    let count = 0;
+    for (const row of data) {
+        const val = row[columnId];
+        if (val !== null && val !== undefined && val !== "") {
+            values.push(val);
+            count++;
+            if (count >= 100) break;
+        }
+    }
 
     if (values.length === 0) {
         return {
@@ -2151,23 +2181,15 @@ function exportData(
             break;
 
         case "excel":
-            // Create Excel-compatible CSV
-            content = [
-                headers.join(","),
-                ...data.map((row) =>
-                    headers
-                        .map((header) => {
-                            const value = row[header];
-                            // Handle values with commas by wrapping in quotes
-                            return typeof value === "string" && value.includes(",")
-                                ? `"${value}"`
-                                : value;
-                        })
-                        .join(",")
-                ),
-            ].join("\n");
-            mimeType = "application/vnd.ms-excel";
-            extension = "csv";
+            // Create Excel workbook
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+            // Generate Excel file buffer
+            content = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            extension = "xlsx";
             break;
     }
 
@@ -2293,6 +2315,7 @@ export const DynamicTable = React.memo(function DynamicTable({
     > | null>(null);
     const [defaultLayout, setDefaultLayout] = useState([65, 35]);
     const [collapsedStats, setCollapsedStats] = useState(false);
+    const [columnDisplayTypes, setColumnDisplayTypes] = useState<ColumnDisplayConfig>({});
 
     // Check if we're on mobile
     const isMobile = useIsMobile();
@@ -2307,6 +2330,111 @@ export const DynamicTable = React.memo(function DynamicTable({
             clearTimeout(handler);
         };
     }, [searchTerm]);
+
+    const handleSetDisplayType = useCallback((columnId: string, type: ColumnDisplayType) => {
+        setColumnDisplayTypes(prev => ({
+            ...prev,
+            [columnId]: type
+        }));
+    }, []);
+
+    // Helper function to detect media type from URL
+    const detectMediaType = useCallback((value: string): ColumnDisplayType => {
+        if (!value || typeof value !== 'string') return 'text';
+
+        const url = value.trim().toLowerCase();
+
+        // Check if it's a valid URL
+        if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('www.')) {
+            return 'text';
+        }
+
+        // Image extensions
+        if (/\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)(\?|$)/i.test(url)) {
+            return 'image';
+        }
+
+        // Video extensions
+        if (/\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(\?|$)/i.test(url)) {
+            return 'video';
+        }
+
+        // Downloadable files
+        if (/\.(pdf|doc|docx|xls|xlsx|zip|rar|tar|gz|csv)(\?|$)/i.test(url)) {
+            return 'download';
+        }
+
+        // Default to link for other URLs
+        return 'link';
+    }, []);
+
+    // Render cell content based on display type
+    const renderCellContent = useCallback((value: any, columnId: string) => {
+        const displayType = columnDisplayTypes[columnId] || 'text';
+        const actualType = displayType === 'auto' ? detectMediaType(value) : displayType;
+
+        if (!value) return '';
+
+        switch (actualType) {
+            case 'image':
+                return (
+                    <div className="flex items-center justify-center py-1">
+                        <img
+                            src={value}
+                            alt="Preview"
+                            className="max-h-20 max-w-full object-contain rounded"
+                            onError={(e) => {
+                                e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext x="50" y="50" text-anchor="middle" dy=".3em" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E';
+                            }}
+                        />
+                    </div>
+                );
+
+            case 'video':
+                return (
+                    <div className="flex items-center justify-center py-1">
+                        <video
+                            src={value}
+                            controls
+                            className="max-h-32 max-w-full rounded"
+                        >
+                            Your browser does not support video.
+                        </video>
+                    </div>
+                );
+
+            case 'download':
+                return (
+                    <a
+                        href={value}
+                        download
+                        className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <FileDown className="w-4 h-4" />
+                        <span className="text-sm">Download</span>
+                    </a>
+                );
+
+            case 'link':
+                return (
+                    <a
+                        href={value}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <Link2 className="w-3 h-3" />
+                        <span className="text-sm truncate max-w-xs">{value}</span>
+                    </a>
+                );
+
+            case 'text':
+            default:
+                return String(value);
+        }
+    }, [columnDisplayTypes, detectMediaType]);
 
     // Create data for TanStack Table
     const tableData = useMemo(() => {
@@ -2341,6 +2469,18 @@ export const DynamicTable = React.memo(function DynamicTable({
             return false;
         });
     }, [tableData, headers, conditionalFormatRules, activeColorFilter]);
+
+    // Pre-calculate rules map for faster access
+    const rulesByColumn = useMemo(() => {
+        const map = new Map<string, ConditionalFormatRule[]>();
+        if (!conditionalFormatRules || conditionalFormatRules.length === 0) return map;
+
+        conditionalFormatRules.forEach(rule => {
+            if (!map.has(rule.column)) map.set(rule.column, []);
+            map.get(rule.column)!.push(rule);
+        });
+        return map;
+    }, [conditionalFormatRules]);
 
     // Create columns for TanStack Table
     const columns = useMemo<ColumnDef<Record<string, any>>[]>(() => {
@@ -2447,19 +2587,60 @@ export const DynamicTable = React.memo(function DynamicTable({
             return {
                 id: header,
                 accessorKey: header,
-                header: () => (
-                    <div className="whitespace-nowrap flex items-center gap-1">
-                        <span>{header}</span>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className="ml-1 cursor-help">{dataType.icon}</div>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Data Type: {dataType.label}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                header: ({ column }) => (
+                    <div className="flex items-center space-x-2">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="-ml-3 h-8 data-[state=open]:bg-accent"
+                                >
+                                    <span>{header}</span>
+                                    <div className="ml-1 text-muted-foreground">{dataType.icon}</div>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                                <DropdownMenuItem onClick={() => column.toggleSorting(false)}>
+                                    <ArrowUp className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
+                                    Asc
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => column.toggleSorting(true)}>
+                                    <ArrowDown className="mr-2 h-3.5 w-3.5 text-muted-foreground/70" />
+                                    Desc
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>Display As</DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onClick={() => handleSetDisplayType(header, 'text')}>
+                                            <Type className="mr-2 h-4 w-4" /> Text
+                                            {(!columnDisplayTypes[header] || columnDisplayTypes[header] === 'text') && <Check className="ml-auto h-4 w-4" />}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleSetDisplayType(header, 'image')}>
+                                            <ImageIcon className="mr-2 h-4 w-4" /> Image
+                                            {columnDisplayTypes[header] === 'image' && <Check className="ml-auto h-4 w-4" />}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleSetDisplayType(header, 'video')}>
+                                            <Video className="mr-2 h-4 w-4" /> Video
+                                            {columnDisplayTypes[header] === 'video' && <Check className="ml-auto h-4 w-4" />}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleSetDisplayType(header, 'link')}>
+                                            <Link2 className="mr-2 h-4 w-4" /> Link
+                                            {columnDisplayTypes[header] === 'link' && <Check className="ml-auto h-4 w-4" />}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleSetDisplayType(header, 'download')}>
+                                            <Download className="mr-2 h-4 w-4" /> Download
+                                            {columnDisplayTypes[header] === 'download' && <Check className="ml-auto h-4 w-4" />}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => handleSetDisplayType(header, 'auto')}>
+                                            <Sparkles className="mr-2 h-4 w-4" /> Auto Detect
+                                            {columnDisplayTypes[header] === 'auto' && <Check className="ml-auto h-4 w-4" />}
+                                        </DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 ),
                 size: 150, // Default column width
@@ -2480,29 +2661,19 @@ export const DynamicTable = React.memo(function DynamicTable({
                     getValue: () => any;
                 }) => {
                     const value = getValue();
-                    const formatting = applyCellFormatting(
+                    const rules = rulesByColumn.get(column.id);
+                    const formatting = applyCellFormattingResults(
                         value,
-                        column.id,
-                        conditionalFormatRules
+                        rules
                     );
 
-                    // Check if this is a media URL
-                    if (isMediaUrl(value)) {
-                        return (
-                            <div
-                                style={{
-                                    backgroundColor: formatting.backgroundColor,
-                                    color: formatting.textColor,
-                                    padding: formatting.backgroundColor ? "0.5rem" : undefined,
-                                    borderRadius: formatting.backgroundColor
-                                        ? "0.25rem"
-                                        : undefined,
-                                }}
-                            >
-                                <MediaRenderer url={String(value)} />
-                            </div>
-                        );
+                    // Skip complex rendering for simple text with no formatting
+                    const displayType = columnDisplayTypes[column.id] || 'text';
+                    if (displayType === 'text' && !formatting.backgroundColor) {
+                        return <div className="h-full w-full py-2">{String(value)}</div>;
                     }
+
+                    const content = renderCellContent(value, column.id);
 
                     return (
                         <div
@@ -2517,7 +2688,7 @@ export const DynamicTable = React.memo(function DynamicTable({
                                     : undefined,
                             }}
                         >
-                            {value}
+                            {content}
                         </div>
                     );
                 },
@@ -2530,7 +2701,7 @@ export const DynamicTable = React.memo(function DynamicTable({
             ...dataColumns,
             // rightActionColumn
         ];
-    }, [headers, conditionalFormatRules, tableData]);
+    }, [headers, conditionalFormatRules, tableData, columnDisplayTypes, handleSetDisplayType, renderCellContent, rulesByColumn]);
 
     // Initialize column order if not set
     useEffect(() => {
@@ -3200,7 +3371,7 @@ export const DynamicTable = React.memo(function DynamicTable({
         );
     }
 
-    
+
 
     // Desktop layout with resizable panels
     return (

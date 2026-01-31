@@ -304,6 +304,8 @@ const LayerTreeItem = ({
     setOpenItems,
     setLayerVisible,
     setFolderVisibility,
+    emitFolderVisibility,
+    emitFolderRename,
     handleConvertToVector,
     handleZoomToLayer,
     handleTableMapbox,
@@ -324,13 +326,17 @@ const LayerTreeItem = ({
     ScanSearch,
     FiFilter,
     MdOutlineStyle,
-    BiTrash, nestingFolderId }: {
+    BiTrash,
+    nestingFolderId
+}: {
     node: LayerTreeNode;
     level: number;
     openItems: string[];
     setOpenItems: (items: string[]) => void;
     setLayerVisible: (index: number, visible: boolean) => void;
     setFolderVisibility: (folderPath: string, visible: boolean) => void;
+    emitFolderVisibility: (path: string, visible: boolean) => void;
+    emitFolderRename: (oldPath: string, newPath: string) => void;
     handleConvertToVector: (layer: Layer) => void;
     handleZoomToLayer: (index: number) => void;
     handleTableMapbox: (index: number) => void;
@@ -372,6 +378,7 @@ const LayerTreeItem = ({
                 pathParts[pathParts.length - 1] = editName;
                 const newPath = pathParts.join('/');
                 renameFolder(oldPath, newPath);
+                emitFolderRename(oldPath, newPath);
             }
             setIsEditing(false);
         };
@@ -419,7 +426,10 @@ const LayerTreeItem = ({
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 w-8 p-0"
-                                onClick={() => setFolderVisibility(folderPath, !node.visible)}
+                                onClick={() => {
+                                    setFolderVisibility(folderPath, !node.visible);
+                                    emitFolderVisibility(folderPath, !node.visible);
+                                }}
                             >
                                 {node.visible ? <Eye size="12pt" /> : <EyeClosed size="12pt" />}
                             </Button>
@@ -580,6 +590,14 @@ export default function MapLayout({
 
     const [currentMapClick, setCurrentMapClick] = useState<Location | null>(null);
 
+    // Fix map resize when layout changes (e.g. table opens)
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            mapRef.current?.resize();
+        }, 350); // Wait for transition animation (300ms) + buffer
+        return () => clearTimeout(timeout);
+    }, [displayLayouts.table, displayLayouts.aiChat]);
+
     const { isLoading, setIsLoading } = useMapStore();
 
     const [showLoading, setShowLoading] = useState<boolean>(true);
@@ -647,7 +665,7 @@ export default function MapLayout({
         progress?: number;
     }>({ status: 'idle' });
 
-        const [nestingFolderId, setNestingFolderId] = useState<string | null>(null);
+    const [nestingFolderId, setNestingFolderId] = useState<string | null>(null);
     const [menuPosition, setMenuPosition] = useState<{
         x: number;
         y: number;
@@ -689,16 +707,16 @@ export default function MapLayout({
     const flattenedNodes = useMemo(() => flattenLayerTree(rootNodes, openItems), [rootNodes, openItems]);
 
     // Handle drag end for layers and folders
-        const handleDragMove = (event: any) => {
+    const handleDragMove = (event: any) => {
         const { over, delta } = event;
         if (!over) {
             if (nestingFolderId) setNestingFolderId(null);
             return;
         }
-        
+
         const overId = over.id.toString();
         const overNode = flattenedNodes.find(n => n.id === overId);
-        
+
         // Check for nesting intent (hovering folder + indent > 10px)
         if (overNode && overNode.type === 'folder' && delta.x > 10) {
             const folderId = overId.replace('folder-', '');
@@ -710,7 +728,7 @@ export default function MapLayout({
         }
     };
 
-    
+
     const customCollisionDetection = useCallback((args: any) => {
         // Simple collision detection
         return closestCorners(args);
@@ -728,7 +746,7 @@ export default function MapLayout({
         // If flattenedNodes is stale, 'activeNode' might be stale.
         // Let's assume flattenedNodes is reasonably fresh or node structures don't change often during drag.
         // BUT 'layerOrder' is critical for the logic below.
-        
+
 
 
         if (!over) return;
@@ -736,7 +754,7 @@ export default function MapLayout({
 
         const activeId = active.id.toString();
         let overId = over.id.toString();
-        
+
         let wasNestTarget = false;
         // Handle Nest Target
         if (overId.startsWith('nest-')) {
@@ -751,25 +769,25 @@ export default function MapLayout({
 
         // Helper to get parent ID of a node (returns '' for root)
         const getParentId = (node: LayerTreeNode) => {
-             if (node.type === 'folder') {
-                 const path = node.id.replace('folder-', '');
-                 const parts = path.split('/');
-                 parts.pop();
-                 if (parts.length === 0) return 'root';
-                 return parts.join('/');
-             } else {
-                 return node.layer?.folder || 'root';
-             }
+            if (node.type === 'folder') {
+                const path = node.id.replace('folder-', '');
+                const parts = path.split('/');
+                parts.pop();
+                if (parts.length === 0) return 'root';
+                return parts.join('/');
+            } else {
+                return node.layer?.folder || 'root';
+            }
         };
 
         const activeParentId = getParentId(activeNode);
-        
+
         // 1. Handle Drop to Root Zone
         if (overId === 'root-drop-zone') {
             if (activeNode.type === 'folder') {
                 const activePath = activeId.replace('folder-', '');
                 const pathParts = activePath.split('/');
-                const oldName = pathParts[pathParts.length - 1]; 
+                const oldName = pathParts[pathParts.length - 1];
                 renameFolder(activePath, oldName);
             } else {
                 updateLayerFolder(activeId, undefined);
@@ -794,21 +812,21 @@ export default function MapLayout({
         if (overNode.type === 'folder') {
             targetParentId = overNode.id.replace('folder-', '');
             structuralMove = true;
-            
+
             // Auto-expand folder to show nested item
             setOpenItems((prev) => {
-                 if (prev.includes(overNode.id)) return prev;
-                 return [...prev, overNode.id];
+                if (prev.includes(overNode.id)) return prev;
+                return [...prev, overNode.id];
             });
-        } 
+        }
         // Case B: Outdent -> Move to Grandparent
         else if (isOutdent) {
-             if (activeParentId === 'root') return; 
-             const parts = activeParentId.split('/');
-             parts.pop();
-             targetParentId = parts.length === 0 ? 'root' : parts.join('/');
-             structuralMove = true;
-        } 
+            if (activeParentId === 'root') return;
+            const parts = activeParentId.split('/');
+            parts.pop();
+            targetParentId = parts.length === 0 ? 'root' : parts.join('/');
+            structuralMove = true;
+        }
         // Case C: Standard Drop (Reorder or Cross-Folder Drop)
         else {
             targetParentId = getParentId(overNode);
@@ -819,7 +837,7 @@ export default function MapLayout({
 
         // 3. Calculate New Order for Target Parent
         let newOrderIds = [...(layerOrder[targetParentId] || [])];
-        
+
         // Remove activeId if it's already there (e.g. reordering same list)
         newOrderIds = newOrderIds.filter(id => id !== activeId);
 
@@ -831,14 +849,14 @@ export default function MapLayout({
 
             // Find insertion index relative to overNode
             const overIndex = newOrderIds.indexOf(overId);
-            
+
             if (overIndex !== -1) {
                 if (targetParentId === overId.replace('folder-', '')) {
-                     // Dropped ON the folder header (indenting). Append.
-                     newOrderIds.push(activeId);
+                    // Dropped ON the folder header (indenting). Append.
+                    newOrderIds.push(activeId);
                 } else {
-                     // Sibling insertion
-                     newOrderIds.splice(overIndex, 0, activeId);
+                    // Sibling insertion
+                    newOrderIds.splice(overIndex, 0, activeId);
                 }
             } else {
                 newOrderIds.push(activeId);
@@ -847,35 +865,38 @@ export default function MapLayout({
             // Reordering within same list
             const overIndex = newOrderIds.indexOf(overId);
             if (overIndex !== -1) {
-                 const currentOrder = layerOrder[targetParentId] || [];
-                 const oldIndex = currentOrder.indexOf(activeId);
-                 const newIndex = currentOrder.indexOf(overId);
-                 if (oldIndex !== -1 && newIndex !== -1) {
-                     newOrderIds = arrayMove(currentOrder, oldIndex, newIndex);
-                 } else {
-                     newOrderIds.splice(overIndex, 0, activeId);
-                 }
+                const currentOrder = layerOrder[targetParentId] || [];
+                const oldIndex = currentOrder.indexOf(activeId);
+                const newIndex = currentOrder.indexOf(overId);
+                if (oldIndex !== -1 && newIndex !== -1) {
+                    newOrderIds = arrayMove(currentOrder, oldIndex, newIndex);
+                } else {
+                    newOrderIds.splice(overIndex, 0, activeId);
+                }
             } else {
-                 newOrderIds.push(activeId);
+                newOrderIds.push(activeId);
             }
         }
 
         // 4. Apply Updates
         setLayerOrder(targetParentId, newOrderIds);
-        
+        emitLayerReorder(targetParentId, newOrderIds);
+
         if (structuralMove) {
             const targetFolder = targetParentId === 'root' ? undefined : targetParentId;
-            
+
             if (activeNode.type === 'layer') {
                 updateLayerFolder(activeId, targetFolder);
+                emitLayerFolderUpdate(activeId, targetFolder);
             } else {
                 const activePath = activeId.replace('folder-', '');
                 const pathParts = activePath.split('/');
                 const name = pathParts[pathParts.length - 1];
                 const newPath = targetFolder ? `${targetFolder}/${name}` : name;
-                
+
                 if (activePath !== newPath) {
                     renameFolder(activePath, newPath);
+                    emitFolderRename(activePath, newPath);
                 }
             }
         }
@@ -1018,6 +1039,9 @@ export default function MapLayout({
                     if (!useMapStore.getState().displayLayouts.showTeamCursors) return;
                     const myUserId = socketRef.current.id;
                     if (id === myUserId || projectId !== projectIdParams) return;
+
+                    console.log("Cursor update received:", { id, username, lng, lat });
+
                     if (!cursorsRef.current[id]) {
                         const markerEl = cursorElement(id, color, username);
                         cursorsRef.current[id] = new mapboxgl.Marker({ element: markerEl })
@@ -1050,6 +1074,135 @@ export default function MapLayout({
                 }
             });
         }
+
+        // LAYER & FOLDER SYNC LISTENERS
+        socketRef.current.on("layer-add", ({ layer, projectId }: any) => {
+            if (projectId !== projectIdParams) return;
+            const { addLayer } = useLayerStore.getState();
+            // Check if layer already exists to avoid duplicates
+            const exists = useLayerStore.getState().layers.some(l => l.id === layer.id);
+            if (!exists) {
+                addLayer(layer);
+            }
+        });
+
+        socketRef.current.on("layer-delete", ({ layerId, projectId }: any) => {
+            if (projectId !== projectIdParams) return;
+            const { removeLayer } = useLayerStore.getState();
+            removeLayer(layerId);
+        });
+
+        socketRef.current.on("layer-visibility", ({ layerId, visible, projectId }: any) => {
+            if (projectId !== projectIdParams) return;
+            const { setVisibility } = useLayerStore.getState();
+            setVisibility(layerId, visible);
+        });
+
+        socketRef.current.on("layer-reorder", ({ parentId, order, projectId }: any) => {
+            if (projectId !== projectIdParams) return;
+            const { setLayerOrder } = useLayerStore.getState();
+            setLayerOrder(parentId, order);
+        });
+
+        socketRef.current.on("layer-folder-update", ({ layerId, folder, projectId }: any) => {
+            if (projectId !== projectIdParams) return;
+            const { updateLayerFolder } = useLayerStore.getState();
+            updateLayerFolder(layerId, folder);
+        });
+
+        socketRef.current.on("folder-add", ({ path, projectId }: any) => {
+            if (projectId !== projectIdParams) return;
+            const { addFolder } = useLayerStore.getState();
+            addFolder(path);
+        });
+
+        socketRef.current.on("folder-rename", ({ oldPath, newPath, projectId }: any) => {
+            if (projectId !== projectIdParams) return;
+            const { renameFolder } = useLayerStore.getState();
+            renameFolder(oldPath, newPath);
+        });
+
+        socketRef.current.on("folder-delete", ({ path, projectId }: any) => {
+            if (projectId !== projectIdParams) return;
+            const { removeFolder } = useLayerStore.getState();
+            removeFolder(path);
+        });
+
+        socketRef.current.on("folder-visibility", ({ path, visible, projectId }: any) => {
+            if (projectId !== projectIdParams) return;
+            const { setFolderVisibility } = useLayerStore.getState();
+            setFolderVisibility(path, visible);
+        });
+
+        socketRef.current.on("layer-name-update", ({ layerId, name, projectId }: any) => {
+            if (projectId !== projectIdParams) return;
+            const { layers, setLayers } = useLayerStore.getState();
+            const updatedLayers = layers.map(layer =>
+                layer.id === layerId ? { ...layer, name } : layer
+            );
+            setLayers(updatedLayers);
+        });
+    };
+
+    // HELPER FUNCTIONS TO EMIT WEBSOCKET EVENTS
+    const emitLayerAdd = (layer: Layer) => {
+        if (socketRef.current && projectIdParams) {
+            socketRef.current.emit("layer-add", { layer, projectId: projectIdParams });
+        }
+    };
+
+    const emitLayerDelete = (layerId: string) => {
+        if (socketRef.current && projectIdParams) {
+            socketRef.current.emit("layer-delete", { layerId, projectId: projectIdParams });
+        }
+    };
+
+    const emitLayerVisibility = (layerId: string, visible: boolean) => {
+        if (socketRef.current && projectIdParams) {
+            socketRef.current.emit("layer-visibility", { layerId, visible, projectId: projectIdParams });
+        }
+    };
+
+    const emitLayerReorder = (parentId: string, order: string[]) => {
+        if (socketRef.current && projectIdParams) {
+            socketRef.current.emit("layer-reorder", { parentId, order, projectId: projectIdParams });
+        }
+    };
+
+    const emitLayerFolderUpdate = (layerId: string, folder: string | undefined) => {
+        if (socketRef.current && projectIdParams) {
+            socketRef.current.emit("layer-folder-update", { layerId, folder, projectId: projectIdParams });
+        }
+    };
+
+    const emitFolderAdd = (path: string) => {
+        if (socketRef.current && projectIdParams) {
+            socketRef.current.emit("folder-add", { path, projectId: projectIdParams });
+        }
+    };
+
+    const emitFolderRename = (oldPath: string, newPath: string) => {
+        if (socketRef.current && projectIdParams) {
+            socketRef.current.emit("folder-rename", { oldPath, newPath, projectId: projectIdParams });
+        }
+    };
+
+    const emitFolderDelete = (path: string) => {
+        if (socketRef.current && projectIdParams) {
+            socketRef.current.emit("folder-delete", { path, projectId: projectIdParams });
+        }
+    };
+
+    const emitFolderVisibility = (path: string, visible: boolean) => {
+        if (socketRef.current && projectIdParams) {
+            socketRef.current.emit("folder-visibility", { path, visible, projectId: projectIdParams });
+        }
+    };
+
+    const emitLayerNameUpdate = (layerId: string, name: string) => {
+        if (socketRef.current && projectIdParams) {
+            socketRef.current.emit("layer-name-update", { layerId, name, projectId: projectIdParams });
+        }
     };
 
     useEffect(() => {
@@ -1058,6 +1211,25 @@ export default function MapLayout({
             cursorsRef.current = {};
         }
     }, [displayLayouts.showTeamCursors]);
+
+    // Sync layer additions to other users
+    const prevLayersRef = useRef<Layer[]>(layers);
+    useEffect(() => {
+        // Skip on initial load or if socketRef not ready
+        if (!socketRef.current || !projectIdParams) return;
+
+        // Find newly added layers
+        const prevIds = new Set(prevLayersRef.current.map(l => l.id));
+        const newLayers = layers.filter(l => !prevIds.has(l.id));
+
+        // Emit each new layer
+        newLayers.forEach(layer => {
+            emitLayerAdd(layer);
+        });
+
+        // Update ref
+        prevLayersRef.current = layers;
+    }, [layers]);
 
     // INISIALISASI
     useEffect(() => {
@@ -1379,6 +1551,7 @@ export default function MapLayout({
             }
         }
         setVisibility(layerId, !status);
+        emitLayerVisibility(layerId, !status);
     };
 
     const isSourceUsed = (sourceId: string): boolean => {
@@ -1401,6 +1574,7 @@ export default function MapLayout({
             }
         }
         removeLayer(layerId);
+        emitLayerDelete(layerId);
     };
 
     const handleZoomToLayer = async (index: number) => {
@@ -1524,6 +1698,7 @@ export default function MapLayout({
                     if (vectorLayer) {
                         vectorLayer.forEach((layer) => {
                             addLayer(layer);
+                            emitLayerAdd(layer);
                         });
                     }
                 }),
@@ -1548,6 +1723,7 @@ export default function MapLayout({
                 name: event.target.value,
             };
             setLayers(updatedLayers);
+            emitLayerNameUpdate(layerIndex.id, event.target.value);
         }
     };
 
@@ -1593,6 +1769,7 @@ export default function MapLayout({
 
         // 3. Update store
         removeFolder(folderPath);
+        emitFolderDelete(folderPath);
     };
 
     // END TOOL FUNCTIONS
@@ -1844,6 +2021,7 @@ export default function MapLayout({
         }
 
         addFolder(folderName);
+        emitFolderAdd(folderName);
         // Open the folder in the tree
         const folderId = `folder-${folderName}`;
         if (!openItems.includes(folderId)) {
@@ -1872,6 +2050,7 @@ export default function MapLayout({
             });
         }
         removeFolder(folderPath);
+        emitFolderDelete(folderPath);
     };
 
     // WIP
@@ -2689,6 +2868,8 @@ export default function MapLayout({
                                                             setOpenItems={setOpenItems}
                                                             setLayerVisible={setLayerVisible}
                                                             setFolderVisibility={setFolderVisibility}
+                                                            emitFolderVisibility={emitFolderVisibility}
+                                                            emitFolderRename={emitFolderRename}
                                                             handleConvertToVector={handleConvertToVector}
                                                             handleZoomToLayer={handleZoomToLayer}
                                                             handleTableMapbox={handleTableMapbox}
@@ -2742,7 +2923,7 @@ export default function MapLayout({
             </div>
 
             {/* RIGHT SIDE */}
-            <div className="absolute top-0 right-0 p-5 text-xs min-w-96 max-w-[600px] max-h-[90vh]">
+            <div className="absolute top-0 right-0 p-5 text-xs min-w-96 max-w-[600px] max-h-[90vh] flex flex-col gap-4 overflow-y-auto">
                 {displayLayouts.layerInfo && (
                     <Card>
                         <CardHeader>
@@ -3170,7 +3351,7 @@ export default function MapLayout({
                                 className={`relative p-5 w-full h-full bg-white rounded-lg dark:bg-background`}
                             >
                                 <div className="flex justify-between items-center mb-2">
-                                    <h5 className="mb-2 font-bold text-md">Table</h5>
+                                    <h5 className="mb-2 font-bold text-sm">Attribute Table</h5>
                                     <Button
                                         variant="ghost"
                                         size="icon"
@@ -3182,7 +3363,7 @@ export default function MapLayout({
                                         <X className="w-4 h-4" />
                                     </Button>
                                 </div>
-                                <div className="h-[50vh] w-full">
+                                <div className="h-[30vh] w-full">
                                     <DynamicTable
                                         headers={tableData.headers}
                                         data={tableData.data}

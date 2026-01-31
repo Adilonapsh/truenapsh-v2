@@ -12,7 +12,7 @@ import useLayerStore from "@/stores/layer";
 import { useMapStore } from "@/stores/map";
 import { executeOperation } from "@/tools/operation-executor";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, Info, Search, Sparkles } from "lucide-react";
+import { ArrowLeft, Grid3x3, Info, List, Search, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../button";
 import { Input } from "../input";
@@ -32,6 +32,7 @@ export default function OperationComponents() {
     const [searchQuery, setSearchQuery] = useState("");
     const [operationOptions, setOperationOptions] = useState<Record<string, any>>({});
     const [isLoading, setIsLoading] = useState(false);
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
     const operationDetails = getOperationDetails(layers);
 
@@ -83,7 +84,29 @@ export default function OperationComponents() {
                         <div className="p-6 space-y-4">
                             <div className="flex items-center justify-between">
                                 <h1 className="text-xl font-bold tracking-tight">Tools</h1>
-                                <Sparkles className="h-5 w-5 text-primary/40" />
+                                <div className="flex items-center gap-2">
+                                    <div className="flex bg-muted/40 rounded-lg p-1">
+                                        <button
+                                            onClick={() => setViewMode('list')}
+                                            className={`p-1.5 rounded transition-all ${viewMode === 'list'
+                                                ? 'bg-background shadow-sm text-primary'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                                }`}
+                                        >
+                                            <List className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setViewMode('grid')}
+                                            className={`p-1.5 rounded transition-all ${viewMode === 'grid'
+                                                ? 'bg-background shadow-sm text-primary'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                                }`}
+                                        >
+                                            <Grid3x3 className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                    <Sparkles className="h-5 w-5 text-primary/40" />
+                                </div>
                             </div>
                             <div className="relative group">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
@@ -98,10 +121,10 @@ export default function OperationComponents() {
 
                         <ScrollArea className="flex-1 px-6 pb-6">
                             <div className="space-y-8">
-                                <OperationSection title="Geoprocessing" items={filteredOps(geoprocessingOperations)} onSelect={setSelectedOperation} />
-                                <OperationSection title="Geometry" items={filteredOps(geometryOperations)} onSelect={setSelectedOperation} />
-                                <OperationSection title="Analysis" items={filteredOps(analysisOperations)} onSelect={setSelectedOperation} />
-                                <OperationSection title="Integration" items={filteredOps(integrationOperations)} onSelect={setSelectedOperation} />
+                                <OperationSection viewMode={viewMode} title="Geoprocessing" items={filteredOps(geoprocessingOperations)} onSelect={setSelectedOperation} />
+                                <OperationSection viewMode={viewMode} title="Geometry" items={filteredOps(geometryOperations)} onSelect={setSelectedOperation} />
+                                <OperationSection viewMode={viewMode} title="Analysis" items={filteredOps(analysisOperations)} onSelect={setSelectedOperation} />
+                                <OperationSection viewMode={viewMode} title="Integration" items={filteredOps(integrationOperations)} onSelect={setSelectedOperation} />
                             </div>
                         </ScrollArea>
                     </motion.div>
@@ -208,10 +231,12 @@ function OperationSection({
     title,
     items,
     onSelect,
+    viewMode,
 }: {
     title: string;
     items: OperationItem[];
     onSelect: (label: string) => void;
+    viewMode: 'list' | 'grid';
 }) {
     if (items.length === 0) return null;
     return (
@@ -219,22 +244,41 @@ function OperationSection({
             <h2 className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground/60 px-1">
                 {title}
             </h2>
-            <div className="grid grid-cols-3 gap-3">
-                {items.map((item, id) => (
-                    <button
-                        key={id}
-                        onClick={() => onSelect(item.label)}
-                        className="group flex flex-col items-center justify-center p-4 rounded-2xl bg-muted/30 hover:bg-primary/5 border border-transparent hover:border-primary/10 transition-all duration-300 active:scale-[0.97]"
-                    >
-                        <div className="w-10 h-10 rounded-xl bg-background flex items-center justify-center mb-3 shadow-sm group-hover:shadow-md group-hover:text-primary transition-all">
-                            {item.icon}
-                        </div>
-                        <span className="text-[11px] font-medium text-center leading-tight">
-                            {item.label}
-                        </span>
-                    </button>
-                ))}
-            </div>
+            {viewMode === 'grid' ? (
+                <div className="grid grid-cols-3 gap-3">
+                    {items.map((item, id) => (
+                        <button
+                            key={id}
+                            onClick={() => onSelect(item.label)}
+                            className="group flex flex-col items-center justify-center p-4 rounded-2xl bg-muted/30 hover:bg-primary/5 border border-transparent hover:border-primary/10 transition-all duration-300 active:scale-[0.97]"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-background flex items-center justify-center mb-3 shadow-sm group-hover:shadow-md group-hover:text-primary transition-all">
+                                {item.icon}
+                            </div>
+                            <span className="text-[11px] font-medium text-center leading-tight">
+                                {item.label}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    {items.map((item, id) => (
+                        <button
+                            key={id}
+                            onClick={() => onSelect(item.label)}
+                            className="group w-full flex items-center gap-3 p-3 rounded-xl bg-muted/30 hover:bg-primary/5 border border-transparent hover:border-primary/10 transition-all duration-300 active:scale-[0.99]"
+                        >
+                            <div className="w-9 h-9 rounded-lg bg-background flex items-center justify-center shadow-sm group-hover:shadow-md group-hover:text-primary transition-all shrink-0">
+                                {item.icon}
+                            </div>
+                            <span className="text-sm font-medium text-left">
+                                {item.label}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
