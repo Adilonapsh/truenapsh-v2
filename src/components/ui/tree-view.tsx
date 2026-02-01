@@ -20,7 +20,7 @@ import {
     ResizablePanelGroup,
 } from "./resizable";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
-import { MapServiceVendor } from "@/types/map.types";
+import { MapServiceVendor, ParsedLayer } from "@/types/map.types";
 import useDatasetStore from "@/stores/datasets";
 
 export type TreeNode = {
@@ -45,6 +45,7 @@ type TreeNodeProps = {
     path: string;
     onSelect: (node: TreeNode, path: string) => void;
     selectedPath: string | null;
+    selectedDatasets: ParsedLayer[];
 };
 
 function TreeNode({
@@ -53,6 +54,7 @@ function TreeNode({
     path,
     onSelect,
     selectedPath,
+    selectedDatasets
 }: TreeNodeProps) {
     const [isOpen, setIsOpen] = useState(false);
 
@@ -63,7 +65,9 @@ function TreeNode({
         onSelect(node, path);
     };
 
-    const isSelected = node.id === selectedPath;
+    const isLayerSelected = node.type !== 'folder' && selectedDatasets.some(d => d.id === node.id);
+    const isFolderSelected = node.type === 'folder' && node.id === selectedPath;
+    const isSelected = isLayerSelected || isFolderSelected;
 
     return (
         <div className="select-none">
@@ -153,6 +157,7 @@ function TreeNode({
                             path={`${path}/${childNode.name}`}
                             onSelect={onSelect}
                             selectedPath={selectedPath}
+                            selectedDatasets={selectedDatasets}
                         />
                     ))}
                 </div>
@@ -204,21 +209,34 @@ export default function TreeDirectory({
     }, [searchTerm, data]);
 
     const handleSelect = (node: TreeNode, path: string) => {
-        const layer = {
-            id: node.id,
-            name: node.name,
-            title: node.title,
-            legend: "",
-            thumbnail: "",
-            map_service_vendor: node.map_service_vendor,
-            url: node?.metadata?.url?.replaceAll("?f=json", ""),
-            metadata: {
-                url: node?.metadata?.url?.replaceAll("?f=json", ""),
-            }
-        };
-        if (node.type != "folder") {
-            setSelectedDatasets([...selectedDatasets, { ...layer }]);
+        if (node.type === "folder") {
+            setSelectedNode(node);
+            setSelectedPath(node.id);
+            return;
         }
+
+        const isAlreadySelected = selectedDatasets.some(d => d.id === node.id);
+
+        if (isAlreadySelected) {
+            // Remove
+            setSelectedDatasets(selectedDatasets.filter(d => d.id !== node.id));
+        } else {
+            // Add
+            const layer = {
+                id: node.id,
+                name: node.name,
+                title: node.title,
+                legend: "",
+                thumbnail: "",
+                map_service_vendor: node.map_service_vendor,
+                url: node?.metadata?.url?.replaceAll("?f=json", "") || "",
+                metadata: {
+                    url: node?.metadata?.url?.replaceAll("?f=json", ""),
+                }
+            };
+            setSelectedDatasets([...selectedDatasets, layer]);
+        }
+
         setSelectedNode(node);
         setSelectedPath(node.id);
     };
@@ -254,6 +272,7 @@ export default function TreeDirectory({
                                         path={node.name}
                                         onSelect={handleSelect}
                                         selectedPath={selectedPath}
+                                        selectedDatasets={selectedDatasets}
                                     />
                                 ))}
                             </div>

@@ -183,6 +183,32 @@ const MapMenu = (
                         >
                             Tools
                         </MenubarCheckboxItem>
+                        <MenubarCheckboxItem
+                            checked={displayLayouts?.terrain3D ?? false}
+                            onClick={() => {
+                                if (displayLayouts) {
+                                    setDisplayLayouts({
+                                        ...displayLayouts,
+                                        terrain3D: !displayLayouts.terrain3D
+                                    });
+                                }
+                            }}
+                        >
+                            3D Terrain Viewer
+                        </MenubarCheckboxItem>
+                        <MenubarCheckboxItem
+                            checked={displayLayouts?.modelViewer3D ?? false}
+                            onClick={() => {
+                                if (displayLayouts) {
+                                    setDisplayLayouts({
+                                        ...displayLayouts,
+                                        modelViewer3D: !displayLayouts.modelViewer3D
+                                    });
+                                }
+                            }}
+                        >
+                            3D Studio
+                        </MenubarCheckboxItem>
                         <MenubarSub>
                             <MenubarSubTrigger inset>Theme</MenubarSubTrigger>
                             <MenubarSubContent>

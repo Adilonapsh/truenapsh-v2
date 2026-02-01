@@ -16,7 +16,7 @@ interface FileHandler {
 }
 
 // Utility functions
-const getLayerName = (filename: string): string => {
+export const getLayerName = (filename: string): string => {
     return filename.split(".")[0].replace(/_/g, " ");
 };
 

@@ -87,6 +87,7 @@ enum MapServiceVendor {
   Image = "Image",
   Text = "Text",
   Icon = "Icon",
+  Model = "Model",
 }
 
 type Location = {
@@ -142,6 +143,7 @@ type MapboxLayerStyle = {
   model_opacity?: number | undefined; // 0..100 in UI, mapped to 0..1
   model_emissive_strength?: number | undefined; // 0..5
   model_rotation?: number[] | undefined; // [x,y,z] in degrees
+  model_scale?: number[] | undefined; // [x,y,z] scale factor
   // Fill-extrusion
   fill_extrusion_color?: string | ColorSpecification | undefined;
   fill_extrusion_opacity?: number | undefined; // 0..100 in UI
@@ -233,6 +235,8 @@ type LayoutDisplay = {
   drawProperties: boolean;
   showTeamCursors: boolean;
   fullscreen: boolean;
+  terrain3D: boolean;
+  modelViewer3D: boolean;
 };
 
 export type PropertyValueType = "string" | "number" | "boolean" | "array";

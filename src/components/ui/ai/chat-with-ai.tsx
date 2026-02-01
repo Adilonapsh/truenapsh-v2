@@ -288,7 +288,7 @@ export function ChatWithAI({
                 const actionArg: any = toolCall.toolCall.args;
                 onCommandReceived?.({ action: actionArg.action || "", params: actionArg.parameters || {} });
             }
-            console.log(toolCall);
+            // console.log(toolCall);
         },
         onResponse: async (response) => {
             setIsTyping(true);
@@ -311,7 +311,7 @@ export function ChatWithAI({
     };
 
     const fetchSessions = async (projectId?: string) => {
-        console.log("Ini Project ID", projectId);
+        // console.log("Ini Project ID", projectId);
 
         const url = projectId ? `${baseURL}?project_id=${projectId}` : `${baseURL}`;
         const res = await fetch(url, { headers });

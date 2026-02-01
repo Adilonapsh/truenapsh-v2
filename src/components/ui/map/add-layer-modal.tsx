@@ -48,16 +48,17 @@ import { getWMSServices } from '@/services/map-services'
 import { findLayerConfigByGeometryType } from '@/tools/map-tools'
 import toast from 'react-hot-toast'
 import { addGeojsonToMap } from '@/tools/map-tools'
-import { processCSV, csvToGeoJSON, getFileHandler } from '@/tools/map-utility'
+import { processCSV, csvToGeoJSON, getFileHandler, getLayerName } from '@/tools/map-utility'
 import { Label } from '../label'
 import { LuUpload } from 'react-icons/lu'
+
 
 interface UploadedFileConfig {
     id: string;
     file: File;
     name: string;
     ext: string;
-    fileType: 'csv' | 'geojson' | 'geotiff' | 'image' | 'video' | 'other';
+    fileType: 'csv' | 'geojson' | 'geotiff' | 'image' | 'video' | '3d' | 'other';
     options: {
         encoding: string;
         delimiter: string;
@@ -72,6 +73,9 @@ interface UploadedFileConfig {
         lngField: string;
         wktField: string;
         crs: string;
+        modelScale: number[];
+        modelRotation: number[];
+        modelPosition: [number, number];
     };
     headers: string[];
     rows: any[];
@@ -95,6 +99,7 @@ export default function AddLayerModal() {
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
 
+        const mapInstance = map?.current?.getMap();
         const newFiles: UploadedFileConfig[] = [];
 
         for (const file of files) {
@@ -104,7 +109,7 @@ export default function AddLayerModal() {
             let headers: string[] = [];
             let rows: any[] = [];
             let rawData: string[][] = [];
-            let fileType: 'csv' | 'geojson' | 'geotiff' | 'image' | 'video' | 'other' = 'other';
+            let fileType: 'csv' | 'geojson' | 'geotiff' | 'image' | 'video' | '3d' | 'other' = 'other';
             let preview: string | undefined;
 
             // Determine file type
@@ -131,6 +136,9 @@ export default function AddLayerModal() {
                 fileType = 'video';
                 // Create preview for videos
                 preview = URL.createObjectURL(file);
+            } else if (['glb', 'gltf'].includes(ext)) {
+                fileType = '3d';
+                preview = URL.createObjectURL(file);
             }
 
             const lat = headers.find(h => h.toLowerCase().includes('lat') || h.toLowerCase().includes('y'));
@@ -156,7 +164,10 @@ export default function AddLayerModal() {
                     latField: lat || '',
                     lngField: lng || '',
                     wktField: wktField || '',
-                    crs: 'EPSG:4326 - WGS 84'
+                    crs: 'EPSG:4326 - WGS 84',
+                    modelScale: [1, 1, 1],
+                    modelRotation: [0, 0, 0],
+                    modelPosition: [mapInstance ? mapInstance.getCenter().lng : 0, mapInstance ? mapInstance.getCenter().lat : 0]
                 },
                 headers,
                 rows,
@@ -235,7 +246,7 @@ export default function AddLayerModal() {
                     const geotiffData: any = await handler.handler(fileConfig.file);
 
                     const layerId = v4();
-                    const layerName = fileConfig.name.split('.')[0];
+                    const layerName = getLayerName(fileConfig.name);
 
                     mapInstance.addSource(layerId, {
                         type: 'image',
@@ -274,7 +285,7 @@ export default function AddLayerModal() {
                 if (fileConfig.fileType === 'image') {
                     const imageUrl = fileConfig.preview || URL.createObjectURL(fileConfig.file);
                     const layerId = v4();
-                    const layerName = fileConfig.name.split('.')[0];
+                    const layerName = getLayerName(fileConfig.name);
 
                     // Get map center and calculate bounds
                     const center = mapInstance.getCenter();
@@ -325,7 +336,7 @@ export default function AddLayerModal() {
                 if (fileConfig.fileType === 'video') {
                     const videoUrl = fileConfig.preview || URL.createObjectURL(fileConfig.file);
                     const layerId = v4();
-                    const layerName = fileConfig.name.split('.')[0];
+                    const layerName = getLayerName(fileConfig.name);
 
                     // Create video element
                     const video = document.createElement('video');
@@ -384,6 +395,77 @@ export default function AddLayerModal() {
                     continue;
                 }
 
+                // Handle 3D models
+                if (fileConfig.fileType === '3d') {
+                    // Use Blob URL with extension hint to help Mapbox identification
+                    const modelUrl = URL.createObjectURL(fileConfig.file) + `?ext=.${fileConfig.ext}`;
+
+                    if (fileConfig.ext === 'gltf') {
+                        toast.error("Standard .gltf files often fail to load because they reference external files. Please use .glb for self-contained 3D models.", { duration: 6000 });
+                    }
+
+
+                    const layerId = v4();
+                    const modelId = `model-${v4()}`;
+                    const layerName = getLayerName(fileConfig.name);
+
+                    // Register model in Mapbox style
+                    if (mapInstance && (mapInstance as any).addModel) {
+                        try {
+                            (mapInstance as any).addModel(modelId, modelUrl);
+                        } catch (err) {
+                            console.error("Error adding model to map:", err);
+                        }
+                    }
+
+                    // Mapbox GL JS v3 model source and layer
+                    mapInstance.addSource(layerId, {
+                        type: 'geojson',
+                        data: {
+                            type: 'FeatureCollection',
+                            features: [{
+                                type: 'Feature',
+                                geometry: {
+                                    type: 'Point',
+                                    coordinates: fileConfig.options.modelPosition
+                                },
+                                properties: {}
+                            }]
+                        }
+                    });
+
+                    mapInstance.addLayer({
+                        id: layerId,
+                        type: 'model',
+                        source: layerId,
+                        layout: {
+                            'model-id': modelId
+                        },
+                        paint: {
+                            'model-opacity': 1,
+                            'model-rotation': fileConfig.options.modelRotation as [number, number, number],
+                            'model-scale': fileConfig.options.modelScale as [number, number, number]
+                        }
+                    } as any);
+
+                    addLayer({
+                        id: layerId,
+                        name: layerName,
+                        map_service_url: modelUrl,
+                        map_service_layer_name: layerName,
+                        map_service_vendor: MapServiceVendor.Model,
+                        type: '3d',
+                        visible: true,
+                        min_zoom: 0,
+                        max_zoom: 24,
+                        status: 'Local',
+                        rendered: 1
+                    } as Layer);
+
+                    successCount++;
+                    continue;
+                }
+
                 // Handle CSV/TXT and other geospatial files (not media)
                 if (fileConfig.fileType === 'csv' || fileConfig.fileType === 'geojson' || fileConfig.fileType === 'other') {
                     let geojson: GeoJSON.GeoJSON;
@@ -423,7 +505,7 @@ export default function AddLayerModal() {
 
                     await addGeojsonToMap({
                         mapRef: map,
-                        layerName: fileConfig.name.split('.')[0],
+                        layerName: getLayerName(fileConfig.name),
                         data: geojson
                     });
                     successCount++;
@@ -757,11 +839,11 @@ export default function AddLayerModal() {
                                         </div>
                                     </CardContent>
                                 </Card>
-                                  <div className="flex justify-end mt-4">
-                                <Button className="" onClick={() => handleAddLayerToMap()}>
-                                    Add To Map
-                                </Button>
-                            </div>
+                                <div className="flex justify-end mt-4">
+                                    <Button className="" onClick={() => handleAddLayerToMap()}>
+                                        Add To Map
+                                    </Button>
+                                </div>
                             </TabsContent>
                             <TabsContent value="wms">
                                 <Card className="transition-[width] duration-300 ease-in-out">
@@ -893,11 +975,11 @@ export default function AddLayerModal() {
                                         </div>
                                     </CardContent>
                                 </Card>
-                                  <div className="flex justify-end mt-4">
-                                <Button className="" onClick={() => handleAddLayerToMap()}>
-                                    Add To Map
-                                </Button>
-                            </div>
+                                <div className="flex justify-end mt-4">
+                                    <Button className="" onClick={() => handleAddLayerToMap()}>
+                                        Add To Map
+                                    </Button>
+                                </div>
                             </TabsContent>
                             <TabsContent value="integration">
                                 <Card className="transition-[width] duration-300 ease-in-out">
@@ -954,7 +1036,7 @@ export default function AddLayerModal() {
                                             type="file"
                                             className="hidden"
                                             onChange={handleFileUpload}
-                                            accept=".geojson,.kml,.kmz,.topojson,.wkt,.zip,.csv,.txt,.tif,.tiff,.geotiff,.png,.jpg,.jpeg,.gif,.webp,.bmp,.mp4,.webm,.ogg,.mov"
+                                            accept=".glb,.gltf,.geojson,.kml,.kmz,.topojson,.wkt,.zip,.csv,.txt,.tif,.tiff,.geotiff,.png,.jpg,.jpeg,.gif,.webp,.bmp,.mp4,.webm,.ogg,.mov,.gltf,.glb"
                                             multiple
                                         />
                                         <Button
@@ -1201,6 +1283,81 @@ export default function AddLayerModal() {
                                                                 </AccordionContent>
                                                             </AccordionItem>
                                                         </Accordion>
+                                                    ) : selectedFile.fileType === '3d' ? (
+                                                        <div className="space-y-6">
+                                                            <div className="border rounded-md p-4 bg-muted/5 space-y-4">
+                                                                <div className="flex items-center justify-between">
+                                                                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Position Settings</p>
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        className="h-7 text-[10px]"
+                                                                        onClick={() => {
+                                                                            const center = map?.current?.getMap().getCenter();
+                                                                            if (center) {
+                                                                                updateFileOptions(selectedFile.id, { modelPosition: [center.lng, center.lat] });
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        Snap to Center
+                                                                    </Button>
+                                                                </div>
+
+                                                                <div className="grid grid-cols-2 gap-4">
+                                                                    <div className="space-y-1.5">
+                                                                        <Label className="text-[10px] uppercase">Longitude</Label>
+                                                                        <Input
+                                                                            type="number"
+                                                                            className="h-8 text-xs"
+                                                                            step="0.000001"
+                                                                            value={selectedFile.options.modelPosition[0]}
+                                                                            onChange={(e) => updateFileOptions(selectedFile.id, {
+                                                                                modelPosition: [parseFloat(e.target.value), selectedFile.options.modelPosition[1]]
+                                                                            })}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="space-y-1.5">
+                                                                        <Label className="text-[10px] uppercase">Latitude</Label>
+                                                                        <Input
+                                                                            type="number"
+                                                                            className="h-8 text-xs"
+                                                                            step="0.000001"
+                                                                            value={selectedFile.options.modelPosition[1]}
+                                                                            onChange={(e) => updateFileOptions(selectedFile.id, {
+                                                                                modelPosition: [selectedFile.options.modelPosition[0], parseFloat(e.target.value)]
+                                                                            })}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+                                                                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground pt-2">Transform</p>
+                                                                <div className="space-y-3">
+                                                                    <div className="space-y-1.5">
+                                                                        <Label className="text-[10px] uppercase">Scale (X, Y, Z)</Label>
+                                                                        <div className="grid grid-cols-3 gap-2">
+                                                                            <Input type="number" step="0.1" className="h-8 text-xs" placeholder="X" value={selectedFile.options.modelScale[0]} onChange={(e) => updateFileOptions(selectedFile.id, { modelScale: [parseFloat(e.target.value), selectedFile.options.modelScale[1], selectedFile.options.modelScale[2]] })} />
+                                                                            <Input type="number" step="0.1" className="h-8 text-xs" placeholder="Y" value={selectedFile.options.modelScale[1]} onChange={(e) => updateFileOptions(selectedFile.id, { modelScale: [selectedFile.options.modelScale[0], parseFloat(e.target.value), selectedFile.options.modelScale[2]] })} />
+                                                                            <Input type="number" step="0.1" className="h-8 text-xs" placeholder="Z" value={selectedFile.options.modelScale[2]} onChange={(e) => updateFileOptions(selectedFile.id, { modelScale: [selectedFile.options.modelScale[0], selectedFile.options.modelScale[1], parseFloat(e.target.value)] })} />
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="space-y-1.5">
+                                                                        <Label className="text-[10px] uppercase">Rotation (Degrees X, Y, Z)</Label>
+                                                                        <div className="grid grid-cols-3 gap-2">
+                                                                            <Input type="number" className="h-8 text-xs" placeholder="X" value={selectedFile.options.modelRotation[0]} onChange={(e) => updateFileOptions(selectedFile.id, { modelRotation: [parseFloat(e.target.value), selectedFile.options.modelRotation[1], selectedFile.options.modelRotation[2]] })} />
+                                                                            <Input type="number" className="h-8 text-xs" placeholder="Y" value={selectedFile.options.modelRotation[1]} onChange={(e) => updateFileOptions(selectedFile.id, { modelRotation: [selectedFile.options.modelRotation[0], parseFloat(e.target.value), selectedFile.options.modelRotation[2]] })} />
+                                                                            <Input type="number" className="h-8 text-xs" placeholder="Z" value={selectedFile.options.modelRotation[2]} onChange={(e) => updateFileOptions(selectedFile.id, { modelRotation: [selectedFile.options.modelRotation[0], selectedFile.options.modelRotation[1], parseFloat(e.target.value)] })} />
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex flex-col items-center justify-center py-8 border rounded-md bg-muted/5">
+                                                                <LuFileStack size={"40pt"} className="text-muted-foreground mb-4" />
+                                                                <p className="text-sm font-medium">{getLayerName(selectedFile.name)}</p>
+                                                                <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">3D Model (GLB/GLTF)</p>
+                                                            </div>
+                                                        </div>
                                                     ) : (
                                                         <div className="flex flex-col items-center justify-center h-64 border rounded-md bg-muted/20">
                                                             <LuFileJson className="h-12 w-12 text-muted-foreground mb-4 opacity-40" />

@@ -15,6 +15,8 @@ interface MapStore {
     setSelectedLayer: (layer: Layer | null) => void;
     openStyleAccordions: string[];
     setOpenStyleAccordions: (items: string[]) => void;
+    activeModelUrl: string | null;
+    setActiveModelUrl: (url: string | null) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
@@ -44,6 +46,8 @@ export const useMapStore = create<MapStore>((set) => ({
         drawProperties: false,
         showTeamCursors: true,
         fullscreen: false,
+        terrain3D: false,
+        modelViewer3D: false,
     },
     setDisplayLayouts: (layouts) =>
         set((state) => ({
@@ -53,4 +57,6 @@ export const useMapStore = create<MapStore>((set) => ({
     setSelectedLayer: (layer) => set({ selectedLayer: layer }),
     openStyleAccordions: ["label-settings"],
     setOpenStyleAccordions: (items) => set({ openStyleAccordions: items }),
+    activeModelUrl: null,
+    setActiveModelUrl: (url) => set({ activeModelUrl: url }),
 }));

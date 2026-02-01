@@ -30,6 +30,7 @@ import {
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import {
     ArrowUp,
+    Box,
     ChevronDown,
     ChevronRight,
     Eye,
@@ -160,6 +161,8 @@ import { CursorData } from "@/types/collaboration.types";
 import IconTooltip from "../icon-tooltip";
 import { MapCommandExecutor } from "@/tools/ai-tools/ai-tools";
 import { DrawPropertiesEditor } from "./draw-properties-editor";
+import { TerrainViewer3D } from "./terrain-viewer-3d";
+import { ModelViewer3D } from "./model-viewer-3d";
 import { PropertyValueType } from "@/types/map.types";
 
 interface LayerTreeNode {
@@ -921,6 +924,39 @@ export default function MapLayout({
         });
     }, [layers]);
 
+    // Sync layer order with map
+    useEffect(() => {
+        const map = mapRef.current?.getMap();
+        if (!map) return;
+
+        const getAllLayers = (nodes: LayerTreeNode[]): LayerTreeNode[] => {
+            let result: LayerTreeNode[] = [];
+            nodes.forEach(node => {
+                if (node.type === 'folder' && node.children) {
+                    result = result.concat(getAllLayers(node.children));
+                } else if (node.type === 'layer') {
+                    result.push(node);
+                }
+            });
+            return result;
+        };
+
+        const orderedLayers = getAllLayers(rootNodes);
+
+        // Iterate in reverse (bottom of list -> top of list)
+        // moving each to top of map stack
+        for (let i = orderedLayers.length - 1; i >= 0; i--) {
+            const layer = orderedLayers[i];
+            if (map.getLayer(layer.id)) {
+                map.moveLayer(layer.id);
+                // Also move companion symbol layer if exists (keep it above the main layer)
+                if (map.getLayer(`${layer.id}-symbol`)) {
+                    map.moveLayer(`${layer.id}-symbol`);
+                }
+            }
+        }
+    }, [rootNodes]);
+
     const [selectedFeature, setSelectedFeature] = useState<GeoJSON.Feature | null>(
         null
     );
@@ -1040,7 +1076,7 @@ export default function MapLayout({
                     const myUserId = socketRef.current.id;
                     if (id === myUserId || projectId !== projectIdParams) return;
 
-                    console.log("Cursor update received:", { id, username, lng, lat });
+                    // console.log("Cursor update received:", { id, username, lng, lat });
 
                     if (!cursorsRef.current[id]) {
                         const markerEl = cursorElement(id, color, username);
@@ -1491,8 +1527,8 @@ export default function MapLayout({
         if (map) {
             const bm = basemap[index];
             if (bm) {
-                if (bm.id.toLowerCase().includes("mapbox")) {
-                    map.setStyle(bm?.url);
+                if (bm.id.toLowerCase().includes("mapbox") && bm.url) {
+                    map.setStyle(bm.url);
                     setTimeout(() => {
                         setLayers(
                             layers.map((layer, i) =>
@@ -1848,6 +1884,8 @@ export default function MapLayout({
                         const type = data.features[0].geometry.type;
                         const layerConfig = findLayerConfigByGeometryType(type);
 
+                        if (map.getLayer(layer.id)) return;
+
                         map.addLayer({
                             id: layer.id,
                             type: layerConfig?.layerType as "fill" | "line" | "circle",
@@ -1897,27 +1935,30 @@ export default function MapLayout({
 
                 const layerIndex = layers[index];
                 if (layerIndex) {
-                    const updatedLayers = [...layers];
-                    updatedLayers[index] = {
-                        ...updatedLayers[index],
-                        render_type: map.getLayer(layer.id)?.type as
-                            | "symbol"
-                            | "fill"
-                            | "raster"
-                            | "background"
-                            | "building"
-                            | "circle"
-                            | "clip"
-                            | "fill-extrusion"
-                            | "heatmap"
-                            | "hillshade"
-                            | "line"
-                            | "model"
-                            | "raster-particle"
-                            | "sky"
-                            | undefined,
-                    };
-                    setLayers(updatedLayers);
+                    const currentType = map.getLayer(layer.id)?.type;
+                    if (currentType && layerIndex.render_type !== currentType) {
+                        const updatedLayers = [...layers];
+                        updatedLayers[index] = {
+                            ...updatedLayers[index],
+                            render_type: currentType as
+                                | "symbol"
+                                | "fill"
+                                | "raster"
+                                | "background"
+                                | "building"
+                                | "circle"
+                                | "clip"
+                                | "fill-extrusion"
+                                | "heatmap"
+                                | "hillshade"
+                                | "line"
+                                | "model"
+                                | "raster-particle"
+                                | "sky"
+                                | undefined,
+                        };
+                        setLayers(updatedLayers);
+                    }
                 }
             });
         }
@@ -2338,7 +2379,7 @@ export default function MapLayout({
     };
 
     const handleMapboxCommand = async (command: any) => {
-        console.log("Ini Mapbox Command", command);
+        // console.log("Ini Mapbox Command", command);
         if (!mapRef.current) return;
 
         if (typeof command === "object") {
@@ -2531,13 +2572,13 @@ export default function MapLayout({
             }
         });
 
-        console.log(selected);
+        // console.log(selected);
 
         if (selected.length > 0) {
             // Remove duplicates
             const uniqueFeatures = Array.from(new Map(selected.map(f => [f.id || JSON.stringify(f.properties), f])).values());
 
-            console.log(uniqueFeatures);
+            // console.log(uniqueFeatures);
             const infos: InfoFeature[] = uniqueFeatures.map((f) => {
                 const layerId = f.layer?.id;
                 const layer = layers.find((l) => l.id === layerId);
@@ -2959,6 +3000,8 @@ export default function MapLayout({
                         </CardContent>
                     </Card>
                 )}
+                <TerrainViewer3D />
+                <ModelViewer3D />
                 {displayLayouts.style && (
                     <Card className="overflow-hidden">
                         <CardHeader>

@@ -399,7 +399,7 @@ const transformGeoserverServicesToFolder = async (url: string) => {
 
       if (!grouped[workspace]) {
         grouped[workspace] = {
-          id: v4(),
+          id: workspace,
           name: workspace.replaceAll("_", " "),
           type: "folder",
           children: [],
@@ -412,7 +412,7 @@ const transformGeoserverServicesToFolder = async (url: string) => {
       );
       if (!mapServerGroup) {
         mapServerGroup = {
-          id: v4(),
+          id: `${fullName}_group`,
           name: fullName,
           title: layerName.replaceAll("_", " "),
           type: "WMS",
@@ -439,7 +439,7 @@ const transformGeoserverServicesToFolder = async (url: string) => {
       }
 
       mapServerGroup.children!.push({
-        id: v4(),
+        id: fullName,
         name: fullName,
         title: layerName.replaceAll("_", " "),
         type: "layer",
@@ -477,7 +477,7 @@ const transformEsriServicesToFolder = async (url: string) => {
             const serviceJson = await getEsriServices(serviceUrl);
             const children =
               serviceJson?.layers?.map((layer: any) => ({
-                id: v4(),
+                id: `${serviceUrl}/${layer.id}`,
                 name: layer.name,
                 title: service.name.replaceAll("_", " ").split("/")[1],
                 map_service_vendor: MapServiceVendor.ArcGIS,
@@ -491,7 +491,7 @@ const transformEsriServicesToFolder = async (url: string) => {
               })) || [];
 
             return {
-              id: v4(),
+              id: service.name,
               name: service.name.replaceAll("_", " ").split("/")[1],
               title: service.name.replaceAll("_", " ").split("/")[1],
               type: service.type,
@@ -508,7 +508,7 @@ const transformEsriServicesToFolder = async (url: string) => {
         );
 
         return {
-          id: v4(),
+          id: name,
           name: name.replaceAll("_", " "),
           type: "folder",
           children: generateServices,

@@ -219,6 +219,7 @@ interface LayerConfig {
     heatmap_color_stops: Array<[number, string]>;
     model_emissive_strength: number;
     model_rotation: number[];
+    model_scale: number[];
     fill_extrusion_color: string;
     fill_extrusion_opacity: number;
     fill_extrusion_height: number;
@@ -667,6 +668,7 @@ export const defaultLayerConfig: LayerConfig = {
     heatmap_color_stops: [],
     model_emissive_strength: 0,
     model_rotation: [0, 0, 0],
+    model_scale: [1, 1, 1],
     fill_extrusion_color: "#000000",
     fill_extrusion_opacity: 100,
     fill_extrusion_height: 0,

@@ -65,12 +65,12 @@ export class MapCommandExecutor {
             return;
         }
 
-        console.log("Ini command", command)
+        // console.log("Ini command", command)
 
         try {
             onProgress?.({ status: 'start', action: command.action, step: 'Validating command' });
             const params = command.params || {};
-            console.log("Ini params", params)
+            // console.log("Ini params", params)
 
             switch (command.action) {
                 case 'flyTo':
@@ -289,7 +289,7 @@ export class MapCommandExecutor {
         const mapLayer = map.getLayer(layer.id);
         if (mapLayer) {
             map.setLayoutProperty(layer.id, 'visibility', visibility);
-            console.log(`Layer ${layer.id} visibility set to: ${visibility}`);
+            // console.log(`Layer ${layer.id} visibility set to: ${visibility}`);
         } else {
             console.warn(`Layer ${layer.id} not found on map`);
         }

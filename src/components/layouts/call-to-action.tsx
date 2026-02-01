@@ -28,7 +28,7 @@ export const CtaSection = () => {
             ...data,
         }
         try {
-            console.log(formData);
+            // console.log(formData);
             setIsSubmitted(true);
         } catch (err) {
             console.error(err);

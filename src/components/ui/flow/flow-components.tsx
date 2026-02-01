@@ -488,7 +488,7 @@ function FlowDiagram() {
         (nodeId: string) => {
             setNodes((nds) => {
                 const nodeToClone = nds.find((n) => n.id === nodeId);
-                console.log("old Node", nodeToClone);
+                // console.log("old Node", nodeToClone);
                 if (!nodeToClone) return nds;
                 const id = uuidv4();
                 const newNode = {
@@ -509,7 +509,7 @@ function FlowDiagram() {
                     },
                 };
 
-                console.log("Duplicated", newNode);
+                // console.log("Duplicated", newNode);
 
                 return [...nds, newNode];
             });
@@ -519,7 +519,7 @@ function FlowDiagram() {
 
     const deleteNode = useCallback(
         (nodeId: string) => {
-            console.log("Ini Node ID", nodeId);
+            // console.log("Ini Node ID", nodeId);
             setNodes((nds) => nds.filter((node) => node.id !== nodeId));
             setEdges((eds) =>
                 eds.filter(
@@ -910,7 +910,7 @@ function FlowDiagram() {
         // Starting a new run
         setIsRunning(true);
         const workflow = await convertToWorkflow(flow.nodes, flow.edges);
-        console.log("workflow", workflow);
+        // console.log("workflow", workflow);
 
         // Animate all edges during run
         setEdges((eds: any) =>

@@ -13,6 +13,7 @@ import {
     MapServiceVendor,
 } from "@/types/map.types";
 import {
+    Eye,
     ImagesIcon,
     PenIcon,
     SlidersHorizontal,
@@ -71,7 +72,7 @@ export interface StylePanelProps {
 }
 
 export function StylePanel({ handleEditFeatures }: StylePanelProps) {
-    const { map, setDisplayLayouts, selectedLayer } = useMapStore();
+    const { map, setDisplayLayouts, selectedLayer, setActiveModelUrl } = useMapStore();
     const mapRef = map;
 
     const layers = useLayers();
@@ -101,6 +102,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
         model_opacity: 100,
         model_emissive_strength: 0,
         model_rotation: [0, 0, 0],
+        model_scale: [1, 1, 1],
         // fill-extrusion defaults
         fill_extrusion_color: "#000000",
         fill_extrusion_opacity: 100,
@@ -795,6 +797,24 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
                                     : prev.raster_particle_fade_amount,
                         }));
                     }
+
+                    // Model paint
+                    if (layer.type === "model") {
+                        const mColor = layer.paint["model-color" as keyof typeof layer.paint] as any;
+                        const mOpacity = layer.paint["model-opacity" as keyof typeof layer.paint] as any;
+                        const mEmissive = layer.paint["model-emissive-strength" as keyof typeof layer.paint] as any;
+                        const mRotation = layer.paint["model-rotation" as keyof typeof layer.paint] as any;
+                        const mScale = layer.paint["model-scale" as keyof typeof layer.paint] as any;
+
+                        setMapboxLayerStyle((prev) => ({
+                            ...prev,
+                            model_color: typeof mColor === "string" ? mColor : prev.model_color,
+                            model_opacity: typeof mOpacity === "number" ? mOpacity * 100 : prev.model_opacity,
+                            model_emissive_strength: typeof mEmissive === "number" ? mEmissive : prev.model_emissive_strength,
+                            model_rotation: Array.isArray(mRotation) ? mRotation : prev.model_rotation,
+                            model_scale: Array.isArray(mScale) ? mScale : prev.model_scale,
+                        }));
+                    }
                 }
             }
         }
@@ -1352,6 +1372,16 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
         if (selectedLayer?.id) {
             updateLayerConfig(selectedLayer.id, {
                 staticStyles: { ...config.staticStyles, model_rotation: values }
+            });
+        }
+    };
+
+    const setModelScale = (values: number[]) => {
+        setMapboxLayerStyle({ ...mapboxLayerStyle, model_scale: values });
+        setPaint("-scale", values);
+        if (selectedLayer?.id) {
+            updateLayerConfig(selectedLayer.id, {
+                staticStyles: { ...config.staticStyles, model_scale: values }
             });
         }
     };
@@ -2661,6 +2691,19 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
                                     {/* Model Layer Controls */}
                                     {layerType === "model" && (
                                         <div className="grid gap-4">
+                                            <Button
+                                                variant="outline"
+                                                className="w-full text-xs gap-2 bg-primary/5 hover:bg-primary/10 border-primary/20"
+                                                onClick={() => {
+                                                    const url = currentLayer?.map_service_url;
+                                                    if (url) {
+                                                        setActiveModelUrl(url);
+                                                        setDisplayLayouts({ modelViewer3D: true });
+                                                    }
+                                                }}
+                                            >
+                                                <Eye size={14} /> Open in 3D Studio
+                                            </Button>
                                             <div className="grid gap-2">
                                                 <Label className="text-xs">Model Color</Label>
                                                 <div className="flex items-center gap-2">
@@ -2710,6 +2753,88 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
                                                     max={10}
                                                     step={0.1}
                                                 />
+                                            </div>
+                                            <div className="grid gap-2">
+                                                <Label className="text-xs">Rotation (deg)</Label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-[10px] text-muted-foreground">X</Label>
+                                                        <Input
+                                                            type="number"
+                                                            className="h-8 text-xs"
+                                                            value={mapboxLayerStyle.model_rotation?.[0] ?? 0}
+                                                            onChange={(e) => {
+                                                                const val = parseFloat(e.target.value) || 0;
+                                                                setModelRotation([val, mapboxLayerStyle.model_rotation?.[1] ?? 0, mapboxLayerStyle.model_rotation?.[2] ?? 0]);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-[10px] text-muted-foreground">Y</Label>
+                                                        <Input
+                                                            type="number"
+                                                            className="h-8 text-xs"
+                                                            value={mapboxLayerStyle.model_rotation?.[1] ?? 0}
+                                                            onChange={(e) => {
+                                                                const val = parseFloat(e.target.value) || 0;
+                                                                setModelRotation([mapboxLayerStyle.model_rotation?.[0] ?? 0, val, mapboxLayerStyle.model_rotation?.[2] ?? 0]);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-[10px] text-muted-foreground">Z</Label>
+                                                        <Input
+                                                            type="number"
+                                                            className="h-8 text-xs"
+                                                            value={mapboxLayerStyle.model_rotation?.[2] ?? 0}
+                                                            onChange={(e) => {
+                                                                const val = parseFloat(e.target.value) || 0;
+                                                                setModelRotation([mapboxLayerStyle.model_rotation?.[0] ?? 0, mapboxLayerStyle.model_rotation?.[1] ?? 0, val]);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="grid gap-2">
+                                                <Label className="text-xs">Scale</Label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-[10px] text-muted-foreground">X</Label>
+                                                        <Input
+                                                            type="number"
+                                                            className="h-8 text-xs"
+                                                            value={mapboxLayerStyle.model_scale?.[0] ?? 1}
+                                                            onChange={(e) => {
+                                                                const val = parseFloat(e.target.value) || 0;
+                                                                setModelScale([val, mapboxLayerStyle.model_scale?.[1] ?? 1, mapboxLayerStyle.model_scale?.[2] ?? 1]);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-[10px] text-muted-foreground">Y</Label>
+                                                        <Input
+                                                            type="number"
+                                                            className="h-8 text-xs"
+                                                            value={mapboxLayerStyle.model_scale?.[1] ?? 1}
+                                                            onChange={(e) => {
+                                                                const val = parseFloat(e.target.value) || 0;
+                                                                setModelScale([mapboxLayerStyle.model_scale?.[0] ?? 1, val, mapboxLayerStyle.model_scale?.[2] ?? 1]);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-[10px] text-muted-foreground">Z</Label>
+                                                        <Input
+                                                            type="number"
+                                                            className="h-8 text-xs"
+                                                            value={mapboxLayerStyle.model_scale?.[2] ?? 1}
+                                                            onChange={(e) => {
+                                                                const val = parseFloat(e.target.value) || 0;
+                                                                setModelScale([mapboxLayerStyle.model_scale?.[0] ?? 1, mapboxLayerStyle.model_scale?.[1] ?? 1, val]);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
