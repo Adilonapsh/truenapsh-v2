@@ -2587,7 +2587,7 @@ export const DynamicTable = React.memo(function DynamicTable({
             return {
                 id: header,
                 accessorKey: header,
-                header: ({ column }) => (
+                header: ({ column }: { column: any }) => (
                     <div className="flex items-center space-x-2">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -2645,7 +2645,7 @@ export const DynamicTable = React.memo(function DynamicTable({
                 ),
                 size: 150, // Default column width
                 minSize: 50, // Minimum column width
-                maxSize: 500, // Maximum column width
+                // maxSize: 500, // Maximum column width
                 filterFn: (row: any, id: string, filterValues: string[]) => {
                     if (!filterValues || filterValues.length === 0) return true;
                     const value = String(row.getValue(id));

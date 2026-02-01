@@ -361,15 +361,15 @@ const LayerTreeItem = ({
     nestingFolderId?: string | null;
 }) => {
     // Local editing state
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState(node.name);
+    const { setNodeRef: setNestRef } = useDroppable({
+        id: 'nest-' + node.id,
+        data: { type: 'folder-nest' }
+    });
     if (node.type === 'folder') {
-        const [isEditing, setIsEditing] = React.useState(false);
-        const [editName, setEditName] = React.useState(node.name);
         const folderPath = node.id.replace('folder-', '');
         const isOpen = openItems.includes(node.id);
-        const { setNodeRef: setNestRef } = useDroppable({
-            id: 'nest-' + node.id,
-            data: { type: 'folder-nest' } // Helps id filtering if needed
-        });
 
         const handleRename = () => {
             if (editName && editName !== node.name) {
@@ -1737,7 +1737,7 @@ export default function MapLayout({
         const map = mapRef?.current?.getMap();
         if (map) {
             layersToRemove.forEach((layer) => {
-                const is_source_used = isSourceUsed(layer.source ?? "");
+                const is_source_used = isSourceUsed(layer.id ?? "");
                 if (map.getLayer(layer.id)) {
                     map.removeLayer(layer.id);
                 }
@@ -1746,7 +1746,7 @@ export default function MapLayout({
                 // However, we are batch removing. 
                 // If multiple layers share a source and we remove all of them, the source should eventually be removed.
                 // Simplest approach: Try removal for each.
-                if (!is_source_used && layer.source && map.getSource(layer.source)) {
+                if (!is_source_used && layer.id && map.getSource(layer.id)) {
                     // Check if any other remaining layers (not being removed) use this source
                     // But here we might be removing ALL layers using it.
                     // It's safer to remove layer first, then check sources later or just rely on react state update?
@@ -1756,9 +1756,9 @@ export default function MapLayout({
                     // The map state updates synchronously for removeLayer? Yes mapboxgl is sync.
                     // So:
                     try {
-                        const stillUsed = map.getStyle().layers.some(l => l.source === layer.source && l.id !== layer.id);
+                        const stillUsed = map.getStyle()?.layers.some(l => l.source === layer.id && l.id !== layer.id);
                         if (!stillUsed) {
-                            map.removeSource(layer.source);
+                            map.removeSource(layer.id);
                         }
                     } catch (e) {
                         console.error("Error removing source", e);

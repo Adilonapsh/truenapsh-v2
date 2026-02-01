@@ -140,9 +140,8 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
         selectedLayer?.id ? state.layerConfigs[selectedLayer.id] || defaultLayerConfig : defaultLayerConfig
     );
 
-    const { openStyleAccordions, setOpenStyleAccordions } = useMapStore();
 
-    if (!selectedLayer?.id) return null;
+    const { openStyleAccordions, setOpenStyleAccordions } = useMapStore();
 
     useEffect(() => {
         if (selectedLayer?.id) {
@@ -658,7 +657,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
                             "heatmap-color" as keyof typeof layer.paint
                         ] as any;
 
-                        let stops: [number, string][] = [];
+                        const stops: [number, string][] = [];
                         if (color && Array.isArray(color) && color[0] === "interpolate") {
                             // color looks like ["interpolate", ["linear"], ["heatmap-density"], 0, "rgba(0,0,0,0)", 0.2, "blue", ...]
                             for (let i = 3; i < color.length; i += 2) {
@@ -961,6 +960,10 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
         }));
 
         // Apply heatmap-weight from attribute if provided
+        const heatmapWeightField = mapboxLayerStyle.heatmap_weight_field;
+        const heatmapWeightMin = mapboxLayerStyle.heatmap_weight_min ?? 0;
+        const heatmapWeightMax = mapboxLayerStyle.heatmap_weight_max ?? 1;
+
         if (heatmapWeightField && typeof heatmapWeightField === "string") {
             const expr: any = [
                 "interpolate",
@@ -981,9 +984,11 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
         getStyleLayer();
     }, [selectedLayer]);
 
+    if (!selectedLayer?.id) return null;
+
     const setPaint = (
         paint_property: string,
-        value: string | number | number[] | boolean | undefined | null
+        value: string | number | number[] | boolean | undefined | null | any
     ) => {
         const map = mapRef?.current?.getMap();
         if (selectedLayer && map && value !== undefined && value !== null) {
@@ -1024,14 +1029,14 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
 
                 // Normal application
                 const paintProp = paint_property.startsWith("-") ? (type + paint_property) : paint_property;
-                map.setPaintProperty(layerId, paintProp as any, value);
+                map.setPaintProperty(layerId, paintProp as any, value as any);
             }
         }
     };
 
     const setLayout = (
         layout_property: string,
-        value: string | number | number[] | boolean | undefined | null
+        value: string | number | number[] | boolean | undefined | null | any
     ) => {
         const map = mapRef?.current?.getMap();
         if (selectedLayer && map && value !== undefined && value !== null) {
@@ -1067,21 +1072,21 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
 
             // Special handling for visibility (layout property)
             if (layout_property === "visibility") {
-                map.setLayoutProperty(layerId, "visibility", value);
+                map.setLayoutProperty(layerId, "visibility", value as any);
                 if (hasSymbolCompanion) {
-                    map.setLayoutProperty(symbolLayerId, "visibility", value);
+                    map.setLayoutProperty(symbolLayerId, "visibility", value as any);
                 }
                 return;
             }
 
             // If it's a text-* or icon-* or symbol-* property and we have a companion, apply to companion
             if (hasSymbolCompanion && (layout_property.startsWith("text-") || layout_property.startsWith("icon-") || layout_property.startsWith("symbol-"))) {
-                map.setLayoutProperty(symbolLayerId, layout_property, value);
+                map.setLayoutProperty(symbolLayerId, layout_property as any, value as any);
                 return;
             }
 
             // Normal application
-            map.setLayoutProperty(layerId, layout_property, value);
+            map.setLayoutProperty(layerId, layout_property as any, value as any);
         }
     };
 
@@ -1165,7 +1170,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
         setPaint("-brightness-max", values[1]);
         if (selectedLayer?.id) {
             updateLayerConfig(selectedLayer.id, {
-                staticStyles: { ...config.staticStyles, brightness: values }
+                staticStyles: { ...config.staticStyles, brightness: values as [number, number] }
             });
         }
     };
@@ -1178,7 +1183,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
             map.setLayerZoomRange(layerId, values[0], values[1]);
             if (selectedLayer?.id) {
                 updateLayerConfig(selectedLayer.id, {
-                    staticStyles: { ...config.staticStyles, zoom: values }
+                    staticStyles: { ...config.staticStyles, zoom: values as [number, number] }
                 });
             }
         }

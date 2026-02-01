@@ -125,6 +125,7 @@ type Coordinate = [number, number];
 type BoundingBox = [Coordinate, Coordinate];
 
 type MapboxLayerStyle = {
+  text_font?: any;
   opacity?: number | undefined;
   fill?: string | ColorSpecification | undefined;
   stroke?: string | ColorSpecification | undefined;
@@ -152,6 +153,9 @@ type MapboxLayerStyle = {
   heatmap_radius?: number | undefined;
   heatmap_opacity?: number | undefined; // 0..100 in UI
   heatmap_color_stops?: Array<[number, string]> | undefined; // [stop,valueColor]
+  heatmap_weight_field?: string | undefined;
+  heatmap_weight_min?: number | undefined;
+  heatmap_weight_max?: number | undefined;
   // Hillshade
   hillshade_exaggeration?: number | undefined;
   hillshade_shadow_color?: string | ColorSpecification | undefined;
