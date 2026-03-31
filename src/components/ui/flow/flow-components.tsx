@@ -7,6 +7,7 @@ import {
     ConnectionLineType,
     Controls,
     MiniMap,
+    MarkerType,
     Node,
     ReactFlow,
     ReactFlowProvider,
@@ -166,10 +167,12 @@ const DraggableChip = ({
     label,
     payload,
     value,
+    fullPath,
 }: {
     label: string;
     payload: string;
     value?: any;
+    fullPath?: string;
 }) => {
     const type = typeOfValue(value);
     return (
@@ -178,6 +181,7 @@ const DraggableChip = ({
             draggable
             onDragStart={(e) => {
                 e.dataTransfer.setData("application/variable", payload);
+                e.dataTransfer.setData("application/field-name", fullPath || label);
                 e.dataTransfer.effectAllowed = "copyMove";
             }}
         >
@@ -321,7 +325,17 @@ const OutputSchemaPanel = ({ data }: { data: any }) => {
             </TabsContent>
             <TabsContent value="json">
                 <pre className="text-xs whitespace-pre-wrap break-words max-h-[50vh] overflow-auto p-2 bg-background border rounded">
-                    {JSON.stringify(data ?? {}, null, 2)}
+                    {(() => {
+                        try {
+                            const str = JSON.stringify(data ?? {}, null, 2);
+                            if (str.length > 30000) {
+                                return str.substring(0, 30000) + "\n\n... (Output truncated for performance view)";
+                            }
+                            return str;
+                        } catch (e) {
+                            return "Unable to display JSON (Object too large or circular)";
+                        }
+                    })()}
                 </pre>
             </TabsContent>
         </Tabs>
@@ -353,6 +367,7 @@ const SchemaTree = ({
                     label={basePath || "value"}
                     payload={`${payloadPrefix}${basePath}}}`}
                     value={val}
+                    fullPath={basePath.replace(/^\./, "")}
                 />
                 <span className="text-[10pt] text-muted-foreground truncate max-w-[60%]">
                     {String(val)}
@@ -376,6 +391,7 @@ const SchemaTree = ({
                                     label={key}
                                     payload={`${payloadPrefix}${path}}}`}
                                     value={v}
+                                    fullPath={path.replace(/^\./, "")}
                                 />
                             </summary>
                             <div className="ml-4">
@@ -394,6 +410,7 @@ const SchemaTree = ({
                             label={key}
                             payload={`${payloadPrefix}${path}}}`}
                             value={v}
+                            fullPath={path.replace(/^\./, "")}
                         />
                         <span className="text-[10pt] text-muted-foreground truncate max-w-[60%]">
                             {previewValue(v)}
@@ -632,7 +649,11 @@ function FlowDiagram() {
 
     const onConnect = useCallback(
         (params: any) =>
-            setEdges((eds) => addEdge({ ...params, type: "buttonEdge" }, eds) as any),
+            setEdges((eds) => addEdge({
+                ...params,
+                type: "buttonEdge",
+                markerEnd: { type: MarkerType.ArrowClosed }
+            }, eds) as any),
         [setEdges]
     );
 
@@ -810,12 +831,13 @@ function FlowDiagram() {
                     ? eds.filter((e: any) => e.id !== insertionData.edgeId)
                     : eds;
 
-                const newEdges = [
+                const newEdges: any[] = [
                     {
                         id: uuidv4(),
                         source: insertionData.source,
                         target: id,
                         type: "buttonEdge",
+                        markerEnd: { type: MarkerType.ArrowClosed }
                     }
                 ];
 
@@ -825,6 +847,7 @@ function FlowDiagram() {
                         source: id,
                         target: insertionData.target,
                         type: "buttonEdge",
+                        markerEnd: { type: MarkerType.ArrowClosed }
                     });
                 }
 
@@ -1170,11 +1193,9 @@ function FlowDiagram() {
 
             // Simple level-based layout
             const nodeLevels: Record<string, number> = {};
-
             const getLevel = (nodeId: string, visited = new Set<string>()): number => {
                 if (visited.has(nodeId)) return 0;
                 if (nodeLevels[nodeId] !== undefined) return nodeLevels[nodeId];
-
                 visited.add(nodeId);
                 const incomingEdges = edges.filter(e => e.target === nodeId);
 
@@ -1182,7 +1203,6 @@ function FlowDiagram() {
                     nodeLevels[nodeId] = 0;
                     return 0;
                 }
-
                 const level = Math.max(...incomingEdges.map(e => getLevel(e.source, visited))) + 1;
                 nodeLevels[nodeId] = level;
                 return level;
@@ -1191,18 +1211,60 @@ function FlowDiagram() {
             // Calculate all levels
             nds.forEach(n => getLevel(n.id));
 
-            const levelCounts: Record<number, number> = {};
+            // Group nodes by level
+            const levels: Record<number, Node[]> = {};
+            nds.forEach(node => {
+                const level = nodeLevels[node.id] || 0;
+                if (!levels[level]) levels[level] = [];
+                levels[level].push(node);
+            });
+
+            const sortedLevelKeys = Object.keys(levels).map(Number).sort((a, b) => a - b);
+            const levelX: Record<number, number> = {};
+            const levelYPositions: Record<string, number> = {};
+            let currentX = 50;
+            const horizontalSpacing = 150;
+            const verticalSpacing = 220;
+
+            // Layout level by level
+            sortedLevelKeys.forEach(lvl => {
+                const currentLevelNodes = levels[lvl];
+
+                // Sort nodes in this level to minimize crossings
+                if (lvl === 0) {
+                    // Start level: keep original Y intent
+                    currentLevelNodes.sort((a, b) => a.position.y - b.position.y);
+                } else {
+                    // Subsequent levels: Barycenter heuristic
+                    // Sort nodes by the average Y position of their parents in previous levels
+                    currentLevelNodes.sort((a, b) => {
+                        const getAvgParentY = (nodeId: string) => {
+                            const parents = edges.filter(e => e.target === nodeId).map(e => e.source);
+                            const activeParents = parents.filter(pId => levelYPositions[pId] !== undefined);
+                            if (activeParents.length === 0) return 0;
+                            return activeParents.reduce((sum, pId) => sum + levelYPositions[pId], 0) / activeParents.length;
+                        };
+                        return getAvgParentY(a.id) - getAvgParentY(b.id);
+                    });
+                }
+
+                // Place nodes and record their Y positions for the next level
+                currentLevelNodes.forEach((node, index) => {
+                    levelYPositions[node.id] = index * verticalSpacing + 50;
+                });
+
+                // Calculate X for this level based on previous levels
+                const maxMeasuredWidth = Math.max(...currentLevelNodes.map(n => n.measured?.width || 300));
+                levelX[lvl] = currentX;
+                currentX += maxMeasuredWidth + horizontalSpacing;
+            });
 
             return nds.map((node) => {
-                const level = nodeLevels[node.id] || 0;
-                const indexInLevel = levelCounts[level] || 0;
-                levelCounts[level] = indexInLevel + 1;
-
                 return {
                     ...node,
                     position: {
-                        x: level * 350 + 50,
-                        y: indexInLevel * 180 + 50,
+                        x: levelX[nodeLevels[node.id] || 0],
+                        y: levelYPositions[node.id],
                     },
                 };
             });

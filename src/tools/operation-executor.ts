@@ -1,20 +1,19 @@
-import { MapRef } from "react-map-gl";
+import { FeatureCollection, Geometry } from "geojson";
 import {
+    addGeojsonToMap,
     bufferLayers,
+    buildingLayers,
+    centroidLayers,
     clipLayers,
     differenceLayers,
-    linesToPolygonLayers,
-    centroidLayers,
-    polygonToLinesLayers,
-    hexagonLayer,
-    removeDuplicatesLayers,
-    pointAlongLinesLayers,
-    simplifyLayers,
-    buildingLayers,
     elevationLayers,
-    addGeojsonToMap
+    hexagonLayer,
+    linesToPolygonLayers,
+    pointAlongLinesLayers,
+    polygonToLinesLayers,
+    removeDuplicatesLayers,
+    simplifyLayers
 } from "./map-tools";
-import { FeatureCollection, Geometry, Polygon, MultiPolygon } from "geojson";
 
 export const executeOperation = async (
     operationName: string,
@@ -23,14 +22,19 @@ export const executeOperation = async (
     layersCount: number
 ): Promise<void> => {
     const map = mapRef?.current?.getMap() || mapRef;
+    if (!map || (typeof map.isStyleLoaded === 'function' && !map.isStyleLoaded())) {
+        console.warn("Map not ready for operation:", operationName);
+        return;
+    }
+
     const lowerName = operationName.toLowerCase();
 
     switch (lowerName) {
         case "buffer": {
             const { targetLayer, bufferDistance, units } = options;
-            const source = map?.getLayer(targetLayer)?.source;
-            const data = source ? map?.getSource(source)?.serialize().data : undefined;
-            const result = bufferLayers(data, Number(bufferDistance), units);
+            const source = map.getLayer?.(targetLayer)?.source;
+            const data = source ? map.getSource?.(source)?.serialize?.()?.data : undefined;
+            const result = await bufferLayers(data, Number(bufferDistance), units);
             if (result) {
                 await addGeojsonToMap({
                     mapRef,
@@ -43,10 +47,10 @@ export const executeOperation = async (
 
         case "clip": {
             const { sourceLayer, targetLayer } = options;
-            const srcSource = map?.getLayer(sourceLayer)?.source;
-            const tgtSource = map?.getLayer(targetLayer)?.source;
-            const srcData = srcSource ? map?.getSource(srcSource)?.serialize().data : undefined;
-            const tgtData = tgtSource ? map?.getSource(tgtSource)?.serialize().data : undefined;
+            const srcSource = map.getLayer?.(sourceLayer)?.source;
+            const tgtSource = map.getLayer?.(targetLayer)?.source;
+            const srcData = srcSource ? map.getSource?.(srcSource)?.serialize?.()?.data : undefined;
+            const tgtData = tgtSource ? map.getSource?.(tgtSource)?.serialize?.()?.data : undefined;
             const result = await clipLayers(srcData, tgtData);
             if (result) {
                 await addGeojsonToMap({
@@ -60,10 +64,10 @@ export const executeOperation = async (
 
         case "difference": {
             const { sourceLayer, targetLayer } = options;
-            const srcSource = map?.getLayer(sourceLayer)?.source;
-            const tgtSource = map?.getLayer(targetLayer)?.source;
-            const srcData = srcSource ? map?.getSource(srcSource)?.serialize().data : undefined;
-            const tgtData = tgtSource ? map?.getSource(tgtSource)?.serialize().data : undefined;
+            const srcSource = map.getLayer?.(sourceLayer)?.source;
+            const tgtSource = map.getLayer?.(targetLayer)?.source;
+            const srcData = srcSource ? map.getSource?.(srcSource)?.serialize?.()?.data : undefined;
+            const tgtData = tgtSource ? map.getSource?.(tgtSource)?.serialize?.()?.data : undefined;
             const result = await differenceLayers(srcData, tgtData);
             if (result) {
                 await addGeojsonToMap({
@@ -77,8 +81,8 @@ export const executeOperation = async (
 
         case "lines to polygon": {
             const { targetLayer } = options;
-            const source = map?.getLayer(targetLayer)?.source;
-            const data = source ? map?.getSource(source)?.serialize().data : undefined;
+            const source = map.getLayer?.(targetLayer)?.source;
+            const data = source ? map.getSource?.(source)?.serialize?.()?.data : undefined;
             const result = await linesToPolygonLayers(data);
             if (result) {
                 await addGeojsonToMap({
@@ -92,8 +96,8 @@ export const executeOperation = async (
 
         case "centroid": {
             const { targetLayer } = options;
-            const source = map?.getLayer(targetLayer)?.source;
-            const data = source ? map?.getSource(source)?.serialize().data : undefined;
+            const source = map.getLayer?.(targetLayer)?.source;
+            const data = source ? map.getSource?.(source)?.serialize?.()?.data : undefined;
             const result = await centroidLayers(data);
             if (result) {
                 await addGeojsonToMap({
@@ -107,8 +111,8 @@ export const executeOperation = async (
 
         case "polygon to lines": {
             const { targetLayer } = options;
-            const source = map?.getLayer(targetLayer)?.source;
-            const data = source ? map?.getSource(source)?.serialize().data : undefined;
+            const source = map.getLayer?.(targetLayer)?.source;
+            const data = source ? map.getSource?.(source)?.serialize?.()?.data : undefined;
             const result = await polygonToLinesLayers(data);
             if (result) {
                 await addGeojsonToMap({
@@ -122,8 +126,8 @@ export const executeOperation = async (
 
         case "hexagon grid": {
             const { targetLayer, cellSize, units, gridCode } = options;
-            const source = map?.getLayer(targetLayer)?.source;
-            const data = source ? map?.getSource(source)?.serialize().data : undefined;
+            const source = map.getLayer?.(targetLayer)?.source;
+            const data = source ? map.getSource?.(source)?.serialize?.()?.data : undefined;
             const result = await hexagonLayer(data, Number(cellSize), units, gridCode);
             if (result) {
                 await addGeojsonToMap({
@@ -137,8 +141,8 @@ export const executeOperation = async (
 
         case "remove duplicates": {
             const { targetLayer } = options;
-            const source = map?.getLayer(targetLayer)?.source;
-            const data = source ? map?.getSource(source)?.serialize().data : undefined;
+            const source = map.getLayer?.(targetLayer)?.source;
+            const data = source ? map.getSource?.(source)?.serialize?.()?.data : undefined;
             const result = await removeDuplicatesLayers(data);
             if (result) {
                 await addGeojsonToMap({
@@ -152,8 +156,8 @@ export const executeOperation = async (
 
         case "generate points along line": {
             const { targetLayer, interval, units } = options;
-            const source = map?.getLayer(targetLayer)?.source;
-            const data = source ? map?.getSource(source)?.serialize().data : undefined;
+            const source = map.getLayer?.(targetLayer)?.source;
+            const data = source ? map.getSource?.(source)?.serialize?.()?.data : undefined;
             const result = await pointAlongLinesLayers(data, Number(interval), units);
             if (result) {
                 await addGeojsonToMap({
@@ -167,8 +171,8 @@ export const executeOperation = async (
 
         case "simplify": {
             const { targetLayer, tolerance } = options;
-            const source = map?.getLayer(targetLayer)?.source;
-            const data = source ? map?.getSource(source)?.serialize().data : undefined;
+            const source = map.getLayer?.(targetLayer)?.source;
+            const data = source ? map.getSource?.(source)?.serialize?.()?.data : undefined;
             const result = await simplifyLayers(data, Number(tolerance));
             if (result) {
                 await addGeojsonToMap({
@@ -182,8 +186,8 @@ export const executeOperation = async (
 
         case "building": {
             const { targetLayer, cutBuilding } = options;
-            const source = map?.getLayer(targetLayer)?.source;
-            const data = source ? map?.getSource(source)?.serialize().data : undefined;
+            const source = map.getLayer?.(targetLayer)?.source;
+            const data = source ? map.getSource?.(source)?.serialize?.()?.data : undefined;
             let result = await buildingLayers(data);
             if (cutBuilding === "Extract Building" && result) {
                 result = (await clipLayers(data as any, result as any)) as any;
@@ -200,8 +204,8 @@ export const executeOperation = async (
 
         case "elevation": {
             const { targetLayer, sourceelevation, interval, units } = options;
-            const source = map?.getLayer(targetLayer)?.source;
-            const data = source ? map?.getSource(source)?.serialize().data : undefined;
+            const source = map.getLayer?.(targetLayer)?.source;
+            const data = source ? map.getSource?.(source)?.serialize?.()?.data : undefined;
             const points = await pointAlongLinesLayers(data, Number(interval), units);
             if (points) {
                 await elevationLayers(points as FeatureCollection<Geometry>, sourceelevation);

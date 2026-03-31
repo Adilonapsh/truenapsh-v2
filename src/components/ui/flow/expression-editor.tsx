@@ -53,7 +53,7 @@ export const ExpressionEditor: React.FC<ExpressionEditorProps> = ({
     }, []);
 
     return (
-        <div className={`flex h-9 w-full rounded-md border border-input bg-transparent py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm ${className}`}>
+        <div className={`flex w-full rounded-md border border-input bg-background shadow-sm transition-colors focus-within:ring-1 focus-within:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${className}`}>
             <CodeMirror
                 value={value}
                 width="100%"
@@ -66,15 +66,13 @@ export const ExpressionEditor: React.FC<ExpressionEditorProps> = ({
                     EditorView.theme({
                         "&": {
                             fontSize: "12px",
-                            backgroundColor: "var(--background)",
+                            backgroundColor: "transparent",
                             color: "var(--foreground)",
-                            border: "1px solid var(--input)",
-                            borderRadius: "calc(var(--radius) - 2px)",
-                            minHeight: "32px",
+                            border: "none",
+                            minHeight: "28px",
                         },
                         "&.cm-focused": {
-                            outline: "2px solid var(--ring)",
-                            outlineOffset: "-1px",
+                            outline: "none",
                         },
                         ".cm-content": {
                             fontFamily: "JetBrains Mono, Menlo, Monaco, Consolas, monospace",
@@ -83,6 +81,10 @@ export const ExpressionEditor: React.FC<ExpressionEditorProps> = ({
                         ".cm-gutters": { display: "none" }, // Hide line numbers
                         ".cm-activeLine": { backgroundColor: "transparent" },
                         ".cm-activeLineGutter": { backgroundColor: "transparent" },
+                        ".cm-placeholder": {
+                            fontSize: "11px",
+                            opacity: "0.5",
+                        },
                         ".cm-tooltip-autocomplete": {
                             zIndex: "1000 !important",
                         },

@@ -6,15 +6,16 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ExpressionEditor } from "./expression-editor";
-import { evaluateExpression } from "@/tools/expression-evaluator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, ChevronRight, Play, CheckCircle2, AlertCircle } from "lucide-react";
+import { Search, ChevronRight, Code, Play, CheckCircle2, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import CodeMirror from "@uiw/react-codemirror";
+import { javascript } from "@codemirror/lang-javascript";
+import { oneDark } from "@codemirror/theme-one-dark";
+import { EditorView } from "@codemirror/view";
 
-interface ExpressionModalProps {
+interface CodeModalProps {
     isOpen: boolean;
     onClose: () => void;
     value: string;
@@ -24,7 +25,7 @@ interface ExpressionModalProps {
     fieldName: string;
 }
 
-export const ExpressionModal: React.FC<ExpressionModalProps> = ({
+export const CodeModal: React.FC<CodeModalProps> = ({
     isOpen,
     onClose,
     value,
@@ -33,30 +34,7 @@ export const ExpressionModal: React.FC<ExpressionModalProps> = ({
     inputData,
     fieldName,
 }) => {
-    const [previewResult, setPreviewResult] = useState<any>(null);
     const [searchQuery, setSearchQuery] = useState("");
-
-    const nodesContext = useMemo(() => {
-        const ctx: Record<string, any> = {};
-        nodes.forEach((n) => {
-            ctx[n.id] = n.data?.output || {};
-        });
-        return ctx;
-    }, [nodes]);
-
-    useEffect(() => {
-        if (isOpen) {
-            try {
-                const result = evaluateExpression(value, {
-                    input: inputData,
-                    nodes: nodesContext,
-                });
-                setPreviewResult(result);
-            } catch (err) {
-                setPreviewResult(`[Error: ${err instanceof Error ? err.message : String(err)}]`);
-            }
-        }
-    }, [value, inputData, nodesContext, isOpen]);
 
     const filteredNodes = nodes.filter(n =>
         n.data?.parameters?.label?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -66,30 +44,29 @@ export const ExpressionModal: React.FC<ExpressionModalProps> = ({
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-[95vw] w-[1200px] h-[85vh] p-0 flex flex-col gap-0 overflow-hidden bg-background border-border shadow-2xl">
-                {/* Accessibility labels for Radix UI */}
                 <div className="sr-only">
-                    <DialogTitle>Expression Editor</DialogTitle>
+                    <DialogTitle>JavaScript Code Editor</DialogTitle>
                     <DialogDescription>
-                        Configure expression for {fieldName}
+                        Configure custom JavaScript for {fieldName}
                     </DialogDescription>
                 </div>
 
                 <div className="px-4 py-3 border-b bg-background flex items-center gap-3 shrink-0">
-                    <div className="bg-primary/10 p-2 rounded-lg text-primary shrink-0">
-                        <Play size={18} fill="currentColor" />
+                    <div className="bg-yellow-500/10 p-2 rounded-lg text-yellow-500 shrink-0">
+                        <Code size={18} />
                     </div>
                     <div className="flex flex-col gap-0.5">
                         <h2 className="text-base font-bold tracking-tight">
-                            Expression Editor
+                            JavaScript Editor
                         </h2>
                         <p className="text-[11px] text-muted-foreground line-clamp-1">
-                            Configure expression for <span className="font-medium text-foreground">{fieldName}</span>
+                            Configure custom script for <span className="font-medium text-foreground">{fieldName}</span>
                         </p>
                     </div>
                 </div>
 
                 <div className="flex-1 flex overflow-hidden">
-                    {/* Left Panel: Variables and Context */}
+                    {/* Left Panel: Variables and Documentation */}
                     <div className="w-[300px] border-r border-border bg-muted/20 flex flex-col">
                         <div className="p-3 border-b bg-background/50">
                             <div className="relative">
@@ -106,10 +83,11 @@ export const ExpressionModal: React.FC<ExpressionModalProps> = ({
                             <div className="p-3 space-y-4">
                                 <div>
                                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-                                        <ChevronRight size={10} /> Workflow Input
+                                        <ChevronRight size={10} /> Runtime Context
                                     </h4>
                                     <div className="space-y-1">
-                                        <VariableItem label="$input" payload="{{$input}}" detail="Current node input" />
+                                        <VariableItem label="data" payload="data" detail="Primary node input" />
+                                        <VariableItem label="turf" payload="turf" detail="Turf.js library" />
                                     </div>
                                 </div>
 
@@ -122,7 +100,7 @@ export const ExpressionModal: React.FC<ExpressionModalProps> = ({
                                             <VariableItem
                                                 key={node.id}
                                                 label={node.data?.parameters?.label || node.id}
-                                                payload={`{{$nodes["${node.id}"].data}}`}
+                                                payload={`nodes["${node.id}"]`}
                                                 detail={`Node ID: ${node.id.slice(0, 8)}...`}
                                             />
                                         ))}
@@ -135,50 +113,81 @@ export const ExpressionModal: React.FC<ExpressionModalProps> = ({
                     {/* Middle Panel: Code Editor */}
                     <div className="flex-1 flex flex-col min-w-0">
                         <div className="p-2 border-b bg-muted/10 flex items-center justify-between">
-                            <span className="text-[10px] font-medium text-muted-foreground">EXPRESSION</span>
-                            <Badge variant="outline" className="text-[10px] h-5 font-mono">JavaScript</Badge>
+                            <span className="text-[10px] font-medium text-muted-foreground">JAVASCRIPT SOURCE</span>
+                            <Badge variant="outline" className="text-[10px] h-5 font-mono">JS</Badge>
                         </div>
-                        <div className="flex-1 relative overflow-auto bg-background">
-                            <ExpressionEditor
+                        <div className="flex-1 relative overflow-auto bg-[#1e1e1e]">
+                            <CodeMirror
                                 value={value}
                                 onChange={onChange}
-                                placeholder="{{ expression }}"
-                                className="h-full"
+                                theme={oneDark}
+                                extensions={[
+                                    javascript({ jsx: true }),
+                                    EditorView.domEventHandlers({
+                                        drop(event, view) {
+                                            const variablePayload = event.dataTransfer?.getData("application/variable");
+                                            const textPayload = event.dataTransfer?.getData("text/plain");
+                                            let payload = variablePayload || textPayload;
+
+                                            if (payload) {
+                                                event.preventDefault();
+                                                // Convert expression-style payload {{ $nodes["ID"].data.path }} to nodes["ID"].data.path
+                                                // and {{ $input.path }} to data.path
+                                                if (payload.startsWith("{{") && payload.endsWith("}}")) {
+                                                    payload = payload.slice(2, -2).trim();
+                                                    if (payload.startsWith("$nodes")) {
+                                                        payload = payload.replace("$nodes", "nodes");
+                                                    } else if (payload.startsWith("$input")) {
+                                                        payload = payload.replace("$input", "data");
+                                                    }
+                                                }
+
+                                                // Insert at cursor position
+                                                const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+                                                if (pos !== null) {
+                                                    view.dispatch({
+                                                        changes: { from: pos, insert: payload },
+                                                        selection: { anchor: pos + payload.length }
+                                                    });
+                                                } else {
+                                                    const length = view.state.doc.length;
+                                                    view.dispatch({
+                                                        changes: { from: length, insert: payload },
+                                                        selection: { anchor: length + payload.length }
+                                                    });
+                                                }
+                                                return true;
+                                            }
+                                            return false;
+                                        },
+                                        dragover(event) {
+                                            if (
+                                                event.dataTransfer?.types.includes("application/variable") ||
+                                                event.dataTransfer?.types.includes("text/plain")
+                                            ) {
+                                                event.preventDefault();
+                                                return true;
+                                            }
+                                            return false;
+                                        }
+                                    })
+                                ]}
+                                className="h-full text-sm"
+                                height="100%"
+                                basicSetup={{
+                                    lineNumbers: true,
+                                    foldGutter: true,
+                                    highlightActiveLine: true,
+                                    crosshairCursor: true,
+                                }}
                             />
                         </div>
-                    </div>
-
-                    {/* Right Panel: Preview Result */}
-                    <div className="w-[350px] border-l border-border bg-muted/20 flex flex-col">
-                        <div className="p-2 border-b bg-muted/10 flex items-center justify-between">
-                            <span className="text-[10px] font-medium text-muted-foreground">RESULT PREVIEW</span>
-                            <div className="flex items-center gap-1">
-                                {typeof previewResult === 'string' && previewResult.startsWith('[Error:') ? (
-                                    <Badge variant="destructive" className="h-5 text-[10px] gap-1 px-1.5">
-                                        <AlertCircle size={10} /> Error
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="default" className="h-5 text-[10px] bg-green-500/20 text-green-600 border-green-500/30 gap-1 px-1.5 hover:bg-green-500/20">
-                                        <CheckCircle2 size={10} /> Valid
-                                    </Badge>
-                                )}
-                            </div>
-                        </div>
-                        <ScrollArea className="flex-1 bg-background/50">
-                            <div className="p-4">
-                                <pre className="text-xs font-mono whitespace-pre-wrap break-words text-foreground selection:bg-primary/20">
-                                    {typeof previewResult === 'object'
-                                        ? JSON.stringify(previewResult, null, 2)
-                                        : String(previewResult ?? 'undefined')}
-                                </pre>
-                            </div>
-                        </ScrollArea>
                     </div>
                 </div>
 
                 <div className="p-3 border-t bg-muted/30 flex justify-between items-center">
                     <p className="text-[10px] text-muted-foreground">
-                        Drag variables from the left or press <kbd className="px-1 py-0.5 rounded border bg-background text-[9px]">Ctrl+Space</kbd> for autocomplete.
+                        Available variables: <code className="text-primary">data</code>, <code className="text-primary">nodes</code>, <code className="text-primary">turf</code>. Return a value at the end.
                     </p>
                     <div className="flex gap-2">
                         <Button variant="outline" size="sm" onClick={onClose} className="h-8 text-xs">
@@ -196,7 +205,7 @@ const VariableItem = ({ label, payload, detail }: { label: string, payload: stri
         <div
             draggable
             onDragStart={(e) => {
-                e.dataTransfer.setData("application/variable", payload);
+                e.dataTransfer.setData("text/plain", payload);
                 e.dataTransfer.effectAllowed = "move";
             }}
             className="group p-2 rounded-md hover:bg-primary/5 border border-transparent hover:border-primary/20 cursor-grab active:cursor-grabbing transition-all overflow-hidden"

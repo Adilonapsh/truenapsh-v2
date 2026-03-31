@@ -5,8 +5,8 @@
 5. Add Register Flow (done)
 6. Add Function to the flow workspaces (WIP)
 7. Add Bookmark Camera (Done)
-8. Add Reset on Styles (Done)
-9. Add Darkmode to auth (Done)
+8. Add Reset on Styles (WIP, Stroke and Fill Done)
+9. Add Darkmode to auth
 10. atur z index styles (Done)
 11. fix image on drop on map
 12. make legend mapbox (Done)
@@ -24,41 +24,39 @@
 24. Add Custom Legends 
 25. Add Github Signin (Done)
 26. Add Landing Page (WIP)
-27. Add Collaboration (Done)
+27. Add Collaboration (Ganti ID socket dengan user ID)
 28. Fix Re-render (Done)
 29. Add Elevation Integration (WIP)
 30. Add Charts
 31. Add Filter Data Map
 32. Fix Tools Scroll Bar (Done)
-33. Add Layers variable To System Prompt (done)
+33. Add Layers variable To System Prompt
 34. Bookmark Save (Done)
 35. Add Hotkeys to Draw (Done)
 36. Add Statistic to the table (Done)
 37. Add AI Highlight syntax (Done)
 38. Fix Table Freeze (Done)
 39. Refactor FeatureServer (Data Table, On click Map, ) / Ganti ke GeoJson
-40. Buat Customisable Properties
-41. Add Data Export (Done)
+40. Buat Customisable Properties    
+41. Add Data Export 
 42. Add Geojson Import (Done)
 43. Fix Scroll Table Statistic (Done)
 44. Add 3D Data
 45. Add Arcgis Tables
 46. Find Another Basemaps
-47. Show Team Cursors Toggle (done)
+47. Show Team Cursors Toggle (Done)
 48. Add Auto Scrap data from website in AI
-49. Tambahkan Expression di Style (WIP)
+49. Tambahkan Expression di Style 
 50. Fix backed Layer and Add Layer
 51. Use Zustand (Done)
-52. Style Dijadikan Komponen (done)
+52. Style Dijadikan Komponen
 53. Feature Info Dijadikan Komponen (Done)
 54. Map Tools dibuat dinamik, misal data yang bisa point hanya point saja, atau jika bisa semua maka show all layer
 55. Tambah On Tap (Done)
 56. Tambah Timeout di datasets
-57. Tambah 3D Elevation Data
-58. Tambah Export Excel di Table (Done)
 
 -- PRODS
-1. Fix bookmark Error (Done)
+1. Fix bookmark Error
 2. Fix Flow Error
 3. Basemap Fix
 

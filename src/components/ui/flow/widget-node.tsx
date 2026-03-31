@@ -1,4 +1,4 @@
-import { Building2, Combine, Hexagon, Layers, LineChart, Link, ListOrdered, Pentagon, PenTool, Radio, Scissors, Settings, Square, SquareDashedBottom, SquareStack, Trash2 } from "lucide-react";
+import { Building2, Clock, Code, Combine, Hexagon, Layers, LineChart, Link, ListOrdered, Pentagon, PenTool, Radio, Scissors, Settings, Square, SquareDashedBottom, SquareStack, Trash2 } from "lucide-react";
 import { Input } from "../input";
 import { ChartBar, Database, FileInputIcon, FileOutput, Filter, MapIcon } from 'lucide-react'
 
@@ -18,6 +18,7 @@ export const widgets = {
     "Trigger": [
         { id: "websocket", type: 'websocket', label: 'Websocket', icon: Radio, color: 'blue', handleSource: Position.Right, handleTarget: null },
         { id: "webhook", type: 'webhook', label: 'Webhook', icon: Link, color: 'orange', handleSource: Position.Right, handleTarget: null, action: 'webhook' },
+        { id: "scheduler", type: 'scheduler', label: 'Scheduler', icon: Clock, color: 'orange', handleSource: Position.Right, handleTarget: null, action: 'scheduler' },
     ],
     "Input/Output": [
         { id: "import", type: 'import', label: 'Import', icon: FileInputIcon, color: 'blue', handleSource: Position.Right, handleTarget: null, action: 'import' },
@@ -29,6 +30,7 @@ export const widgets = {
         { id: "layer", type: 'layer', label: 'Layer', icon: Layers, color: 'blue', handleSource: Position.Right, handleTarget: null, action: 'layer' },
     ],
     "Operation": [
+        { id: "js-code", type: 'js-code', label: 'Code in JavaScript', icon: Code, color: 'yellow', handleSource: Position.Right, handleTarget: Position.Left, action: 'js-code' },
         { id: "forloop", type: 'forloop', label: 'Loop', icon: MdLoop, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'forloop' },
         { id: "ifelse", type: 'ifelse', label: 'If Else', icon: BiGitBranch, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'ifelse' },
         { id: "while", type: 'while', label: 'While', icon: MdLoop, color: 'blue', handleSource: Position.Right, handleTarget: Position.Left, action: 'while' },

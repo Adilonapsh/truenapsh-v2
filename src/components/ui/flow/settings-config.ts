@@ -1,12 +1,13 @@
 export interface SettingInput {
     id: string;
     label: string;
-    type: "text" | "url" | "select" | "number" | "switch" | "file" | "key-value-list";
+    type: "text" | "url" | "select" | "number" | "switch" | "file" | "key-value-list" | "datetime" | "scheduler-rules" | "multi-select" | "sortable-list" | "code" | "routing-rules";
     options?: (string | { label: string; value: string })[];
-    defaultValue?: string;
+    defaultValue?: any;
     tooltip?: string;
     showIf?: (parameters: Record<string, any>) => boolean;
     isOptional?: boolean;
+    show_on_node?: boolean;
 }
 
 export const settingsInputs: Record<string, SettingInput[]> = {
@@ -29,6 +30,29 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Payload",
             type: "key-value-list",
             tooltip: "Data to send in the webhook"
+        },
+    ],
+    "js-code": [
+        {
+            id: "code",
+            label: "JavaScript Code",
+            type: "code",
+            defaultValue: "// Write your JavaScript here\n// Variable 'data' contains input data\n// Variable 'nodes' contains all node outputs\n// Variable 'turf' is available for spatial operations\n\nreturn data;",
+            tooltip: "Custom JavaScript logic to transform data",
+        },
+    ],
+    scheduler: [
+        {
+            id: "rules",
+            label: "Trigger Rules",
+            type: "scheduler-rules",
+            defaultValue: {
+                id: "default",
+                interval: "Days",
+                intervalValue: 1,
+                hour: 0,
+                minute: 0,
+            }
         },
     ],
     // Input/Output
@@ -58,6 +82,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
     ],
     map: [
@@ -154,8 +179,9 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             type: "select",
             options: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
             defaultValue: "GET",
+            show_on_node: true,
         },
-        { id: "url", label: "URL", type: "url" },
+        { id: "url", label: "URL", type: "url", show_on_node: true },
         { id: "send_query", label: "Send Query Parameters", type: "switch" },
         {
             id: "query_params",
@@ -225,39 +251,29 @@ export const settingsInputs: Record<string, SettingInput[]> = {
     // Data Preparation
     select: [
         {
-            id: "data",
-            label: "Data",
-            type: "text",
-            tooltip: "Data to be selected",
+            id: "fields",
+            label: "Fields to Select",
+            type: "multi-select",
+            tooltip: "Data fields to be selected",
+            show_on_node: true,
         },
     ],
     "order-by": [
         {
-            id: "data",
-            label: "Data",
-            type: "text",
-            tooltip: "Data to be ordered",
-        },
-        {
-            id: "order",
-            label: "Order",
-            type: "select",
-            options: ["Ascending", "Descending"],
-            defaultValue: "Ascending",
+            id: "sorts",
+            label: "Sort Order",
+            type: "sortable-list",
+            tooltip: "Fields to order by",
+            show_on_node: true,
         },
     ],
     limit: [
-        {
-            id: "data",
-            label: "Data",
-            type: "text",
-            tooltip: "Data to be limited",
-        },
         {
             id: "limit",
             label: "Limit",
             type: "number",
             tooltip: "Limit of the data",
+            defaultValue: 1
         },
     ],
     filter: [
@@ -266,12 +282,14 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Data",
             type: "text",
             tooltip: "Data to be filtered",
+            show_on_node: true,
         },
         {
             id: "filter",
             label: "Filter",
             type: "text",
             tooltip: "Filter to be applied",
+            show_on_node: true,
         },
     ],
     join: [
@@ -280,26 +298,23 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Data",
             type: "text",
             tooltip: "Data to be joined",
+            show_on_node: true,
         },
         {
             id: "join",
             label: "Join",
             type: "text",
             tooltip: "Join to be applied",
+            show_on_node: true,
         },
     ],
     "group-by": [
         {
-            id: "data",
-            label: "Data",
-            type: "text",
-            tooltip: "Data to be grouped",
-        },
-        {
-            id: "group",
-            label: "Group",
-            type: "text",
-            tooltip: "Group to be applied",
+            id: "fields",
+            label: "Fields to Group By",
+            type: "multi-select",
+            tooltip: "Data fields to group by",
+            show_on_node: true,
         },
     ],
     count: [
@@ -308,7 +323,32 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Data",
             type: "text",
             tooltip: "Data to be counted",
+            show_on_node: true,
         },
+    ],
+    switch: [
+        {
+            id: "mode",
+            label: "Mode",
+            type: "select",
+            options: ["Rules", "Expression"],
+            defaultValue: "Rules",
+            show_on_node: true,
+        },
+        {
+            id: "rules",
+            label: "Routing Rules",
+            type: "routing-rules",
+            showIf: (p) => p.mode === "Rules",
+            defaultValue: [],
+        },
+        {
+            id: "expression",
+            label: "Expression",
+            type: "text",
+            tooltip: "Expression that returns the output index/name",
+            showIf: (p) => p.mode === "Expression",
+        }
     ],
     // Geoprocessing
     boundary: [
@@ -317,6 +357,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
         {
             id: "layer-overlay",
@@ -331,6 +372,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
         {
             id: "buffer",
@@ -359,6 +401,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
         {
             id: "layer-overlay",
@@ -373,6 +416,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
         {
             id: "layer-overlay",
@@ -387,6 +431,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
         {
             id: "layer-overlay",
@@ -402,6 +447,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
     ],
     "lines-to-polygon": [
@@ -410,6 +456,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
     ],
     "polygon-to-lines": [
@@ -418,6 +465,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
     ],
     "remove-duplicates": [
@@ -426,6 +474,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
     ],
     "generate-points": [
@@ -434,6 +483,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
         {
             id: "interval",
@@ -455,6 +505,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
         {
             id: "tolerance",
@@ -471,6 +522,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
         {
             id: "cell_side",
@@ -493,6 +545,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
     ],
     elevation: [
@@ -501,6 +554,7 @@ export const settingsInputs: Record<string, SettingInput[]> = {
             label: "Layer Input",
             type: "select",
             tooltip: "Layer to be boundary",
+            show_on_node: true,
         },
         {
             id: "source",

@@ -14,7 +14,7 @@ const convertToWorkflow = (nodes: any[], edges: any[]) => {
     // console.log("Start Node : ", startNode);
 
     // Rekursi untuk membangun workflow
-    const traverseWorkflow = async (nodeId: string, edges: Edge[], nodes: Node[], prevOutput = null) => {
+    const traverseWorkflow = async (nodeId: string, edges: Edge[], nodes: Node[], prevOutput = null): Promise<any> => {
         const node = nodes.find((node) => node.id === nodeId);
         if (!node) return null;
 
@@ -45,12 +45,12 @@ const convertToWorkflow = (nodes: any[], edges: any[]) => {
         const isBranched = isNodeBranched(nodeId, edges);
 
         // Ambil semua cabang (next nodes)
-        const branches = getBranches(nodeId, edges);
+        const branches = getBranches(nodeId, edges, output);
 
         // Traversal untuk semua cabang (jika bercabang)
-        const next = await Promise.all(
-            branches.map((targetId: string) =>
-                traverseWorkflow(targetId, edges, nodes, output)
+        const next: any[] = await Promise.all(
+            branches.map(async (targetId: string) =>
+                await traverseWorkflow(targetId, edges, nodes, output)
             )
         );
 
@@ -75,10 +75,33 @@ const isNodeBranched = (nodeId: string, edges: Edge[]) => {
 };
 
 // Ambil semua node yang bercabang dari sebuah node
-const getBranches = (nodeId: string, edges: any) => {
-    return edges
-        .filter((edge: Edge) => edge.source === nodeId)
-        .map((edge: Edge) => edge.target);
+const getBranches = (nodeId: string, edges: Edge[], nodeOutput: any) => {
+    const outgoingEdges = edges.filter((edge: Edge) => edge.source === nodeId);
+
+    // Branching logic for ifelse
+    if (nodeOutput && nodeOutput._conditionResult !== undefined) {
+        const result = nodeOutput._conditionResult;
+        return outgoingEdges
+            .filter(edge => {
+                if (!edge.sourceHandle) return true;
+                return edge.sourceHandle === (result ? "true" : "false");
+            })
+            .map(edge => edge.target);
+    }
+
+    // Branching logic for switch
+    if (nodeOutput && nodeOutput._branchIndex !== undefined) {
+        const index = nodeOutput._branchIndex;
+        if (index === -1) return []; // No match
+        return outgoingEdges
+            .filter(edge => {
+                if (!edge.sourceHandle) return false;
+                return edge.sourceHandle === `output-${index}`;
+            })
+            .map(edge => edge.target);
+    }
+
+    return outgoingEdges.map((edge: Edge) => edge.target);
 };
 
 

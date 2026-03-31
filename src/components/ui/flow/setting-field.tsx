@@ -14,9 +14,17 @@ import { SettingInput } from "./settings-config";
 import { cn } from "@/lib/utils";
 import { ExpressionEditor } from "./expression-editor";
 import { ExpressionModal } from "./expression-modal";
+import { SchedulerRules } from "./scheduler-rules";
+import { SortableList } from "./sortable-list";
+import { CodeModal } from "./code-modal";
+import { RoutingRules } from "./routing-rules";
 import { Maximize2, Trash2 } from "lucide-react";
+import { EditorView } from "@codemirror/view";
 import { useReactFlow } from "@xyflow/react";
 import { evaluateExpression } from "@/tools/expression-evaluator";
+import CodeMirror from "@uiw/react-codemirror";
+import { javascript } from "@codemirror/lang-javascript";
+import { oneDark } from "@codemirror/theme-one-dark";
 
 interface SettingFieldProps {
     input: SettingInput;
@@ -28,7 +36,7 @@ interface SettingFieldProps {
     updateNodeProperties: (data: object) => void;
 }
 
-const ToggleButton = ({
+export const ToggleButton = ({
     active,
     onClick,
     children
@@ -61,6 +69,7 @@ export const SettingField: React.FC<SettingFieldProps> = ({
 }) => {
     const isOptional = input.isOptional;
     const [isModalOpen, setIsModalOpen] = React.useState(false);
+    const [isCodeModalOpen, setIsCodeModalOpen] = React.useState(false);
     const { getNodes } = useReactFlow();
 
     const allNodes = getNodes();
@@ -234,6 +243,123 @@ export const SettingField: React.FC<SettingFieldProps> = ({
                     />
                 );
 
+            case "scheduler-rules":
+                return (
+                    <SchedulerRules
+                        value={value as any}
+                        onChange={(val) => onChange(val, input.id)}
+                        allNodes={allNodes}
+                        parameters={parameters}
+                    />
+                );
+
+            case "multi-select":
+            case "sortable-list":
+                return (
+                    <SortableList
+                        id={input.id}
+                        label={input.label}
+                        value={value as any}
+                        onChange={onChange}
+                        type={input.type}
+                    />
+                );
+            case "routing-rules":
+                return (
+                    <RoutingRules
+                        value={value as any}
+                        onChange={(val) => onChange(val, input.id)}
+                    />
+                );
+            case "code":
+                return (
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                            <span className="text-[10px] text-muted-foreground uppercase font-semibold">Script Editor</span>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-primary transition-colors"
+                                onClick={() => setIsCodeModalOpen(true)}
+                                title="Fullscreen Editor"
+                            >
+                                <Maximize2 size={12} />
+                            </Button>
+                        </div>
+                        <div className="border rounded-md overflow-hidden bg-[#1e1e1e] group relative">
+                            <CodeMirror
+                                value={value || input.defaultValue || ""}
+                                height="150px"
+                                theme={oneDark}
+                                extensions={[
+                                    javascript({ jsx: true }),
+                                    EditorView.domEventHandlers({
+                                        drop(event, view) {
+                                            const variablePayload = event.dataTransfer?.getData("application/variable");
+                                            const textPayload = event.dataTransfer?.getData("text/plain");
+                                            let payload = variablePayload || textPayload;
+
+                                            if (payload) {
+                                                event.preventDefault();
+                                                if (payload.startsWith("{{") && payload.endsWith("}}")) {
+                                                    payload = payload.slice(2, -2).trim();
+                                                    if (payload.startsWith("$nodes")) {
+                                                        payload = payload.replace("$nodes", "nodes");
+                                                    } else if (payload.startsWith("$input")) {
+                                                        payload = payload.replace("$input", "data");
+                                                    }
+                                                }
+
+                                                const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+                                                if (pos !== null) {
+                                                    view.dispatch({
+                                                        changes: { from: pos, insert: payload },
+                                                        selection: { anchor: pos + payload.length }
+                                                    });
+                                                } else {
+                                                    const length = view.state.doc.length;
+                                                    view.dispatch({
+                                                        changes: { from: length, insert: payload },
+                                                        selection: { anchor: length + payload.length }
+                                                    });
+                                                }
+                                                return true;
+                                            }
+                                            return false;
+                                        },
+                                        dragover(event) {
+                                            if (
+                                                event.dataTransfer?.types.includes("application/variable") ||
+                                                event.dataTransfer?.types.includes("text/plain")
+                                            ) {
+                                                event.preventDefault();
+                                                return true;
+                                            }
+                                            return false;
+                                        }
+                                    })
+                                ]}
+                                onChange={(val) => onChange(val, input.id)}
+                                className="text-[11px]"
+                                basicSetup={{
+                                    lineNumbers: true,
+                                    foldGutter: true,
+                                    highlightActiveLine: true,
+                                    crosshairCursor: true,
+                                }}
+                            />
+                        </div>
+
+                        <CodeModal
+                            isOpen={isCodeModalOpen}
+                            onClose={() => setIsCodeModalOpen(false)}
+                            value={value || input.defaultValue || ""}
+                            onChange={(val) => onChange(val, input.id)}
+                            nodes={getNodes()}
+                            fieldName={input.label}
+                        />
+                    </div>
+                );
             default:
                 return null;
         }

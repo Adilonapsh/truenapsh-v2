@@ -459,8 +459,10 @@ export function TerrainViewer3D() {
             mb.on("click", onMapClick);
             return () => {
                 mb.off("click", onMapClick);
-                if (mb.getLayer(boxLayerId)) mb.removeLayer(boxLayerId);
-                if (mb.getSource(boxLayerId)) mb.removeSource(boxLayerId);
+                if (mb.getStyle()) {
+                    if (mb.getLayer(boxLayerId)) mb.removeLayer(boxLayerId);
+                    if (mb.getSource(boxLayerId)) mb.removeSource(boxLayerId);
+                }
             };
         }
     }, [map, onMapClick]);

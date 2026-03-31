@@ -3,6 +3,7 @@ import { evaluateExpression } from "@/tools/expression-evaluator";
 import { HttpRequest } from "@/types/actions.types";
 import { downloadAsJsonFile, downloadAsTextFile } from "@/tools/file-download";
 import {
+    addGeojsonToMap,
     bufferLayers,
     bboxPolygonLayers,
     clipLayers,
@@ -15,11 +16,57 @@ import {
     intersectionLayers,
     simplifyLayers,
     pointAlongLinesLayers,
+    runCode,
     buildingLayers,
     elevationLayers
 } from "@/tools/map-tools";
 import useLayerStore from "@/stores/layer";
 import { v4 } from "uuid";
+
+const getValueByPath = (obj: any, path: string) => {
+    if (!path || !obj) return undefined;
+    const parts = path.split(/\.|\b(?=\[)/).filter(Boolean);
+    let current = obj;
+    for (let part of parts) {
+        if (current === null || current === undefined) return undefined;
+        if (part.startsWith('[') && part.endsWith(']')) {
+            const key = part.slice(1, -1).replace(/['"]/g, '');
+            current = current[key];
+        } else {
+            const key = part.startsWith('.') ? part.slice(1) : part;
+            current = current[key];
+        }
+    }
+    return current;
+};
+
+const setValueByPath = (obj: any, path: string, value: any) => {
+    if (!path || !obj) return;
+    const parts = path.split(/\.|\b(?=\[)/).filter(Boolean);
+    let current = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+        let part = parts[i];
+        let key = part;
+        if (part.startsWith('[') && part.endsWith(']')) {
+            key = part.slice(1, -1).replace(/['"]/g, '');
+        } else if (part.startsWith('.')) {
+            key = part.slice(1);
+        }
+
+        if (current[key] === undefined) {
+            current[key] = {};
+        }
+        current = current[key];
+    }
+    const lastPart = parts[parts.length - 1];
+    let lastKey = lastPart;
+    if (lastPart.startsWith('[') && lastPart.endsWith(']')) {
+        lastKey = lastPart.slice(1, -1).replace(/['"]/g, '');
+    } else if (lastPart.startsWith('.')) {
+        lastKey = lastPart.slice(1);
+    }
+    current[lastKey] = value;
+};
 
 const httpRequestsAction = async (params: HttpRequest) => {
     console.log(params);
@@ -72,7 +119,41 @@ const processActions = async (action: string, initialInput: any, metadata: any, 
             const layers = useLayerStore.getState().layers;
             const layer = layers.find((l: any) => l.id === metadata['layer-input']);
             if (layer) {
-                output = { data: layer, ...metadata };
+                let layerData: any = layer;
+
+                // Attempt to fetch source data from map
+                const mapRef = useMapStore.getState().map;
+                const map = mapRef?.current?.getMap();
+                if (map) {
+                    const mapLayer = map.getLayer(layer.id);
+                    const sourceId = (mapLayer as any)?.source || layer.id.split('-')[0];
+                    const source = map.getSource(sourceId);
+
+                    if (source) {
+                        const sourceConfig = (source as any).serialize();
+                        let data = sourceConfig?.data || sourceConfig;
+
+                        // Specifically handle GeoJSON if we have internal _data (often more up-to-date)
+                        if (source.type === 'geojson') {
+                            data = (source as any)._data || sourceConfig?.data;
+                        }
+
+                        // If it's a URL/string, handle it
+                        if (typeof data === 'string' && (data.startsWith('http') || data.startsWith('/'))) {
+                            if (source.type === 'geojson') {
+                                try {
+                                    const resp = await fetch(data);
+                                    data = await resp.json();
+                                } catch (e) {
+                                    console.error("Failed to fetch GeoJSON from source URL", e);
+                                }
+                            }
+                        }
+                        layerData = data;
+                    }
+                }
+
+                output = { data: layerData, layer, ...metadata };
                 break;
             }
 
@@ -84,10 +165,11 @@ const processActions = async (action: string, initialInput: any, metadata: any, 
             const map = mapRef?.current?.getMap();
             let mapResult = input;
 
-            if (map) {
+            if (map && map.isStyleLoaded()) {
                 switch (metadata?.type) {
                     case "get_layers": {
-                        const allLayers = map.getStyle()?.layers;
+                        const style = map.getStyle();
+                        const allLayers = style?.layers;
                         const targetLayerId = metadata["layer-id"];
                         if (targetLayerId) {
                             const ids = targetLayerId.split(",").map((s: string) => s.trim());
@@ -98,25 +180,25 @@ const processActions = async (action: string, initialInput: any, metadata: any, 
                         break;
                     }
                     case "get_layer":
-                        mapResult = map.getLayer(metadata["layer-id"]);
+                        mapResult = metadata["layer-id"] ? map.getLayer(metadata["layer-id"]) : null;
                         break;
-                    case "add_layer":
-                        const geojson = metadata["geojson"];
-                        const id = v4();
-                        map.addSource(id, {
-                            type: "geojson",
-                            data: geojson,
-                        });
-                        mapResult = map.addLayer({
-                            id,
-                            source: id,
-                            type: "fill",
-                            paint: {
-                                "fill-color": "#0080ff",
-                                "fill-opacity": 0.5,
-                            },
-                        });
+                    case "add_layer": {
+                        const geojsonData = metadata["geojson"]
+                            ? (typeof metadata["geojson"] === "string" ? JSON.parse(metadata["geojson"]) : metadata["geojson"])
+                            : input;
+
+                        if (geojsonData) {
+                            await addGeojsonToMap({
+                                mapRef: useMapStore.getState().map,
+                                layerName: metadata["layer-name"] || metadata["layer-id"] || "Node Layer",
+                                data: geojsonData
+                            });
+                            mapResult = { status: "success", layer: metadata["layer-name"] || "Node Layer" };
+                        } else {
+                            mapResult = { status: "error", message: "No GeoJSON data provided" };
+                        }
                         break;
+                    }
                     case "get_sources":
                         mapResult = map.getStyle()?.sources;
                         break;
@@ -124,7 +206,7 @@ const processActions = async (action: string, initialInput: any, metadata: any, 
                         mapResult = map.getStyle();
                         break;
                     case "filter":
-                        if (metadata["layer-id"] && metadata["filter"]) {
+                        if (metadata["layer-id"] && metadata["filter"] && map.getLayer(metadata["layer-id"])) {
                             try {
                                 const filterJson = typeof metadata["filter"] === "string"
                                     ? JSON.parse(metadata["filter"])
@@ -161,7 +243,10 @@ const processActions = async (action: string, initialInput: any, metadata: any, 
                         mapResult = input;
                 }
             } else {
-                mapResult = { status: "error", message: "Map instance not found" };
+                mapResult = {
+                    status: "error",
+                    message: !map ? "Map instance not found" : "Map style is still loading. Please wait."
+                };
             }
 
             output = { data: mapResult, ...metadata };
@@ -230,40 +315,213 @@ const processActions = async (action: string, initialInput: any, metadata: any, 
                 output = { data: 'Missing Webhook URL or Method', ...metadata };
             }
             break;
-        case "forloop":
+        case "js-code":
+            if (metadata?.code) {
+                try {
+                    const result = await runCode(metadata.code, input, nodesContext);
+                    output = { data: result, ...metadata };
+                } catch (error: any) {
+                    output = { data: `JS Code Error: ${error.message}`, ...metadata };
+                }
+            } else {
+                output = { data: 'Missing JavaScript code', ...metadata };
+            }
+            break;
+        case "forloop": {
+            const items = Array.isArray(input) ? input : (input?.features || [input]);
+            output = { data: items, ...metadata };
+            break;
+        }
+        case "select": {
+            const fieldsMetadata = metadata.fields;
+            const fields = Array.isArray(fieldsMetadata)
+                ? fieldsMetadata.filter((f: any) => f.checked).map((f: any) => f.text.trim()).filter(Boolean)
+                : (metadata.data || "").split(",").map((f: string) => f.trim()).filter(Boolean);
+
+            const items = input?.features || (Array.isArray(input) ? input : (input ? [input] : []));
+
+            if (items.length > 0) {
+                const selected = items.map((item: any) => {
+                    const newItem: any = {};
+                    const props = item.properties || item;
+                    fields.forEach((field: string) => {
+                        const val = getValueByPath(props, field);
+                        if (val !== undefined) {
+                            setValueByPath(newItem, field, val);
+                        }
+                    });
+                    return item.properties ? { ...item, properties: newItem } : newItem;
+                });
+                output = { data: input?.features ? { ...input, features: selected } : selected, ...metadata };
+            } else {
+                output = { data: input, ...metadata };
+            }
+            break;
+        }
+        case "order-by": {
+            const sortsMetadata = metadata.sorts;
+            const sorts = Array.isArray(sortsMetadata)
+                ? sortsMetadata.filter((s: any) => s.checked).map((s: any) => ({ field: s.text.trim(), order: s.extra === "Descending" ? -1 : 1 }))
+                : [{ field: metadata.data, order: metadata.order === "Descending" ? -1 : 1 }];
+
+            const items = input?.features ? [...input.features] : (Array.isArray(input) ? [...input] : null);
+
+            if (items) {
+                items.sort((a: any, b: any) => {
+                    for (const sort of sorts) {
+                        const valA = getValueByPath(a.properties || a, sort.field);
+                        const valB = getValueByPath(b.properties || b, sort.field);
+                        if (valA < valB) return -1 * sort.order;
+                        if (valA > valB) return 1 * sort.order;
+                    }
+                    return 0;
+                });
+                output = { data: input?.features ? { ...input, features: items } : items, ...metadata };
+            } else {
+                output = { data: input, ...metadata };
+            }
+            break;
+        }
+        case "limit": {
+            const limit = Number(metadata.limit);
+            if (input?.features) {
+                output = { data: { ...input, features: input.features.slice(0, limit) }, ...metadata };
+            } else if (Array.isArray(input)) {
+                output = { data: input.slice(0, limit), ...metadata };
+            } else {
+                output = { data: input, ...metadata };
+            }
+            break;
+        }
+        case "filter": {
+            const filterExpr = metadata.filter;
+            const filterFn = (item: any) => {
+                const result = evaluateExpression(filterExpr, { input: item, nodes: nodesContext });
+                return result === true || result === "true";
+            };
+
+            if (input?.features && filterExpr) {
+                output = { data: { ...input, features: input.features.filter(filterFn) }, ...metadata };
+            } else if (Array.isArray(input) && filterExpr) {
+                output = { data: input.filter(filterFn), ...metadata };
+            } else {
+                output = { data: input, ...metadata };
+            }
+            break;
+        }
+        case "join": {
+            const otherData = (metadata.join && typeof metadata.join === 'object' && 'data' in metadata.join)
+                ? metadata.join.data
+                : metadata.join;
+
+            const itemsA = input?.features || (Array.isArray(input) ? input : [input]);
+            const itemsB = otherData?.features || (Array.isArray(otherData) ? otherData : [otherData]);
+
+            if (Array.isArray(itemsA) && Array.isArray(itemsB)) {
+                const joined = itemsA.map((item, index) => {
+                    const otherItem = itemsB[index] || {};
+                    if (item.properties && otherItem.properties) {
+                        return { ...item, properties: { ...item.properties, ...otherItem.properties } };
+                    }
+                    return { ...item, ...(otherItem || {}) };
+                });
+
+                if (input?.features) {
+                    output = { data: { ...input, features: joined }, ...metadata };
+                } else {
+                    output = { data: joined, ...metadata };
+                }
+            } else {
+                output = { data: { left: input, right: otherData }, ...metadata };
+            }
+            break;
+        }
+        case "group-by": {
+            const fieldsMetadata = metadata.fields;
+            const fields = Array.isArray(fieldsMetadata)
+                ? fieldsMetadata.filter((f: any) => f.checked).map((f: any) => f.text.trim()).filter(Boolean)
+                : (metadata.group ? [metadata.group.trim()] : []);
+
+            const items = input?.features || (Array.isArray(input) ? input : null);
+
+            if (items && fields.length > 0) {
+                const groups = items.reduce((acc: any, item: any) => {
+                    const values = fields.map(field => {
+                        return getValueByPath(item.properties || item, field);
+                    });
+                    const key = values.join('|') || "undefined";
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(item);
+                    return acc;
+                }, {});
+                output = { data: groups, ...metadata };
+            } else {
+                output = { data: input, ...metadata };
+            }
+            break;
+        }
+        case "count":
+            output = {
+                data: Array.isArray(input)
+                    ? input.length
+                    : (input?.features ? input.features.length : (input ? 1 : 0)),
+                ...metadata
+            };
+            break;
+        case "ifelse": {
+            const result = evaluateExpression(metadata.condition, { input, nodes: nodesContext });
+            const isTrue = result === true || result === "true" || result === 1 || result === "1";
+            output = { data: input, ...metadata, _conditionResult: isTrue };
+            break;
+        }
+        case "switch": {
+            const mode = metadata.mode || "Rules";
+            let branchIndex = -1;
+
+            if (mode === "Rules") {
+                const rules = metadata.rules || [];
+                for (let i = 0; i < rules.length; i++) {
+                    const rule = rules[i];
+                    // Support both variable paths and expressions
+                    const left = rule.condition.includes("{{")
+                        ? evaluateExpression(rule.condition, { input, nodes: nodesContext })
+                        : getValueByPath({ data: input, nodes: nodesContext }, rule.condition.replace("$nodes", "nodes"));
+
+                    const right = rule.value;
+                    const op = rule.operator;
+
+                    let match = false;
+                    switch (op) {
+                        case "==": match = String(left) == String(right); break;
+                        case "!=": match = String(left) != String(right); break;
+                        case ">": match = Number(left) > Number(right); break;
+                        case "<": match = Number(left) < Number(right); break;
+                        case "contains": match = String(left).includes(String(right)); break;
+                        case "regex": match = new RegExp(String(right)).test(String(left)); break;
+                    }
+
+                    if (match) {
+                        branchIndex = i;
+                        break;
+                    }
+                }
+            } else {
+                const expr = metadata.expression;
+                const result = evaluateExpression(expr, { input, nodes: nodesContext });
+                branchIndex = parseInt(String(result));
+            }
+
+            output = { data: input, ...metadata, _branchIndex: branchIndex };
+            break;
+        }
+        case "while":
             output = { data: input, ...metadata };
             break;
-        case "select":
-            output = { data: `Selected: ${JSON.stringify(input)}`, ...metadata };
+        case "switch": {
+            const val = metadata.expression;
+            output = { data: val, ...metadata };
             break;
-        case "order-by":
-            output = { data: `Ordered: ${JSON.stringify(input)}`, ...metadata };
-            break;
-        case "limit":
-            output = { data: `Limited: ${JSON.stringify(input)}`, ...metadata };
-            break;
-        case "filter":
-            output = { data: `Filtered: ${JSON.stringify(input)}`, ...metadata };
-            break;
-        case "join":
-            output = { data: `Joined: ${JSON.stringify(input)}`, ...metadata };
-            break;
-        case "group-by":
-            output = { data: `Grouped: ${JSON.stringify(input)}`, ...metadata };
-            break;
-        case "count":
-            output = { data: `Counted: ${JSON.stringify(input)}`, ...metadata };
-            break;
-        // --- tambahan baru ---
-        case "ifelse":
-            output = { data: `IfElse evaluated: ${JSON.stringify(input)}`, ...metadata };
-            break;
-        case "while":
-            output = { data: `While loop processed: ${JSON.stringify(input)}`, ...metadata };
-            break;
-        case "switch":
-            output = { data: `Switch processed: ${JSON.stringify(input)}`, ...metadata };
-            break;
+        }
         case "boundary":
             output = {
                 data: await bboxPolygonLayers(input),
@@ -357,7 +615,6 @@ const processActions = async (action: string, initialInput: any, metadata: any, 
                 ...metadata
             };
             break;
-        // --- akhir tambahan ---
         default:
             console.log(`Unknown action: ${action}`)
             output = "";

@@ -14,6 +14,7 @@ import {
 } from "geojson";
 import { MapRef } from "react-map-gl";
 import { v4 } from "uuid";
+import { geoWorkerPool } from "./geo-worker-pool";
 
 const searchPlaces = async (search: string, lang: string = "EN-en", useBaseUrl: boolean = false) => {
     if (isCoordinates(search)) {
@@ -276,427 +277,86 @@ const addGeojsonToMap = async ({
     });
 };
 
-// TURF TOOLS
-const clipLayers = (
+// TURF TOOLS (Asynchronous via Web Worker)
+const clipLayers = async (
     featureClip: FeatureCollection<Polygon | MultiPolygon>,
     featureOverlay: FeatureCollection<Polygon | MultiPolygon>
-): FeatureCollection<Polygon | MultiPolygon> | null => {
-    try {
-        const clippedFeatures: Feature<Polygon | MultiPolygon>[] = [];
-
-        for (const overlayFeature of featureOverlay.features) {
-            for (const clipFeature of featureClip.features) {
-                const intersection = turf.intersect(
-                    turf.featureCollection([overlayFeature, clipFeature])
-                );
-
-                if (
-                    intersection &&
-                    (intersection.geometry.type === "Polygon" ||
-                        intersection.geometry.type === "MultiPolygon")
-                ) {
-                    const clippedFeature: Feature<Polygon | MultiPolygon> = {
-                        type: "Feature",
-                        geometry: intersection.geometry as Polygon | MultiPolygon,
-                        properties: { ...overlayFeature.properties },
-                    };
-
-                    if (intersection.id !== undefined)
-                        clippedFeature.id = intersection.id;
-                    if (intersection.bbox) clippedFeature.bbox = intersection.bbox;
-
-                    clippedFeatures.push(clippedFeature);
-                }
-            }
-        }
-
-        return turf.featureCollection(clippedFeatures);
-    } catch (error) {
-        console.error("Error clipping layers:", error);
-        return null;
-    }
+): Promise<FeatureCollection<Polygon | MultiPolygon> | null> => {
+    return geoWorkerPool.execute("clip", { featureClip, featureOverlay });
 };
 
 const intersectionLayers = clipLayers;
 
-const bufferLayers = (
+const bufferLayers = async (
     featureCollection: FeatureCollection<Geometry>,
     radius: number,
     units: turf.Units = "kilometers"
-) => {
-    try {
-        const bufferedFeatures: Feature<Polygon | MultiPolygon>[] = [];
-
-        for (const feature of featureCollection.features) {
-            if (!feature.geometry) continue;
-
-            if (feature.geometry.type === "Point") {
-                const coords = feature.geometry.coordinates as number[];
-                if (
-                    !Array.isArray(coords) ||
-                    coords.length < 2 ||
-                    typeof coords[0] !== "number" ||
-                    typeof coords[1] !== "number"
-                ) {
-                    console.warn("Invalid point coordinates:", coords);
-                    continue;
-                }
-
-                const buffered = turf.buffer(feature, radius, { units });
-                if (
-                    buffered &&
-                    (buffered.geometry.type === "Polygon" ||
-                        buffered.geometry.type === "MultiPolygon")
-                ) {
-                    bufferedFeatures.push(buffered);
-                }
-            }
-        }
-
-        return turf.featureCollection(bufferedFeatures);
-    } catch (error) {
-        console.error("Error buffering layers:", error);
-        return null;
-    }
+): Promise<FeatureCollection<Polygon | MultiPolygon> | null> => {
+    return geoWorkerPool.execute("buffer", { featureCollection, radius, units });
 };
 
-const differenceLayers = (
+const differenceLayers = async (
     featureClip: FeatureCollection<Polygon | MultiPolygon>,
     featureOverlay: FeatureCollection<Polygon | MultiPolygon>
-): FeatureCollection<Polygon | MultiPolygon> | null => {
-    try {
-        const differenceFeatures: Feature<Polygon | MultiPolygon>[] = [];
-
-        for (const overlayFeature of featureOverlay.features) {
-            // 👇 tambahkan | null
-            let currentFeature: Feature<Polygon | MultiPolygon> | null =
-                overlayFeature;
-
-            for (const clipFeature of featureClip.features) {
-                if (!currentFeature) break;
-
-                const difference = turf.difference(
-                    turf.featureCollection([currentFeature, clipFeature])
-                );
-
-                if (
-                    difference &&
-                    (difference.geometry.type === "Polygon" ||
-                        difference.geometry.type === "MultiPolygon")
-                ) {
-                    currentFeature = {
-                        type: "Feature",
-                        geometry: difference.geometry as Polygon | MultiPolygon,
-                        properties: { ...overlayFeature.properties },
-                    };
-                } else {
-                    currentFeature = null;
-                    break;
-                }
-            }
-
-            if (currentFeature) {
-                differenceFeatures.push(currentFeature);
-            }
-        }
-
-        return turf.featureCollection(differenceFeatures);
-    } catch (error) {
-        console.error("Error processing difference layers:", error);
-        return null;
-    }
+): Promise<FeatureCollection<Polygon | MultiPolygon> | null> => {
+    return geoWorkerPool.execute("difference", { featureClip, featureOverlay });
 };
 
-const centroidLayers = (
+const centroidLayers = async (
     featureClip: FeatureCollection<Polygon | MultiPolygon>
-) => {
-    try {
-        return turf.featureCollection(
-            featureClip.features.map((feature) => {
-                const centroidFeature = turf.centroid(feature);
-                return centroidFeature;
-            })
-        );
-    } catch (error) {
-        console.error("Error clipping layers:", error);
-        return null;
-    }
+): Promise<FeatureCollection<Point> | null> => {
+    return geoWorkerPool.execute("centroid", { featureClip });
 };
 
-const bboxPolygonLayers = (
+const bboxPolygonLayers = async (
     featureCollection: FeatureCollection<Geometry>
-): FeatureCollection<Polygon> | null => {
-    try {
-        const bbox = turf.bbox(featureCollection);
-        const poly = turf.bboxPolygon(bbox);
-        return turf.featureCollection([poly]);
-    } catch (error) {
-        console.error("Error calculating bbox polygon:", error);
-        return null;
-    }
+): Promise<FeatureCollection<Polygon> | null> => {
+    return geoWorkerPool.execute("bboxPolygon", { featureCollection });
 };
 
-const polygonToLinesLayers = (
+const polygonToLinesLayers = async (
     polygonFeature: FeatureCollection<Polygon | MultiPolygon>
-): FeatureCollection<LineString | MultiLineString> | null => {
-    try {
-        const lineFeatures: Feature<LineString | MultiLineString>[] = [];
-
-        for (const feature of polygonFeature.features) {
-            // turf.polygonToLine otomatis handle Polygon dan MultiPolygon
-            const lineResult = turf.polygonToLine(feature);
-
-            if (lineResult) {
-                // Jika hasilnya FeatureCollection (dari MultiPolygon)
-                if (lineResult.type === "FeatureCollection") {
-                    lineFeatures.push(
-                        ...lineResult.features.map((f) => ({
-                            ...f,
-                            properties: { ...feature.properties },
-                        }))
-                    );
-                }
-                // Jika hasilnya Feature (dari Polygon)
-                else if (lineResult.type === "Feature") {
-                    lineFeatures.push({
-                        ...lineResult,
-                        properties: { ...feature.properties },
-                    });
-                }
-            }
-        }
-
-        return turf.featureCollection(lineFeatures);
-    } catch (error) {
-        console.error("Error converting polygons to lines:", error);
-        return null;
-    }
+): Promise<FeatureCollection<LineString | MultiLineString> | null> => {
+    return geoWorkerPool.execute("polygonToLines", { polygonFeature });
 };
 
-const linesToPolygonLayers = (
+const linesToPolygonLayers = async (
     lineFeature: FeatureCollection<LineString | MultiLineString>
-): FeatureCollection<Polygon | MultiPolygon> | null => {
-    try {
-        const polygonFeatures: Feature<Polygon | MultiPolygon>[] = [];
-
-        for (const feature of lineFeature.features) {
-            try {
-                // turf.lineToPolygon otomatis handle LineString dan MultiLineString
-                const polygonResult = turf.lineToPolygon(feature);
-
-                if (polygonResult) {
-                    // Preserve properties dari original feature
-                    const polygonWithProps: Feature<Polygon | MultiPolygon> = {
-                        ...polygonResult,
-                        properties: { ...feature.properties },
-                    };
-
-                    polygonFeatures.push(polygonWithProps);
-                }
-            } catch (conversionError) {
-                console.warn(`Failed to convert line to polygon:`, conversionError);
-                // Skip feature yang tidak bisa dikonversi
-                continue;
-            }
-        }
-
-        return turf.featureCollection(polygonFeatures);
-    } catch (error) {
-        console.error("Error converting lines to polygons:", error);
-        return null;
-    }
+): Promise<FeatureCollection<Polygon | MultiPolygon> | null> => {
+    return geoWorkerPool.execute("linesToPolygon", { lineFeature });
 };
 
-const removeDuplicatesLayers = (featureClip: FeatureCollection<Geometry>) => {
-    try {
-        return turf.featureCollection(
-            featureClip.features
-                .filter(
-                    (feature): feature is Feature<Geometry> =>
-                        feature.geometry.type === "Polygon" ||
-                        feature.geometry.type === "MultiPolygon"
-                )
-                .map((feature) => {
-                    const polygonFeature = turf.cleanCoords(feature);
-                    return polygonFeature;
-                })
-        );
-    } catch (error) {
-        console.error("Error clipping layers:", error);
-        return null;
-    }
+const removeDuplicatesLayers = async (featureClip: FeatureCollection<Geometry>): Promise<FeatureCollection<Geometry> | null> => {
+    return geoWorkerPool.execute("removeDuplicates", { featureClip });
 };
 
-const hexagonLayer = (
+const hexagonLayer = async (
     featureClip: FeatureCollection<Polygon | MultiPolygon>,
     cellSide: number,
     units: turf.Units = "kilometers",
     gridCode?: string
-): FeatureCollection<Polygon> | null => {
-    try {
-        if (
-            !featureClip ||
-            !featureClip.features ||
-            !Array.isArray(featureClip.features) ||
-            featureClip.features.length === 0
-        ) {
-            throw new Error(
-                "Invalid FeatureCollection: featureClip.features is not an array or is empty"
-            );
-        }
-
-        const bbox = turf.bbox(featureClip);
-
-        // FIXED: Handle mask dengan proper typing
-        let maskFeature: Feature<Polygon> | undefined;
-
-        if (featureClip.features.length === 1) {
-            const feature = featureClip.features[0];
-            // Cast ke Polygon jika memang Polygon
-            if (feature.geometry.type === "Polygon") {
-                maskFeature = feature as Feature<Polygon>;
-            }
-        } else {
-            // Union multiple features
-            try {
-                const unionResult = turf.union(featureClip);
-                if (unionResult && unionResult.geometry.type === "Polygon") {
-                    maskFeature = unionResult as Feature<Polygon>;
-                }
-            } catch (unionError) {
-                console.warn(
-                    "Failed to union features for mask, proceeding without mask"
-                );
-            }
-        }
-
-        const hexGrid = turf.hexGrid(bbox, cellSide, {
-            units,
-            mask: maskFeature, // Bisa undefined jika tidak ada mask yang valid
-        });
-
-        // Add properties ke setiap hexagon (dengan fallback filtering jika tidak ada mask)
-        let hexagons = hexGrid.features;
-
-        // Jika tidak ada mask atau mask gagal, lakukan manual filtering
-        if (!maskFeature) {
-            hexagons = hexGrid.features.filter((hex) =>
-                featureClip.features.some((feature) => {
-                    try {
-                        const intersection = turf.intersect(
-                            turf.featureCollection([hex, feature])
-                        );
-                        return intersection !== null;
-                    } catch {
-                        // Fallback ke point-in-polygon
-                        return turf.booleanPointInPolygon(turf.center(hex), feature);
-                    }
-                })
-            );
-        }
-
-        const processedHexagons = hexagons.map((hex, index) => {
-            const area = turf.area(hex) / 1e6; // Convert to km²
-            return {
-                ...hex,
-                properties: {
-                    size: cellSide,
-                    units: units,
-                    area: parseFloat(area.toFixed(4)), // Bulatkan ke 4 desimal
-                    code: gridCode ? `${gridCode}-${index}` : `Grid-${index}`,
-                },
-            };
-        });
-
-        return turf.featureCollection(processedHexagons);
-    } catch (error) {
-        console.error("Error creating hexagon layer:", error);
-        return null;
-    }
+): Promise<FeatureCollection<Polygon> | null> => {
+    return geoWorkerPool.execute("hexagon", { featureClip, cellSide, units, gridCode });
 };
 
-const simplifyLayers = (
+const simplifyLayers = async (
     featureCollection: FeatureCollection<Polygon | MultiPolygon>,
     tolerance: number = 0.001,
     highQuality: boolean = true
-): FeatureCollection<Polygon | MultiPolygon> => {
-    try {
-        return turf.featureCollection(
-            featureCollection.features.map((feature) =>
-                turf.simplify(feature, { tolerance, highQuality })
-            )
-        );
-    } catch (error) {
-        console.error("Error simplifying polygons:", error);
-        return featureCollection;
-    }
+): Promise<FeatureCollection<Polygon | MultiPolygon>> => {
+    return geoWorkerPool.execute("simplify", { featureCollection, tolerance, highQuality });
 };
 
-const pointAlongLinesLayers = (
+const pointAlongLinesLayers = async (
     lineFeatureCollection: FeatureCollection<LineString | MultiLineString>,
     interval: number,
     units: turf.Units = "kilometers"
-): FeatureCollection<Point> | null => {
-    try {
-        const points: Feature<Point>[] = [];
+): Promise<FeatureCollection<Point> | null> => {
+    return geoWorkerPool.execute("pointAlongLines", { lineFeatureCollection, interval, units });
+};
 
-        lineFeatureCollection.features.forEach((feature, featureIndex) => {
-            if (feature.geometry.type === "LineString") {
-                // Buat feature LineString eksplisit
-                const line = turf.lineString(
-                    feature.geometry.coordinates,
-                    feature.properties
-                );
-                const length = turf.length(line, { units });
-                const numPoints = Math.floor(length / interval) + 1;
-
-                for (let i = 0; i < numPoints; i++) {
-                    const distance = Math.min(i * interval, length);
-                    const point = turf.along(line, distance, { units });
-
-                    points.push({
-                        ...point,
-                        properties: {
-                            ...feature.properties,
-                            sourceFeatureIndex: featureIndex,
-                            segmentIndex: 0,
-                            pointIndex: i,
-                            distanceFromStart: parseFloat(distance.toFixed(4)),
-                            totalLineLength: parseFloat(length.toFixed(4)),
-                        },
-                    });
-                }
-            } else if (feature.geometry.type === "MultiLineString") {
-                feature.geometry.coordinates.forEach((lineCoords, segmentIndex) => {
-                    const line = turf.lineString(lineCoords, feature.properties);
-                    const length = turf.length(line, { units });
-                    const numPoints = Math.floor(length / interval) + 1;
-
-                    for (let i = 0; i < numPoints; i++) {
-                        const distance = Math.min(i * interval, length);
-                        const point = turf.along(line, distance, { units });
-
-                        points.push({
-                            ...point,
-                            properties: {
-                                ...feature.properties,
-                                sourceFeatureIndex: featureIndex,
-                                segmentIndex: segmentIndex,
-                                pointIndex: i,
-                                distanceFromStart: parseFloat(distance.toFixed(4)),
-                                totalLineLength: parseFloat(length.toFixed(4)),
-                            },
-                        });
-                    }
-                });
-            }
-        });
-
-        return turf.featureCollection(points);
-    } catch (error) {
-        console.error("Error generating points along line:", error);
-        return null;
-    }
+const runCode = async (code: string, data: any, nodes: any) => {
+    return geoWorkerPool.execute("js-code", { code, data, nodes });
 };
 
 const buildingLayers = async (featureCollection: FeatureCollection) => {
@@ -817,6 +477,7 @@ export {
     pointAlongLinesLayers,
     polygonToLinesLayers,
     removeDuplicatesLayers,
+    runCode,
     searchAlternatives,
     searchPlaces,
     simplifyLayers
