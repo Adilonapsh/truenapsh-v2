@@ -27,7 +27,7 @@ const getValueByPath = (obj: any, path: string) => {
     if (!path || !obj) return undefined;
     const parts = path.split(/\.|\b(?=\[)/).filter(Boolean);
     let current = obj;
-    for (let part of parts) {
+    for (const part of parts) {
         if (current === null || current === undefined) return undefined;
         if (part.startsWith('[') && part.endsWith(']')) {
             const key = part.slice(1, -1).replace(/['"]/g, '');
@@ -45,10 +45,10 @@ const setValueByPath = (obj: any, path: string, value: any) => {
     const parts = path.split(/\.|\b(?=\[)/).filter(Boolean);
     let current = obj;
     for (let i = 0; i < parts.length - 1; i++) {
-        let part = parts[i];
+        const part = parts[i];
         let key = part;
         if (part.startsWith('[') && part.endsWith(']')) {
-            key = part.slice(1, -1).replace(/['"]/g, '');
+             key = part.slice(1, -1).replace(/['"]/g, '');
         } else if (part.startsWith('.')) {
             key = part.slice(1);
         }

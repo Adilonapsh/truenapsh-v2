@@ -287,6 +287,9 @@ export function ChatWithAI({
             if (toolCall.toolCall.toolName == "perform_map_action") {
                 const actionArg: any = toolCall.toolCall.args;
                 onCommandReceived?.({ action: actionArg.action || "", params: actionArg.parameters || {} });
+            } else if (toolCall.toolCall.toolName == "generate_workflow") {
+                const actionArg: any = toolCall.toolCall.args;
+                onCommandReceived?.({ action: "generate_workflow", params: actionArg });
             }
             // console.log(toolCall);
         },
@@ -991,6 +994,34 @@ export function ChatWithAI({
                                                                     );
                                                                 }
                                                             } else if (part.type === "tool-invocation") {
+                                                                if (part.toolInvocation.toolName === "generate_workflow") {
+                                                                    const nodes = part.toolInvocation.args?.nodes || [];
+                                                                    return (
+                                                                        <div key={index} className="w-full my-4 p-4 bg-muted/20 border border-border/50 rounded-2xl shadow-sm">
+                                                                            <div className="flex items-center flex-wrap gap-y-3 gap-x-2">
+                                                                                {part.toolInvocation.state === "call" && nodes.length === 0 ? (
+                                                                                    <div className="flex items-center gap-3 text-sm text-muted-foreground font-medium">
+                                                                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
+                                                                                        Generating workflow...
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    nodes.map((n: any, idx: number) => (
+                                                                                        <div key={idx} className="flex items-center gap-2 shrink-0">
+                                                                                            {idx > 0 && (
+                                                                                                <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
+                                                                                            )}
+                                                                                            <div className="bg-background px-3 py-1.5 rounded-lg border border-border shadow-sm text-sm font-medium flex items-center gap-2 hover:border-primary/50 hover:shadow-md transition-all">
+                                                                                                <div className="w-1.5 h-1.5 rounded-full bg-zinc-800 dark:bg-zinc-200"></div>
+                                                                                                {n.label || n.type}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ))
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                }
+
                                                                 return (
                                                                     <Accordion
                                                                         type="single"

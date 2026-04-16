@@ -137,6 +137,24 @@ const callTools = (section: string, layers: Layer[]) => {
                     return ToonEncode({ action, parameters, status: "success" });
                 },
             }),
+            generate_workflow: tool({
+                description: "Generate a complete workflow with multiple nodes and connections in the flow editor. Use this whenever the user asks to create nodes, a component, or an operation. You MUST model the problem as a graph. For example, if a user asks for a 'buffer from layer CCTV', create a Layer node and a Buffer node, and connect them. Available types: websocket, webhook, scheduler, import, export, map, database, analytics, http-request, layer, js-code, forloop, ifelse, while, switch, select, order-by, limit, filter, join, group-by, count, boundary, buffer, clip, difference, intersection, centroid, lines-to-polygon, polygon-to-lines, remove-duplicates, generate-points, simplify, hexagon-grid, building, elevation",
+                parameters: z.object({
+                    nodes: z.array(z.object({
+                        id: z.string().describe("A unique local ID for this node to be referenced in edges, e.g. 'n1', 'n2'"),
+                        type: z.string().describe("Type of the node"),
+                        label: z.string().describe("Human-readable label for the node"),
+                        parameters: z.record(z.any()).optional().describe("Initial parameters for the node based on its type"),
+                    })),
+                    edges: z.array(z.object({
+                        source: z.string().describe("Local ID of the source node"),
+                        target: z.string().describe("Local ID of the target node")
+                    })).describe("Connections between the generated nodes. Data flows from source to target.")
+                }),
+                execute: async ({ nodes, edges }) => {
+                    return ToonEncode({ action: "generate_workflow", nodes, edges, status: "success" });
+                },
+            }),
         }
     }
     return tools[section ?? "map"];

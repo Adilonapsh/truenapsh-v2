@@ -43,12 +43,14 @@ import {
     Type,
     Play,
     Loader2,
-    Wand2
+    Wand2,
+    Sparkles
 } from "lucide-react";
 import { MdElectricBolt } from "react-icons/md";
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "../button";
 import SettingActions from "./settings-actions";
+import { ChatWithAI } from "../ai/chat-with-ai";
 import { useTheme } from "next-themes";
 import { ColorMode } from "@xyflow/system";
 import {
@@ -64,6 +66,7 @@ import {
 } from "@/components/ui/resizable";
 import { Badge } from "../badge";
 import React from "react";
+import toast from "react-hot-toast";
 
 const flattenKeys = (obj: any, prefix = ""): string[] => {
     if (!obj || typeof obj !== "object") return [];
@@ -480,13 +483,6 @@ function FlowDiagram() {
     const { theme } = useTheme();
     const timeoutsRef = useRef<number[]>([]);
 
-    useEffect(() => {
-        const handleInsert = (e: any) => {
-            setInsertionData(e.detail);
-        };
-        window.addEventListener("edge-insert-node", handleInsert);
-        return () => window.removeEventListener("edge-insert-node", handleInsert);
-    }, []);
 
     useEffect(() => {
         polyfill({
@@ -801,6 +797,8 @@ function FlowDiagram() {
         [reactFlowInstance, setNodes, duplicateNode, deleteNode, runNode, toggleEnabled]
     );
 
+
+
     const onInsertNode = useCallback(
         (type: string, nodeData: any) => {
             if (!insertionData) return;
@@ -1015,8 +1013,11 @@ function FlowDiagram() {
         event.dataTransfer.effectAllowed = "move";
     };
 
-    const onNodeDrag = useCallback((_: MouseEvent, node: Node) => {
-        // const intersections = getIntersectingNodes(node).map((n) => n.id);
+    const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
+
+    const onNodeDrag = useCallback(
+        (_: MouseEvent, node: Node) => {
+            // const intersections = getIntersectingNodes(node).map((n) => n.id);
         // setNodes((ns) => {
         //     const updatedNodes = ns.map((n) => {
         //         console.log(intersections.find((id) => ns.find((n) => n.id === id)));
@@ -1278,6 +1279,85 @@ function FlowDiagram() {
         }, 100);
     }, [edges, setNodes, rfInstance]);
 
+    const onAiGenerateWorkflow = useCallback(
+        (detail: any) => {
+            const { nodes: newNodesConfig = [], edges: newEdgesConfig = [] } = detail;
+            
+            const startX = window.innerWidth / 2 - (newNodesConfig.length * 150) / 2;
+            const startY = window.innerHeight / 2;
+            
+            const nodeMap = new Map();
+            
+            const generatedNodes = newNodesConfig.map((nCfg: any, index: number) => {
+                const rfId = uuidv4();
+                nodeMap.set(nCfg.id, rfId);
+                const widget = Object.values(widgets).flat().find(w => w.type === nCfg.type);
+                const action = (widget as any)?.action || nCfg.type;
+                
+                return {
+                    id: rfId,
+                    type: nCfg.type,
+                    position: reactFlowInstance.screenToFlowPosition({
+                        x: startX + (index * 250),
+                        y: startY + (index % 2 === 0 ? 0 : 100),
+                    }),
+                    data: {
+                        action: action,
+                        onDuplicateNode: () => duplicateNode(rfId),
+                        onDeleteNode: () => deleteNode(rfId),
+                        onRunNode: () => runNode(rfId),
+                        toggleEnabled: () => toggleEnabled(rfId),
+                        parameters: {
+                            label: nCfg.label || `${nCfg.type.charAt(0).toUpperCase() + nCfg.type.slice(1)}`,
+                            desc: `AI Generated Node`,
+                            ...nCfg.parameters
+                        },
+                        state: { is_enabled: true, is_loading: false }
+                    },
+                    zIndex: 1
+                };
+            });
+            
+            const generatedEdges = newEdgesConfig.map((eCfg: any) => {
+                const sourceId = nodeMap.get(eCfg.source);
+                const targetId = nodeMap.get(eCfg.target);
+                if (!sourceId || !targetId) return null;
+                return {
+                    id: uuidv4(),
+                    source: sourceId,
+                    target: targetId,
+                    type: "smoothstep"
+                };
+            }).filter(Boolean);
+            
+            setNodes((nds) => [...nds, ...generatedNodes]);
+            setEdges((eds) => [...eds, ...generatedEdges]);
+            
+            toast.success(`Generated workflow with ${generatedNodes.length} nodes by AI`);
+            
+            setTimeout(() => {
+                onLayout();
+            }, 100);
+            
+        },
+        [reactFlowInstance, setNodes, setEdges, duplicateNode, deleteNode, runNode, toggleEnabled, onLayout]
+    );
+
+    useEffect(() => {
+        const handleInsert = (e: any) => {
+            setInsertionData(e.detail);
+        };
+        const handleAiGenerate = (e: any) => {
+            onAiGenerateWorkflow(e.detail);
+        };
+        window.addEventListener("edge-insert-node", handleInsert);
+        window.addEventListener("ai-generate-workflow", handleAiGenerate);
+        return () => {
+            window.removeEventListener("edge-insert-node", handleInsert);
+            window.removeEventListener("ai-generate-workflow", handleAiGenerate);
+        };
+    }, [onAiGenerateWorkflow]);
+
     return (
         <div className="relative flex h-full">
             <div className="w-full" ref={reactFlowWrapper}>
@@ -1309,59 +1389,84 @@ function FlowDiagram() {
                     colorMode={theme as ColorMode}
                 >
                     <Background variant={BackgroundVariant.Dots} />
-                    <Controls />
+                    <Controls className={`transition-transform duration-300 ${isAiPanelOpen ? 'translate-x-[400px]' : 'translate-x-0'}`} />
                     <MiniMap />
                 </ReactFlow>
             </div>
-            <div className="absolute">
-                <div className="w-80 p-4">
-                    <Tabs defaultValue="component" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 border border-gray-200">
+            {isAiPanelOpen && (
+                <div className="absolute left-0 top-0 h-full w-[400px] bg-white dark:bg-zinc-950 border-r border-gray-200 dark:border-zinc-800 shadow-2xl z-20 pointer-events-auto flex flex-col">
+                    <div className="flex-1 overflow-hidden flex flex-col relative w-full">
+                        <ChatWithAI 
+                            title="" 
+                            placeholder="Ask AI to add nodes..."
+                            onCommandReceived={(cmd: any) => {
+                                if (cmd.action === "generate_workflow") {
+                                    window.dispatchEvent(new CustomEvent("ai-generate-workflow", { detail: cmd.params }));
+                                }
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
+            <div className="absolute flex gap-4 p-4 pointer-events-none z-10 w-full h-full max-w-[1400px]">
+                <div className={`w-80 pointer-events-auto transition-transform duration-300 ${isAiPanelOpen ? "translate-x-[400px]" : "translate-x-0"}`}>
+                    <Tabs defaultValue="component" className="w-full h-[80vh] flex flex-col shadow-xl">
+                        <TabsList className="grid w-full grid-cols-2 border border-gray-200 shrink-0">
                             <TabsTrigger value="component">Component</TabsTrigger>
                             <TabsTrigger value="node_info">Node Info</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="component">
-                            <Card>
-                                <CardContent className="">
-                                    <WidgetNode
-                                        onDragStart={onDragStart}
-                                        onDoubleClick={onWidgetDoubleClick}
-                                    />
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
-                        <TabsContent value="node_info">
-                            <Card>
-                                <CardContent className="mt-5">
-                                    {activeNode && (
-                                        <div>
-                                            <div className="flex justify-between items-center">
-                                                <h3 className="text-xs font-semibold">
-                                                    Node Properties
-                                                </h3>
-                                                <button
-                                                    onClick={deleteNodes}
-                                                    className="text-red-500 hover:text-red-700"
-                                                >
-                                                    <Trash2Icon size={15} />
-                                                </button>
+                        <div className="flex-1 overflow-auto rounded-b-lg border border-gray-200 border-t-0 p-0 m-0">
+                            <TabsContent value="component" className="h-full m-0">
+                                <Card className="border-0 shadow-none h-full">
+                                    <CardContent className="p-4 h-full">
+                                        <WidgetNode
+                                            onDragStart={onDragStart}
+                                            onDoubleClick={onWidgetDoubleClick}
+                                        />
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                            <TabsContent value="node_info" className="h-full m-0">
+                                <Card className="border-0 shadow-none h-full">
+                                    <CardContent className="mt-5 p-4 h-full">
+                                        {activeNode && (
+                                            <div>
+                                                <div className="flex justify-between items-center">
+                                                    <h3 className="text-xs font-semibold">
+                                                        Node Properties
+                                                    </h3>
+                                                    <button
+                                                        onClick={deleteNodes}
+                                                        className="text-red-500 hover:text-red-700"
+                                                    >
+                                                        <Trash2Icon size={15} />
+                                                    </button>
+                                                </div>
+                                                <div className="mt-4">
+                                                    <SettingActions
+                                                        selectedNode={activeNode}
+                                                        updateNodeProperties={updateNodeProperties}
+                                                    />
+                                                </div>
                                             </div>
-                                            <div className="mt-4">
-                                                <SettingActions
-                                                    selectedNode={activeNode}
-                                                    updateNodeProperties={updateNodeProperties}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </TabsContent>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+                        </div>
                     </Tabs>
                 </div>
             </div>
-            <div className="absolute right-0 text-black">
-                <div className="flex gap-2">
+            <div className="absolute right-0 text-black mt-4 mr-4 pointer-events-auto z-10">
+                <div className="flex gap-2 bg-white/50 dark:bg-zinc-950/50 p-2 rounded-lg backdrop-blur-sm border border-gray-200 dark:border-zinc-800 shadow-sm">
+                    <Button
+                        variant={isAiPanelOpen ? "default" : "outline"}
+                        onClick={() => setIsAiPanelOpen(!isAiPanelOpen)}
+                        className={isAiPanelOpen ? "bg-primary hover:bg-primary/80 text-white" : "text-foreground"}
+                        title="Toggle AI Panel"
+                    >
+                        <Sparkles className="w-4 h-4" /> 
+                    </Button>
                     <Button
                         variant={"outline"}
                         onClick={onLayout}

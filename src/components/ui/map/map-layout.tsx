@@ -2383,6 +2383,12 @@ export default function MapLayout({
         if (!mapRef.current) return;
 
         if (typeof command === "object") {
+            if (command.action === "generate_workflow") {
+                window.dispatchEvent(
+                    new CustomEvent("ai-generate-workflow", { detail: command.params })
+                );
+                return;
+            }
             const executor = new MapCommandExecutor(mapRef, layers);
             try {
                 await executor.execute(command, (p) => {
