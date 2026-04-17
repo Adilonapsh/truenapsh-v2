@@ -22,12 +22,16 @@ import {
     Sun,
     Moon,
     AlertTriangle,
-    Ruler
+    Ruler,
+    MapPin
 } from "lucide-react";
 import * as THREE from "three";
 import { IoClose } from "react-icons/io5";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+import useLayerStore from "@/stores/layer";
+import { MapServiceVendor } from "@/types/map.types";
+import { v4 } from 'uuid';
 
 // --- Error Boundary ---
 interface ErrorBoundaryProps {
@@ -96,12 +100,65 @@ function ModelLoader() {
 
 // --- Main Component ---
 export function ModelViewer3D() {
-    const { displayLayouts, setDisplayLayouts, activeModelUrl, setActiveModelUrl } = useMapStore();
+    const { displayLayouts, setDisplayLayouts, activeModelUrl, setActiveModelUrl, map } = useMapStore();
+    const { addLayer } = useLayerStore();
     const [autoRotate, setAutoRotate] = useState(false);
     const [showGrid, setShowGrid] = useState(true);
     const [theme, setTheme] = useState<"light" | "dark" | "transparent">("dark");
     const [modelKey, setModelKey] = useState(0); // Key to force re-mount on error reset
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleLoadToMap = async () => {
+        if (!activeModelUrl) return;
+
+        const mapInstance = map.current?.getMap();
+        const center = mapInstance?.getCenter() || { lng: 0, lat: 0 };
+        const capturedUrl = activeModelUrl;
+        const lastFile = (fileInputRef as any).current?._lastFile;
+
+        // Force unmount the viewer FIRST to free WebGL context
+        setDisplayLayouts({ modelViewer3D: false });
+
+        // Wait for unmount to complete before adding to map
+        setTimeout(async () => {
+            let finalData: any = capturedUrl;
+
+            // If it's a local file, convert to ArrayBuffer to fix loader issues
+            if (lastFile instanceof File) {
+                try {
+                    finalData = await lastFile.arrayBuffer();
+                } catch (err) {
+                    console.error("Failed to convert file to buffer", err);
+                }
+            }
+
+            const fileName = lastFile?.name || (capturedUrl.startsWith('blob:')
+                ? "3D Model"
+                : capturedUrl.split('/').pop()?.split('#')[0] || "3D Model");
+
+            addLayer({
+                id: `model-${v4()}`,
+                name: fileName,
+                map_service_url: finalData, // Can be string URL or ArrayBuffer
+                map_service_layer_name: fileName,
+                map_service_vendor: MapServiceVendor.Model,
+                type: "3d",
+                visible: true,
+                render_type: "model",
+                metadata: {
+                    location: {
+                        lng: center.lng,
+                        lat: center.lat
+                    },
+                    model_scale: [100, 100, 100], // Default scale up for world coordinates
+                    model_rotation: [-90, 0, 0], // Common rotation fix for GLB (Y-up to Z-up)
+                    model_opacity: 1
+                }
+            });
+
+            toast.success("Model ditambahkan ke peta di posisi tengah layar.");
+        }, 150);
+    };
 
     // Measurement State
     const [isMeasuring, setIsMeasuring] = useState(false);
@@ -145,7 +202,7 @@ export function ModelViewer3D() {
         if (isMeasuring) setHoverPoint(null);
     };
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -155,7 +212,11 @@ export function ModelViewer3D() {
             return;
         }
 
-        const url = URL.createObjectURL(file);
+        // Keep original file for loading to map
+        (fileInputRef as any).current._lastFile = file;
+
+        // Add hint for loaders.gl if using blob
+        const url = URL.createObjectURL(file) + `#.${ext}`;
 
         // Reset state for new model
         setActiveModelUrl(url);
@@ -323,6 +384,16 @@ export function ModelViewer3D() {
                         title="Upload Model"
                     >
                         <Upload size={16} />
+                    </Button>
+                    <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleLoadToMap}
+                        className="text-primary hover:bg-primary/10"
+                        title="Load to Map"
+                    >
+                        <MapPin size={16} />
                     </Button>
                     <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-700 mx-1" />
                     <Button

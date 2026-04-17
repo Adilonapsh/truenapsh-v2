@@ -71,7 +71,14 @@ import { MapRef } from "react-map-gl";
 import { Button } from "../button";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import { Tile3DLayer } from "@deck.gl/geo-layers";
+import { ScenegraphLayer } from "@deck.gl/mesh-layers";
 import { Tiles3DLoader, CesiumIonLoader } from "@loaders.gl/3d-tiles";
+import { GLTFLoader } from "@loaders.gl/gltf";
+import { DracoLoader } from "@loaders.gl/draco";
+import { registerLoaders } from "@loaders.gl/core";
+
+// Register loaders globally
+registerLoaders([GLTFLoader, DracoLoader, Tiles3DLoader, CesiumIonLoader]);
 
 import {
     Card,
@@ -1642,7 +1649,7 @@ export default function MapLayout({
         const map = mapRef?.current?.getMap();
         const layer = layers[index];
         if (map) {
-            if (layer.map_service_vendor == MapServiceVendor.Geoserver) {
+            if (layer.map_service_vendor == MapServiceVendor.Geoserver && typeof layer.map_service_url === 'string') {
                 const fetch = await fetchLayerBbox(
                     layer.map_service_url,
                     layer.map_service_layer_name,
@@ -1661,7 +1668,7 @@ export default function MapLayout({
                 } else {
                     console.log("Map reference is not defined.");
                 }
-            } else if (layer.map_service_vendor == MapServiceVendor.ArcGIS) {
+            } else if (layer.map_service_vendor == MapServiceVendor.ArcGIS && typeof layer.map_service_url === 'string') {
                 const esriURL = `${layer.map_service_url.replace(
                     "/export",
                     ""
@@ -1864,6 +1871,8 @@ export default function MapLayout({
         if (map) {
             layers.forEach((layer, index) => {
                 const getServiceUrl = () => {
+                    if (typeof layer.map_service_url !== 'string') return "";
+
                     if (layer.map_service_vendor === MapServiceVendor.Geoserver) {
                         const WMS_PARAMS =
                             "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
@@ -1874,9 +1883,10 @@ export default function MapLayout({
                     }
 
                     if (layer.map_service_vendor === MapServiceVendor.ArcGIS) {
-                        if (layer.map_service_url.includes("FeatureServer")) {
+                        const isFeatureServer = typeof layer.map_service_url === 'string' && layer.map_service_url.includes("FeatureServer");
+                        if (isFeatureServer) {
                             return (
-                                layer.map_service_url +
+                                (layer.map_service_url as string) +
                                 "/0/query?where=1=1&outFields=*&f=geojson&geometryType=esriGeometryEnvelope&returnGeometry=true"
                             );
                         }
@@ -1931,12 +1941,17 @@ export default function MapLayout({
                     }
                 };
 
+                const isArcGISFeature = typeof layer.map_service_url === 'string' && layer.map_service_url.includes("FeatureServer");
+
                 if (
                     (layer.map_service_vendor === MapServiceVendor.GeoJSON &&
-                        layer.map_service_url) ||
-                    layer.map_service_url.includes("FeatureServer")
+                        typeof layer.map_service_url === 'string') ||
+                    isArcGISFeature
                 ) {
                     addGeoJSONLayer(url);
+                } else if (layer.map_service_vendor === MapServiceVendor.Model || layer.map_service_vendor === MapServiceVendor.Cesium) {
+                    // Deck.gl handles these
+                    return;
                 } else {
                     map.addLayer({
                         id: layer.id,
@@ -1992,59 +2007,78 @@ export default function MapLayout({
         initLayers();
     }, [layers]);
 
-    // Sync Cesium layers with MapboxOverlay
+    // Sync Cesium & 3D Model layers with MapboxOverlay
     useEffect(() => {
         if (deckOverlayRef.current) {
-            const cesiumLayers = layers
-                .filter(l => {
-                    const isCesium = l.map_service_vendor === MapServiceVendor.Cesium;
-                    const isVisible = l.visible;
-                    const minZoom = l.min_zoom ?? 0;
-                    const maxZoom = l.max_zoom ?? 24;
-                    const inZoomRange = currentZoom >= minZoom && currentZoom <= maxZoom;
-                    return isCesium && isVisible && inZoomRange;
-                })
-                .map(l => {
-                     const metadata = l.metadata as any;
-                     const userToken = metadata?.cesium_ion_token;
-                     const token = userToken || process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
-                     
-                     const opacity = metadata?.cesium_opacity ?? 1;
-                     const pointSize = metadata?.cesium_point_size ?? 2;
-                     const colorHex = metadata?.cesium_color || "#ffffff";
-                     
-                     // Helper to convert hex to RGB
-                     const hexToRgb = (hex: string): [number, number, number] => {
-                         const r = parseInt(hex.slice(1, 3), 16);
-                         const g = parseInt(hex.slice(3, 5), 16);
-                         const b = parseInt(hex.slice(5, 7), 16);
-                         return [r, g, b];
-                     };
-                     
-                     const rgb = hexToRgb(colorHex);
+            const deckLayers: any[] = [];
 
-                     let finalUrl = l.map_service_url;
+            layers.forEach(l => {
+                const isVisible = l.visible;
+                const minZoom = l.min_zoom ?? 0;
+                const maxZoom = l.max_zoom ?? 24;
+                const inZoomRange = currentZoom >= minZoom && currentZoom <= maxZoom;
 
-                     return new Tile3DLayer({
-                         id: l.id,
-                         data: finalUrl,
-                         loaders: [CesiumIonLoader, Tiles3DLoader],
-                         loadOptions: {
-                             'cesium-ion': {
-                                 accessToken: token
-                             },
-                             '3d-tiles': {
-                                 cesiumIonAccessToken: token
-                             }
-                         },
-                         opacity: opacity,
-                         _pointSize: pointSize,
-                         getFillColor: rgb,
-                         minZoom: l.min_zoom ?? 0,
-                         maxZoom: l.max_zoom ?? 24
-                     });
-                });
-            deckOverlayRef.current.setProps({ layers: cesiumLayers });
+                if (!isVisible || !inZoomRange) return;
+
+                const metadata = l.metadata as any;
+
+                if (l.map_service_vendor === MapServiceVendor.Cesium) {
+                    const userToken = metadata?.cesium_ion_token;
+                    const token = userToken || process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
+
+                    const opacity = metadata?.cesium_opacity ?? 1;
+                    const pointSize = metadata?.cesium_point_size ?? 2;
+                    const colorHex = metadata?.cesium_color || "#ffffff";
+
+                    const hexToRgb = (hex: string): [number, number, number] => {
+                        const r = parseInt(hex.slice(1, 3), 16);
+                        const g = parseInt(hex.slice(3, 5), 16);
+                        const b = parseInt(hex.slice(5, 7), 16);
+                        return [r, g, b];
+                    };
+
+                    const rgb = hexToRgb(colorHex);
+
+                    deckLayers.push(new Tile3DLayer({
+                        id: l.id,
+                        data: l.map_service_url as any,
+                        loaders: [CesiumIonLoader, Tiles3DLoader],
+                        loadOptions: {
+                            'cesium-ion': { accessToken: token },
+                            '3d-tiles': { cesiumIonAccessToken: token }
+                        },
+                        opacity: opacity,
+                        _pointSize: pointSize,
+                        getFillColor: rgb,
+                    }));
+                } else if (l.map_service_vendor === MapServiceVendor.Model) {
+                    const location = metadata?.location || { lng: 0, lat: 0 };
+                    const scale = metadata?.model_scale || [1, 1, 1];
+                    const rotation = metadata?.model_rotation || [0, 0, 0];
+                    const opacity = metadata?.model_opacity ?? 1;
+
+                    // Use a blob URL for ArrayBuffer to avoid deck.gl internal parsing issues
+                    let scenegraphSource = l.map_service_url;
+                    if (scenegraphSource instanceof ArrayBuffer) {
+                        scenegraphSource = URL.createObjectURL(new Blob([scenegraphSource], { type: 'model/gltf-binary' }));
+                    }
+
+                    deckLayers.push(new ScenegraphLayer({
+                        id: l.id,
+                        scenegraph: scenegraphSource,
+                        data: [{}], // Single instance
+                        getPosition: (d: any) => [location.lng, location.lat, 0],
+                        getOrientation: (d: any) => [rotation[0], rotation[1], rotation[2]], // [yaw, pitch, roll] in degrees
+                        getScale: (d: any) => [scale[0], scale[1], scale[2]],
+                        sizeScale: 1, // Ensure size is not zeroed out by internal scaling
+                        opacity: opacity,
+                        _lighting: 'pbr',
+                        loaders: [GLTFLoader, DracoLoader]
+                    }));
+                }
+            });
+
+            deckOverlayRef.current.setProps({ layers: deckLayers });
         }
     }, [layers, currentZoom]);
 
@@ -2591,7 +2625,7 @@ export default function MapLayout({
 
         if (
             mapServiceVendor === MapServiceVendor.GeoJSON ||
-            mapServiceUrl?.includes("FeatureServer")
+            (typeof mapServiceUrl === 'string' && mapServiceUrl.includes("FeatureServer"))
         ) {
             const source = map?.getSource(sourceId ?? "");
             if (!source) return;
@@ -2609,7 +2643,7 @@ export default function MapLayout({
             rows = allProperties.map((properties: Record<string, any>) =>
                 Object.values(properties)
             );
-        } else if (mapServiceVendor === MapServiceVendor.Geoserver) {
+        } else if (mapServiceVendor === MapServiceVendor.Geoserver && typeof mapServiceUrl === 'string') {
             const data = await getAllFeaturesGeoserver(
                 mapServiceUrl,
                 mapServiceLayerName
@@ -3535,7 +3569,7 @@ export default function MapLayout({
                         </div>
                         <div>
                             {selectedLayer?.map_service_vendor ==
-                                MapServiceVendor.Geoserver && (
+                                MapServiceVendor.Geoserver && typeof selectedLayer?.map_service_url === 'string' && (
                                     <>
                                         <img
                                             src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}&LEGEND_OPTIONS=bgColor:0x09090b;fontColor:0xffffff;fontAntiAliasing:true;dpi:200;layout:vertical;columnheigh:1000;countMatched:true;hideEmptyRules:false;fontStyle:bold`}
@@ -3549,7 +3583,7 @@ export default function MapLayout({
                                         />
                                     </>
                                 )}
-                            {selectedLayer?.map_service_vendor == MapServiceVendor.ArcGIS && (
+                            {selectedLayer?.map_service_vendor == MapServiceVendor.ArcGIS && typeof selectedLayer?.map_service_url === 'string' && (
                                 <LegendEsri
                                     url={`${selectedLayer?.map_service_url}/legend?f=json`}
                                 />

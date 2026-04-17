@@ -1214,7 +1214,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
         if (selectedLayer) {
             const layerId = selectedLayer.id;
 
-            if (selectedLayer.map_service_vendor === MapServiceVendor.Cesium) {
+            if (selectedLayer.map_service_vendor === MapServiceVendor.Cesium || selectedLayer.map_service_vendor === MapServiceVendor.Model) {
                 setZoomRange(layerId, values[0], values[1]);
                 return;
             }
@@ -1239,6 +1239,11 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
 
             if (selectedLayer.map_service_vendor === MapServiceVendor.Cesium) {
                 updateLayerMetadata(layerId, { cesium_opacity: val });
+                return;
+            }
+
+            if (selectedLayer.map_service_vendor === MapServiceVendor.Model) {
+                updateLayerMetadata(layerId, { model_opacity: val });
                 return;
             }
 
@@ -2022,6 +2027,88 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
                                         </div>
                                     )}
 
+                                    {/* 3D Model Styling */}
+                                    {selectedLayer?.map_service_vendor === MapServiceVendor.Model && (
+                                        <div className="grid gap-4 border rounded p-3 bg-muted/10">
+                                            {/* Position */}
+                                            <div className="grid gap-2">
+                                                <Label className="text-[10px] text-muted-foreground uppercase">Position</Label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-[9px]">Lat</Label>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.00001"
+                                                            value={(currentLayer?.metadata as any)?.location?.lat || 0}
+                                                            className="h-7 text-[10px]"
+                                                            onChange={(e) => {
+                                                                const lat = parseFloat(e.target.value);
+                                                                const lng = (currentLayer?.metadata as any)?.location?.lng || 0;
+                                                                updateLayerMetadata(selectedLayer.id, { location: { lat, lng } });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="grid gap-1">
+                                                        <Label className="text-[9px]">Lng</Label>
+                                                        <Input
+                                                            type="number"
+                                                            step="0.00001"
+                                                            value={(currentLayer?.metadata as any)?.location?.lng || 0}
+                                                            className="h-7 text-[10px]"
+                                                            onChange={(e) => {
+                                                                const lng = parseFloat(e.target.value);
+                                                                const lat = (currentLayer?.metadata as any)?.location?.lat || 0;
+                                                                updateLayerMetadata(selectedLayer.id, { location: { lat, lng } });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Scale */}
+                                            <div className="grid gap-2">
+                                                <Label className="text-[10px] text-muted-foreground uppercase">Scale (X, Y, Z)</Label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {[0, 1, 2].map((idx) => (
+                                                        <Input
+                                                            key={idx}
+                                                            type="number"
+                                                            step="0.1"
+                                                            value={(currentLayer?.metadata as any)?.model_scale?.[idx] || 1}
+                                                            className="h-7 text-[10px]"
+                                                            onChange={(e) => {
+                                                                const newScale = [...((currentLayer?.metadata as any)?.model_scale || [1, 1, 1])];
+                                                                newScale[idx] = parseFloat(e.target.value);
+                                                                updateLayerMetadata(selectedLayer.id, { model_scale: newScale });
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Rotation */}
+                                            <div className="grid gap-2">
+                                                <Label className="text-[10px] text-muted-foreground uppercase">Rotation (Yaw, Pitch, Roll)</Label>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {[0, 1, 2].map((idx) => (
+                                                        <Input
+                                                            key={idx}
+                                                            type="number"
+                                                            step="1"
+                                                            value={(currentLayer?.metadata as any)?.model_rotation?.[idx] || 0}
+                                                            className="h-7 text-[10px]"
+                                                            onChange={(e) => {
+                                                                const newRot = [...((currentLayer?.metadata as any)?.model_rotation || [0, 0, 0])];
+                                                                newRot[idx] = parseFloat(e.target.value);
+                                                                updateLayerMetadata(selectedLayer.id, { model_rotation: newRot });
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Visualization selector for point-like layers */}
                                     {(layerType === "circle" ||
                                         layerType === "symbol" ||
@@ -2765,9 +2852,12 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
                                                 variant="outline"
                                                 className="w-full text-xs gap-2 bg-primary/5 hover:bg-primary/10 border-primary/20"
                                                 onClick={() => {
-                                                    const url = currentLayer?.map_service_url;
+                                                    let url = currentLayer?.map_service_url;
                                                     if (url) {
-                                                        setActiveModelUrl(url);
+                                                        if (url instanceof ArrayBuffer) {
+                                                            url = URL.createObjectURL(new Blob([url], { type: 'model/gltf-binary' }));
+                                                        }
+                                                        setActiveModelUrl(url as string);
                                                         setDisplayLayouts({ modelViewer3D: true });
                                                     }
                                                 }}
@@ -3842,7 +3932,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
                             <AccordionTrigger>Legend</AccordionTrigger>
                             <AccordionContent>
                                 {selectedLayer?.map_service_vendor ==
-                                    MapServiceVendor.Geoserver && (
+                                    MapServiceVendor.Geoserver && typeof selectedLayer?.map_service_url === 'string' && (
                                         <>
                                             <img
                                                 src={`${selectedLayer?.map_service_url}?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetLegendGraphic&FORMAT=image/png&WIDTH=20&HEIGHT=20&LAYER=${selectedLayer?.map_service_layer_name}&LEGEND_OPTIONS=bgColor:0x09090b;fontColor:0xffffff;fontAntiAliasing:true;dpi:200;layout:vertical;columnheigh:1000;countMatched:true;hideEmptyRules:false;fontStyle:bold`}
@@ -3857,7 +3947,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
                                         </>
                                     )}
                                 {selectedLayer?.map_service_vendor ==
-                                    MapServiceVendor.ArcGIS && (
+                                    MapServiceVendor.ArcGIS && typeof selectedLayer?.map_service_url === 'string' && (
                                         <LegendEsri
                                             url={`${selectedLayer?.map_service_url}/legend?f=json`}
                                         />

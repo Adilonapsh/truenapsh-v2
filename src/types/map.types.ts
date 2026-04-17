@@ -48,7 +48,7 @@ type Layer = {
   id: string;
   name: string;
   description?: string;
-  map_service_url: string;
+  map_service_url: string | ArrayBuffer;
   map_service_layer_name: string;
   map_service_vendor: MapServiceVendor;
   type: "vector" | "raster" | "3d" | "2D";

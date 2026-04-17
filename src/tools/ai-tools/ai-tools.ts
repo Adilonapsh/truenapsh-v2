@@ -172,7 +172,7 @@ export class MapCommandExecutor {
 
         const layerType = layer.map_service_vendor
 
-        if (layerType === "Geoserver") {
+        if (layerType === "Geoserver" && typeof layer.map_service_url === 'string') {
             const rawFilter = String(command?.filter || "").trim().replace(/,$/, "");
             const cqlFilterClean = rawFilter.replace(/['']/g, "'");
             const encodedCql = encodeURIComponent(cqlFilterClean);
@@ -297,7 +297,7 @@ export class MapCommandExecutor {
 
     private async zoomToGeoserverLayer(layer: Layer): Promise<void> {
         const map = this.getMap();
-        if (!map) return;
+        if (!map || typeof layer.map_service_url !== 'string') return;
 
         try {
             const bbox = await fetchLayerBbox(
@@ -324,7 +324,7 @@ export class MapCommandExecutor {
 
     private async zoomToArcGISLayer(layer: Layer): Promise<void> {
         const map = this.getMap();
-        if (!map) return;
+        if (!map || typeof layer.map_service_url !== 'string') return;
 
         try {
             const esriURL = `${layer.map_service_url.replace('/export', '')}?f=json`;

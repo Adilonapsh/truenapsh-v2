@@ -57,6 +57,7 @@ const getFeatureInfo = async (
       if (
         layer.map_service_vendor === MapServiceVendor.Geoserver ||
         (layer.map_service_vendor === MapServiceVendor.ArcGIS &&
+          typeof layer.map_service_url === 'string' &&
           !layer.map_service_url.includes("FeatureServer"))
       ) {
         if (layer.map_service_vendor === MapServiceVendor.Geoserver) {
@@ -121,7 +122,7 @@ const generateFeatureInfoURL = (
       bbox: getBBOX(latitude, longitude, 100).toString(),
     };
     return `${layer.map_service_url}?` + new URLSearchParams(params);
-  } else {
+  } else if (typeof layer.map_service_url === 'string') {
     const wmsParams: Record<string, string> = {
       geometry: `${longitude},${latitude}`,
       geometryType: "esriGeometryPoint",
@@ -139,6 +140,7 @@ const generateFeatureInfoURL = (
       new URLSearchParams(wmsParams).toString()
     );
   }
+  return "";
 };
 
 const convertWMSToVectorData = async (
@@ -148,6 +150,7 @@ const convertWMSToVectorData = async (
 ) => {
   // eslint-disable-next-line prefer-const
   let infoLayers = [];
+  if (typeof selectedLayer?.map_service_url !== 'string') return [];
   try {
     const response = await fetch(
       `${selectedLayer?.map_service_url.replace(
