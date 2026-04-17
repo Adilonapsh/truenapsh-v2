@@ -652,6 +652,35 @@ export default function AddLayerModal() {
                     toast.error("Failed to load GeoJSON data");
                 }
             }
+        } else if (datasetProperties.map_service_vendor === MapServiceVendor.Cesium) {
+            if (mapInstance) {
+                const layerId = v4();
+                const url = datasetProperties.url;
+                if (!url) {
+                    toast.error("Please enter a valid URL");
+                    return;
+                }
+                addLayer({
+                    id: layerId,
+                    name: `Cesium Layer ${layers.length + 1}`,
+                    map_service_url: url,
+                    map_service_layer_name: "3D Tiles",
+                    map_service_vendor: MapServiceVendor.Cesium,
+                    type: "3d",
+                    visible: true,
+                    min_zoom: 0,
+                    max_zoom: 24,
+                    status: "Local",
+                    rendered: 1,
+                    metadata: {
+                        url: url,
+                        map_service_vendor: MapServiceVendor.Cesium,
+                        cesium_ion_token: datasetProperties.cesium_ion_token,
+                    },
+                } as Layer);
+                toast.success("Cesium 3D Tiles added to map");
+                setDisplayLayouts({ ...displayLayouts, addLayer: false });
+            }
         } else {
             const datasets = await getWMSServices(
                 datasetProperties.url,
@@ -891,6 +920,9 @@ export default function AddLayerModal() {
                                                     <SelectItem value={MapServiceVendor.GeoJSON}>
                                                         Geojson
                                                     </SelectItem>
+                                                    <SelectItem value={MapServiceVendor.Cesium}>
+                                                        Cesium 3D Tiles
+                                                    </SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <Input
@@ -902,7 +934,9 @@ export default function AddLayerModal() {
                                                         : datasetProperties.map_service_vendor ==
                                                             MapServiceVendor.ArcGIS
                                                             ? "http(s)://(domain)/(path)/(to)/(services)"
-                                                            : "http(s)://(domain)/(path)/(to)/(tiles)/x/y/z"
+                                                            : datasetProperties.map_service_vendor == MapServiceVendor.Cesium
+                                                                ? "https://assets.ion.cesium.com/asset_id/tileset.json"
+                                                                : "http(s)://(domain)/(path)/(to)/(tiles)/x/y/z"
                                                 }
                                                 className="w-full"
                                                 onChange={(e) =>
@@ -912,6 +946,19 @@ export default function AddLayerModal() {
                                                     })
                                                 }
                                             />
+                                            {datasetProperties.map_service_vendor === MapServiceVendor.Cesium && (
+                                                <Input
+                                                    type="text"
+                                                    placeholder="Cesium Ion Access Token (Optional)"
+                                                    className="w-full"
+                                                    onChange={(e) =>
+                                                        setDatasetProperties({
+                                                            ...datasetProperties,
+                                                            cesium_ion_token: e.currentTarget.value,
+                                                        })
+                                                    }
+                                                />
+                                            )}
                                             <Button
                                                 type="submit"
                                                 className="right-0 w-full lg:w-auto"

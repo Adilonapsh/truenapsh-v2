@@ -24,7 +24,7 @@
 24. Add Custom Legends 
 25. Add Github Signin (Done)
 26. Add Landing Page (WIP)
-27. Add Collaboration (Ganti ID socket dengan user ID)
+27. Add Collaboration (Done)
 28. Fix Re-render (Done)
 29. Add Elevation Integration (WIP)
 30. Add Charts
@@ -37,11 +37,11 @@
 37. Add AI Highlight syntax (Done)
 38. Fix Table Freeze (Done)
 39. Refactor FeatureServer (Data Table, On click Map, ) / Ganti ke GeoJson
-40. Buat Customisable Properties    
+40. Buat Customisable Properties
 41. Add Data Export 
 42. Add Geojson Import (Done)
 43. Fix Scroll Table Statistic (Done)
-44. Add 3D Data
+44. Add 3D Data OBJ & GLB (Done)
 45. Add Arcgis Tables
 46. Find Another Basemaps
 47. Show Team Cursors Toggle (Done)
@@ -49,14 +49,14 @@
 49. Tambahkan Expression di Style 
 50. Fix backed Layer and Add Layer
 51. Use Zustand (Done)
-52. Style Dijadikan Komponen
+52. Style Dijadikan Komponen (Done)
 53. Feature Info Dijadikan Komponen (Done)
 54. Map Tools dibuat dinamik, misal data yang bisa point hanya point saja, atau jika bisa semua maka show all layer
 55. Tambah On Tap (Done)
-56. Tambah Timeout di datasets
+56. Tambah Timeout di datasets (done)
+57. Tambah Cesium Point Cloud (Done)
 
 -- PRODS
-1. Fix bookmark Error
-2. Fix Flow Error
-3. Basemap Fix
-
+1. Fix bookmark Error (done)
+2. Fix Flow Error (Done)
+3. Basemap Fix 

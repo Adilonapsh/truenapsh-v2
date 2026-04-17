@@ -69,6 +69,9 @@ import {
 } from "react-icons/tb";
 import { MapRef } from "react-map-gl";
 import { Button } from "../button";
+import { MapboxOverlay } from "@deck.gl/mapbox";
+import { Tile3DLayer } from "@deck.gl/geo-layers";
+import { Tiles3DLoader, CesiumIonLoader } from "@loaders.gl/3d-tiles";
 
 import {
     Card,
@@ -570,6 +573,7 @@ export default function MapLayout({
     const params = useParams();
     const { data: session } = useSession();
     const mapRef = useRef<MapRef | null>(null);
+    const deckOverlayRef = useRef<MapboxOverlay | null>(null);
 
     const {
         setMap,
@@ -1323,6 +1327,16 @@ export default function MapLayout({
                 setMap(mapRef.current);
             }
 
+            // Initialize MapboxOverlay for deck.gl layers
+            if (!deckOverlayRef.current) {
+                const overlay = new MapboxOverlay({
+                    interleaved: true,
+                    layers: []
+                });
+                map.addControl(overlay);
+                deckOverlayRef.current = overlay;
+            }
+
             // Load Layers
             initLayers();
             initWebsocket();
@@ -1966,6 +1980,37 @@ export default function MapLayout({
 
     useEffect(() => {
         initLayers();
+    }, [layers]);
+
+    // Sync Cesium layers with MapboxOverlay
+    useEffect(() => {
+        if (deckOverlayRef.current) {
+            const cesiumLayers = layers
+                .filter(l => l.map_service_vendor === MapServiceVendor.Cesium && l.visible)
+                .map(l => {
+                     const metadata = l.metadata as any;
+                     const userToken = metadata?.cesium_ion_token;
+                     const token = userToken || process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
+
+                     let finalUrl = l.map_service_url;
+
+                     return new Tile3DLayer({
+                         id: l.id,
+                         data: finalUrl,
+                         loaders: [CesiumIonLoader, Tiles3DLoader],
+                         loadOptions: {
+                             'cesium-ion': {
+                                 accessToken: token
+                             },
+                             '3d-tiles': {
+                                 cesiumIonAccessToken: token
+                             }
+                         },
+                         opacity: 1
+                     });
+                });
+            deckOverlayRef.current.setProps({ layers: cesiumLayers });
+        }
     }, [layers]);
 
     const handleEditFeatures = () => {

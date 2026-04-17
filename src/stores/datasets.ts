@@ -12,8 +12,9 @@ interface DatasetsStore {
     datasetProperties: {
         url: string;
         map_service_vendor: MapServiceVendor;
+        cesium_ion_token?: string;
     };
-    setDatasetProperties: (properties: { url: string; map_service_vendor: MapServiceVendor }) => void;
+    setDatasetProperties: (properties: { url: string; map_service_vendor: MapServiceVendor; cesium_ion_token?: string }) => void;
     activeDataset: Datasets | null;
     setActiveDataset: (dataset: Datasets | null) => void;
     datasetResult: TreeNode[];
@@ -28,6 +29,7 @@ const useDatasetStore = create<DatasetsStore>((set) => ({
     datasetProperties: {
         url: "",
         map_service_vendor: MapServiceVendor.Null,
+        cesium_ion_token: "",
     },
     setDatasetProperties: (properties) => set({ datasetProperties: properties }),
     activeDataset: null,

@@ -22,6 +22,8 @@ function IconLayerType({ layer, size = "13pt" }: { layer: Layer | null, size: st
                 <BiGlobe size={size} className='opacity-25' />
             ) : layer?.map_service_vendor === MapServiceVendor.XYZ ? (
                 <GridIcon size={size} className='opacity-25' />
+            ) : layer?.map_service_vendor === MapServiceVendor.Cesium ? (
+                <HiCubeTransparent size={size} className='opacity-25' />
             ) : (
                 <FaVectorSquare size={size} className='opacity-25' />
             )}
