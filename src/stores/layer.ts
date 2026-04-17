@@ -18,6 +18,8 @@ export interface LayerState {
   setFilters: (layerId: string, filters: Layer["filters"]) => void;
   setFolders: (folders: string[]) => void;
   setLayerOrder: (folderPath: string, order: string[]) => void;
+  setZoomRange: (layerId: string, minZoom: number, maxZoom: number) => void;
+  updateLayerMetadata: (layerId: string, metadata: any) => void;
 }
 
 const useLayerStore = create<LayerState>((set) => ({
@@ -157,6 +159,18 @@ const useLayerStore = create<LayerState>((set) => ({
   setLayerOrder: (folderPath: string, order: string[]) =>
     set((state) => ({
       layerOrder: { ...state.layerOrder, [folderPath]: order }
+    })),
+  setZoomRange: (layerId: string, minZoom: number, maxZoom: number) =>
+    set((state) => ({
+      layers: state.layers.map((layer) =>
+        layer.id === layerId ? { ...layer, min_zoom: minZoom, max_zoom: maxZoom } : layer
+      ),
+    })),
+  updateLayerMetadata: (layerId: string, metadata: any) =>
+    set((state) => ({
+      layers: state.layers.map((layer) =>
+        layer.id === layerId ? { ...layer, metadata: { ...layer.metadata, ...metadata } } : layer
+      ),
     })),
 }));
 

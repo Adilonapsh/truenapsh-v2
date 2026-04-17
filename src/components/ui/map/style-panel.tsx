@@ -76,6 +76,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
     const mapRef = map;
 
     const layers = useLayers();
+    const { updateLayerMetadata, setZoomRange } = useLayerStore();
     const currentLayer = layers.find((l) => l.id === selectedLayer?.id);
     const availableFields = currentLayer?.fields || [];
 
@@ -232,6 +233,18 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
     const getStyleLayer = () => {
         const map = mapRef?.current?.getMap();
         const layerId = selectedLayer?.id;
+
+        // Handle Cesium specifically
+        if (selectedLayer?.map_service_vendor === MapServiceVendor.Cesium) {
+            const metadata = currentLayer?.metadata as any;
+            setLayerType(undefined); // Reset layer type for Cesium
+            setMapboxLayerStyle(prev => ({
+                ...prev,
+                opacity: Math.round((metadata?.cesium_opacity ?? 1) * 100),
+                zoom: [currentLayer?.min_zoom ?? 0, currentLayer?.max_zoom ?? 24],
+            }));
+            return;
+        }
 
         if (map && layerId) {
             const layer = map.getLayer(layerId) as LayerSpecification | undefined;
@@ -1198,13 +1211,21 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
     const handleZoomChange = (values: number[]) => {
         setMapboxLayerStyle({ ...mapboxLayerStyle, zoom: values });
         const map = mapRef?.current?.getMap();
-        if (selectedLayer && map) {
+        if (selectedLayer) {
             const layerId = selectedLayer.id;
-            map.setLayerZoomRange(layerId, values[0], values[1]);
-            if (selectedLayer?.id) {
-                updateLayerConfig(selectedLayer.id, {
-                    staticStyles: { ...config.staticStyles, zoom: values as [number, number] }
-                });
+
+            if (selectedLayer.map_service_vendor === MapServiceVendor.Cesium) {
+                setZoomRange(layerId, values[0], values[1]);
+                return;
+            }
+
+            if (map) {
+                map.setLayerZoomRange(layerId, values[0], values[1]);
+                if (selectedLayer?.id) {
+                    updateLayerConfig(selectedLayer.id, {
+                        staticStyles: { ...config.staticStyles, zoom: values as [number, number] }
+                    });
+                }
             }
         }
     };
@@ -1213,9 +1234,15 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
         const map = mapRef?.current?.getMap();
         if (selectedLayer) {
             const layerId = selectedLayer.id;
-            const type = map?.getLayer(layerId)?.type;
             const val = value / 100;
             setMapboxLayerStyle({ ...mapboxLayerStyle, opacity: value ?? 0 });
+
+            if (selectedLayer.map_service_vendor === MapServiceVendor.Cesium) {
+                updateLayerMetadata(layerId, { cesium_opacity: val });
+                return;
+            }
+
+            const type = map?.getLayer(layerId)?.type;
             setPaint("-opacity", val);
             if (type == "circle") {
                 setPaint("-stroke-opacity", val);
@@ -1952,6 +1979,49 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
                             <AccordionTrigger className="text-sm font-semibold">Styling</AccordionTrigger>
                             <AccordionContent className="pt-2">
                                 <div className="grid gap-4 px-1">
+                                    {/* Cesium Styling */}
+                                    {selectedLayer?.map_service_vendor === MapServiceVendor.Cesium && (
+                                        <div className="grid gap-4 border rounded p-3 bg-muted/10">
+                                            <div className="grid gap-2">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-[10px] text-muted-foreground uppercase">Point Size</Label>
+                                                    <span className="text-xs">
+                                                        {(currentLayer?.metadata as any)?.cesium_point_size ?? 2}px
+                                                    </span>
+                                                </div>
+                                                <Slider
+                                                    value={[(currentLayer?.metadata as any)?.cesium_point_size ?? 2]}
+                                                    onValueChange={([val]) => {
+                                                        updateLayerMetadata(selectedLayer.id, { cesium_point_size: val });
+                                                    }}
+                                                    min={1}
+                                                    max={20}
+                                                    step={1}
+                                                />
+                                            </div>
+                                            <div className="grid gap-2">
+                                                <Label className="text-[10px] text-muted-foreground uppercase">Color Override</Label>
+                                                <div className="flex gap-2">
+                                                    <Input
+                                                        type="color"
+                                                        value={(currentLayer?.metadata as any)?.cesium_color || "#ffffff"}
+                                                        className="w-8 h-8 p-1 cursor-pointer"
+                                                        onChange={(e) => {
+                                                            updateLayerMetadata(selectedLayer.id, { cesium_color: e.target.value });
+                                                        }}
+                                                    />
+                                                    <Input
+                                                        value={(currentLayer?.metadata as any)?.cesium_color || "#ffffff"}
+                                                        className="flex-1 h-8 text-xs font-mono"
+                                                        onChange={(e) => {
+                                                            updateLayerMetadata(selectedLayer.id, { cesium_color: e.target.value });
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Visualization selector for point-like layers */}
                                     {(layerType === "circle" ||
                                         layerType === "symbol" ||
@@ -3200,7 +3270,7 @@ export function StylePanel({ handleEditFeatures }: StylePanelProps) {
                                     )}
 
                                     {/* Symbol Specific Accordions */}
-                                    {(circleViz === "standard" || circleViz === "marker" || layerType === "symbol") && (
+                                    {selectedLayer?.map_service_vendor !== MapServiceVendor.Cesium && (circleViz === "standard" || circleViz === "marker" || layerType === "symbol") && (
                                         <Accordion type="multiple" value={openStyleAccordions} onValueChange={setOpenStyleAccordions} className="w-full">
                                             <AccordionItem value="label-settings">
                                                 <AccordionTrigger className="text-sm font-semibold py-2">Label settings</AccordionTrigger>

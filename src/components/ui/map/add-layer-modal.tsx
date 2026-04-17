@@ -51,6 +51,8 @@ import { addGeojsonToMap } from '@/tools/map-tools'
 import { processCSV, csvToGeoJSON, getFileHandler, getLayerName } from '@/tools/map-utility'
 import { Label } from '../label'
 import { LuUpload } from 'react-icons/lu'
+import { Slider } from '../slider'
+import { ColorPicker } from '../color-picker'
 
 
 interface UploadedFileConfig {
@@ -676,6 +678,9 @@ export default function AddLayerModal() {
                         url: url,
                         map_service_vendor: MapServiceVendor.Cesium,
                         cesium_ion_token: datasetProperties.cesium_ion_token,
+                        cesium_opacity: datasetProperties.cesium_opacity,
+                        cesium_point_size: datasetProperties.cesium_point_size,
+                        cesium_color: datasetProperties.cesium_color,
                     },
                 } as Layer);
                 toast.success("Cesium 3D Tiles added to map");
@@ -947,17 +952,59 @@ export default function AddLayerModal() {
                                                 }
                                             />
                                             {datasetProperties.map_service_vendor === MapServiceVendor.Cesium && (
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Cesium Ion Access Token (Optional)"
-                                                    className="w-full"
-                                                    onChange={(e) =>
-                                                        setDatasetProperties({
-                                                            ...datasetProperties,
-                                                            cesium_ion_token: e.currentTarget.value,
-                                                        })
-                                                    }
-                                                />
+                                                <div className="flex flex-col gap-4 w-full">
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Cesium Ion Access Token (Optional)"
+                                                        className="w-full"
+                                                        onChange={(e) =>
+                                                            setDatasetProperties({
+                                                                ...datasetProperties,
+                                                                cesium_ion_token: e.currentTarget.value,
+                                                            })
+                                                        }
+                                                    />
+                                                    <div className="flex flex-col gap-2">
+                                                        <div className="flex justify-between items-center">
+                                                            <Label className="text-xs">Opacity ({Math.round((datasetProperties.cesium_opacity || 1) * 100)}%)</Label>
+                                                        </div>
+                                                        <Slider
+                                                            min={0}
+                                                            max={1}
+                                                            step={0.01}
+                                                            value={[datasetProperties.cesium_opacity || 1]}
+                                                            onValueChange={(val) => setDatasetProperties({
+                                                                ...datasetProperties,
+                                                                cesium_opacity: val[0]
+                                                            })}
+                                                        />
+                                                    </div>
+                                                    <div className="flex flex-col gap-2">
+                                                         <div className="flex justify-between items-center">
+                                                             <Label className="text-xs">Point Size ({datasetProperties.cesium_point_size || 2}px)</Label>
+                                                         </div>
+                                                         <Slider
+                                                             min={1}
+                                                             max={20}
+                                                             step={1}
+                                                             value={[datasetProperties.cesium_point_size || 2]}
+                                                             onValueChange={(val) => setDatasetProperties({
+                                                                 ...datasetProperties,
+                                                                 cesium_point_size: val[0]
+                                                             })}
+                                                         />
+                                                     </div>
+                                                     <div className="flex flex-col gap-2">
+                                                         <Label className="text-xs">Base Color Override</Label>
+                                                         <ColorPicker 
+                                                            color={datasetProperties.cesium_color || "#ffffff"} 
+                                                            onChange={(color) => setDatasetProperties({
+                                                                ...datasetProperties,
+                                                                cesium_color: color
+                                                            })}
+                                                         />
+                                                     </div>
+                                                 </div>
                                             )}
                                             <Button
                                                 type="submit"

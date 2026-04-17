@@ -659,6 +659,7 @@ export default function MapLayout({
     const [toggleEdit, setToggleEdit] = useState<boolean>(false);
 
     const [zoom, setZoom] = useState<number>(0);
+    const [currentZoom, setCurrentZoom] = useState<number>(0);
     const [compass, setCompass] = useState({ rotate: 0, pitch: 0 });
 
     const [drawMode, setDrawMode] = useState<string | null>(null);
@@ -1340,7 +1341,9 @@ export default function MapLayout({
             // Load Layers
             initLayers();
             initWebsocket();
-            setZoom(parseFloat(map.getZoom().toFixed(1)));
+            const currentZoom = map.getZoom();
+            setZoom(parseFloat(currentZoom.toFixed(1)));
+            setCurrentZoom(currentZoom);
 
             const drawStyles = [
                 {
@@ -1474,8 +1477,15 @@ export default function MapLayout({
 
     const onStyleData = () => { };
 
+    const onZoom = () => {
+        const newZoom = mapRef.current?.getMap()?.getZoom() ?? 0;
+        setCurrentZoom(newZoom);
+    };
+
     const onZoomEnd = () => {
-        setZoom(parseFloat(mapRef.current?.getMap()?.getZoom().toFixed(1) ?? "0"));
+        const newZoom = mapRef.current?.getMap()?.getZoom() ?? 0;
+        setZoom(parseFloat(newZoom.toFixed(1)));
+        setCurrentZoom(newZoom);
     };
 
     const onRotate = () => {
@@ -1986,11 +1996,32 @@ export default function MapLayout({
     useEffect(() => {
         if (deckOverlayRef.current) {
             const cesiumLayers = layers
-                .filter(l => l.map_service_vendor === MapServiceVendor.Cesium && l.visible)
+                .filter(l => {
+                    const isCesium = l.map_service_vendor === MapServiceVendor.Cesium;
+                    const isVisible = l.visible;
+                    const minZoom = l.min_zoom ?? 0;
+                    const maxZoom = l.max_zoom ?? 24;
+                    const inZoomRange = currentZoom >= minZoom && currentZoom <= maxZoom;
+                    return isCesium && isVisible && inZoomRange;
+                })
                 .map(l => {
                      const metadata = l.metadata as any;
                      const userToken = metadata?.cesium_ion_token;
                      const token = userToken || process.env.NEXT_PUBLIC_CESIUM_ION_TOKEN;
+                     
+                     const opacity = metadata?.cesium_opacity ?? 1;
+                     const pointSize = metadata?.cesium_point_size ?? 2;
+                     const colorHex = metadata?.cesium_color || "#ffffff";
+                     
+                     // Helper to convert hex to RGB
+                     const hexToRgb = (hex: string): [number, number, number] => {
+                         const r = parseInt(hex.slice(1, 3), 16);
+                         const g = parseInt(hex.slice(3, 5), 16);
+                         const b = parseInt(hex.slice(5, 7), 16);
+                         return [r, g, b];
+                     };
+                     
+                     const rgb = hexToRgb(colorHex);
 
                      let finalUrl = l.map_service_url;
 
@@ -2006,12 +2037,16 @@ export default function MapLayout({
                                  cesiumIonAccessToken: token
                              }
                          },
-                         opacity: 1
+                         opacity: opacity,
+                         _pointSize: pointSize,
+                         getFillColor: rgb,
+                         minZoom: l.min_zoom ?? 0,
+                         maxZoom: l.max_zoom ?? 24
                      });
                 });
             deckOverlayRef.current.setProps({ layers: cesiumLayers });
         }
-    }, [layers]);
+    }, [layers, currentZoom]);
 
     const handleEditFeatures = () => {
         const map = mapRef?.current?.getMap();
@@ -2790,6 +2825,7 @@ export default function MapLayout({
                         onTouchEnd={(event) => handleMapClick(event as MapTouchEvent)}
                         onLoad={onMapLoad}
                         onStyleData={onStyleData}
+                        onZoom={onZoom}
                         onZoomEnd={onZoomEnd}
                         handleDragOver={handleDragOver}
                         handleDrop={(e) => handleDropEvent(e, mapRef, mousePosition, toast)}

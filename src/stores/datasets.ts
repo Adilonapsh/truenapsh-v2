@@ -13,8 +13,18 @@ interface DatasetsStore {
         url: string;
         map_service_vendor: MapServiceVendor;
         cesium_ion_token?: string;
+        cesium_opacity?: number;
+        cesium_point_size?: number;
+        cesium_color?: string;
     };
-    setDatasetProperties: (properties: { url: string; map_service_vendor: MapServiceVendor; cesium_ion_token?: string }) => void;
+    setDatasetProperties: (properties: { 
+        url: string; 
+        map_service_vendor: MapServiceVendor; 
+        cesium_ion_token?: string;
+        cesium_opacity?: number;
+        cesium_point_size?: number;
+        cesium_color?: string;
+    }) => void;
     activeDataset: Datasets | null;
     setActiveDataset: (dataset: Datasets | null) => void;
     datasetResult: TreeNode[];
@@ -30,6 +40,9 @@ const useDatasetStore = create<DatasetsStore>((set) => ({
         url: "",
         map_service_vendor: MapServiceVendor.Null,
         cesium_ion_token: "",
+        cesium_opacity: 1,
+        cesium_point_size: 2,
+        cesium_color: "#ffffff",
     },
     setDatasetProperties: (properties) => set({ datasetProperties: properties }),
     activeDataset: null,
