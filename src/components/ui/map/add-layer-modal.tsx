@@ -94,6 +94,7 @@ export default function AddLayerModal() {
 
     const [uploadedFiles, setUploadedFiles] = React.useState<UploadedFileConfig[]>([]);
     const [selectedFileId, setSelectedFileId] = React.useState<string | null>(null);
+    const [isUploading, setIsUploading] = React.useState(false);
 
     const selectedFile = uploadedFiles.find(f => f.id === selectedFileId);
 
@@ -101,6 +102,7 @@ export default function AddLayerModal() {
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
 
+        setIsUploading(true);
         const mapInstance = map?.current?.getMap();
         const newFiles: UploadedFileConfig[] = [];
 
@@ -118,7 +120,8 @@ export default function AddLayerModal() {
             if (ext === 'csv' || ext === 'txt') {
                 fileType = 'csv';
                 try {
-                    const result = await processCSV(file);
+                    // Only process first 100 rows for preview
+                    const result = await processCSV(file, { limit: 100 });
                     headers = result.headers;
                     rows = result.rows;
                     rawData = result.rawData;
@@ -182,6 +185,7 @@ export default function AddLayerModal() {
         if (!selectedFileId && newFiles.length > 0) {
             setSelectedFileId(newFiles[0].id);
         }
+        setIsUploading(false);
     }
 
     const updateFileOptions = async (id: string, newOptions: Partial<UploadedFileConfig['options']>) => {
@@ -203,7 +207,8 @@ export default function AddLayerModal() {
                     const result = await processCSV(fileConfig.file, {
                         delimiter: updatedOptions.delimiter,
                         headerLinesToDiscard: updatedOptions.headerLinesToDiscard,
-                        firstRecordHasFieldNames: updatedOptions.firstRecordHasFieldNames
+                        firstRecordHasFieldNames: updatedOptions.firstRecordHasFieldNames,
+                        limit: 100 // Keep it limited for preview
                     });
                     headers = result.headers;
                     rows = result.rows;
@@ -471,29 +476,28 @@ export default function AddLayerModal() {
                 // Handle CSV/TXT and other geospatial files (not media)
                 if (fileConfig.fileType === 'csv' || fileConfig.fileType === 'geojson' || fileConfig.fileType === 'other') {
                     let geojson: GeoJSON.GeoJSON;
+                    let bbox: [number, number, number, number] | undefined;
+                    let geometryTypes: string[] = [];
 
                     if (fileConfig.ext === 'csv' || fileConfig.ext === 'txt') {
-                        if (fileConfig.options.geometryType === 'point') {
-                            if (!fileConfig.options.latField || !fileConfig.options.lngField) {
-                                toast.error(`Please select latitude and longitude columns for ${fileConfig.name}`);
-                                continue;
-                            }
-                            geojson = csvToGeoJSON(fileConfig.rows, {
-                                latField: fileConfig.options.latField,
-                                lngField: fileConfig.options.lngField
-                            });
-                        } else if (fileConfig.options.geometryType === 'wkt') {
-                            if (!fileConfig.options.wktField) {
-                                toast.error(`Please select WKT column for ${fileConfig.name}`);
-                                continue;
-                            }
-                            geojson = csvToGeoJSON(fileConfig.rows, {
-                                wktField: fileConfig.options.wktField
-                            });
-                        } else {
-                            toast.error(`Geometry definition not set for ${fileConfig.name}`);
-                            continue;
-                        }
+                        // Re-parse full CSV for final import
+                        const fullResult = await processCSV(fileConfig.file, {
+                            delimiter: fileConfig.options.delimiter,
+                            headerLinesToDiscard: fileConfig.options.headerLinesToDiscard,
+                            firstRecordHasFieldNames: fileConfig.options.firstRecordHasFieldNames
+                            // No limit here to get all data
+                        });
+
+                        const csvData = await csvToGeoJSON(fullResult.rows, {
+                            latField: fileConfig.options.geometryType === 'point' ? fileConfig.options.latField : undefined,
+                            lngField: fileConfig.options.geometryType === 'point' ? fileConfig.options.lngField : undefined,
+                            wktField: fileConfig.options.geometryType === 'wkt' ? fileConfig.options.wktField : undefined
+                        });
+
+                        geojson = csvData.data;
+                        bbox = csvData.bbox;
+                        geometryTypes = csvData.geometryTypes;
+
                     } else {
                         // Handle other geospatial files (GeoJSON, KML, etc.)
                         const handler = getFileHandler(fileConfig.name);
@@ -508,7 +512,9 @@ export default function AddLayerModal() {
                     await addGeojsonToMap({
                         mapRef: map,
                         layerName: getLayerName(fileConfig.name),
-                        data: geojson
+                        data: geojson,
+                        bbox,
+                        geometryTypes
                     });
                     successCount++;
                 }
@@ -1093,7 +1099,12 @@ export default function AddLayerModal() {
                                     {/* Left Side: File List and Upload */}
                                     <div className="w-[700px] flex flex-col gap-4 border rounded-lg p-4 bg-muted/30">
                                         <div className="flex-1 overflow-auto space-y-2 pr-2">
-                                            {uploadedFiles.length === 0 ? (
+                                            {isUploading ? (
+                                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground border-2 border-dashed rounded-lg p-4">
+                                                    <AiOutlineLoading3Quarters className="h-8 w-8 mb-2 animate-spin text-primary" />
+                                                    <p className="text-xs text-center">Processing files...</p>
+                                                </div>
+                                            ) : uploadedFiles.length === 0 ? (
                                                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground border-2 border-dashed rounded-lg p-4">
                                                     <LuUpload className="h-8 w-8 mb-2 opacity-50" />
                                                     <p className="text-xs text-center">No files uploaded yet</p>

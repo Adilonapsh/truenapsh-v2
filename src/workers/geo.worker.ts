@@ -1,5 +1,139 @@
 import * as turf from "@turf/turf";
+import * as wkt from "wkt";
 import { FeatureCollection, Polygon, MultiPolygon, Feature, Geometry, Point, LineString, MultiLineString } from "geojson";
+
+// CSV Parsing functions
+const parseCSVLine = (line: string, delim: string) => {
+    const result = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === delim && !inQuotes) {
+            result.push(cur.trim());
+            cur = "";
+        } else {
+            cur += char;
+        }
+    }
+    result.push(cur.trim());
+    return result;
+};
+
+const sanitizeHeaders = (rawHeaders: string[]) => {
+    const counts: { [key: string]: number } = {};
+    return rawHeaders.map((h, i) => {
+        let name = h.trim();
+        if (name === "") name = `Field ${i + 1}`;
+
+        if (counts[name] !== undefined) {
+            counts[name]++;
+            const newName = `${name}_${counts[name]}`;
+            return newName;
+        } else {
+            counts[name] = 0;
+            return name;
+        }
+    });
+};
+
+const processCSVText = (text: string, options: { delimiter?: string, headerLinesToDiscard?: number, firstRecordHasFieldNames?: boolean, limit?: number }) => {
+    const {
+        delimiter = ",",
+        headerLinesToDiscard = 0,
+        firstRecordHasFieldNames = true,
+        limit
+    } = options;
+
+    const allLines = text.split(/\r?\n/).filter(line => line.trim() !== "");
+    let lines = allLines.slice(headerLinesToDiscard);
+
+    if (limit) {
+        lines = lines.slice(0, limit + (firstRecordHasFieldNames ? 1 : 0));
+    }
+
+    if (lines.length === 0) throw new Error("CSV is empty after applying offset");
+
+    const rawData = lines.map(line => parseCSVLine(line, delimiter));
+    let headers: string[] = [];
+    let rows: any[] = [];
+
+    if (firstRecordHasFieldNames) {
+        headers = sanitizeHeaders(rawData[0]);
+        rows = rawData.slice(1).map(row => {
+            const obj: any = {};
+            headers.forEach((header, i) => {
+                obj[header] = row[i];
+            });
+            return obj;
+        });
+    } else {
+        const maxCols = Math.max(...rawData.map(r => r.length));
+        headers = Array.from({ length: maxCols }, (_, i) => `Column ${i + 1}`);
+        rows = rawData.map(row => {
+            const obj: any = {};
+            headers.forEach((header, i) => {
+                obj[header] = row[i];
+            });
+            return obj;
+        });
+    }
+
+    return { headers, rows, rawData };
+};
+
+const csvToGeoJSON = (rows: any[], options: { latField?: string, lngField?: string, wktField?: string }) => {
+    const { latField, lngField, wktField } = options;
+
+    const features = rows.map(row => {
+        if (wktField && row[wktField]) {
+            try {
+                const geometry = wkt.parse(row[wktField]);
+                return {
+                    type: "Feature",
+                    geometry: geometry as Geometry,
+                    properties: row
+                };
+            } catch (e) {
+                return null;
+            }
+        } else if (latField && lngField) {
+            const lat = parseFloat(row[latField]);
+            const lng = parseFloat(row[lngField]);
+            if (isNaN(lat) || isNaN(lng)) return null;
+            return {
+                type: "Feature",
+                geometry: {
+                    type: "Point",
+                    coordinates: [lng, lat]
+                },
+                properties: row
+            };
+        }
+        return null;
+    }).filter(f => f !== null) as Feature[];
+
+    const data: FeatureCollection = {
+        type: "FeatureCollection",
+        features
+    };
+
+    let bbox: [number, number, number, number] | undefined;
+    let geometryTypes: string[] = [];
+
+    if (features.length > 0) {
+        try {
+            bbox = turf.bbox(data) as [number, number, number, number];
+            geometryTypes = [...new Set(features.map(f => f.geometry.type))];
+        } catch (e) {
+            console.warn("Worker: Error calculating bbox/types", e);
+        }
+    }
+
+    return { data, bbox, geometryTypes };
+};
 
 // Implementation of heavy functions
 const clipLayers = (
@@ -416,6 +550,12 @@ self.onmessage = async (e: MessageEvent) => {
                 break;
             case "linesToPolygon":
                 result = linesToPolygonLayers(payload.lineFeature);
+                break;
+            case "processCSVText":
+                result = processCSVText(payload.text, payload.options);
+                break;
+            case "csvToGeoJSON":
+                result = csvToGeoJSON(payload.rows, payload.options);
                 break;
             case "js-code":
                 try {

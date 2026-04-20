@@ -182,12 +182,16 @@ const addGeojsonToMap = async ({
     mapServiceUrl = "",
     layerCode = "",
     data,
+    bbox: preCalculatedBbox,
+    geometryTypes: preCalculatedGeometryTypes
 }: {
     mapRef: React.RefObject<MapRef | null>;
     layerName: string;
     mapServiceUrl?: string;
     layerCode?: string;
     data: GeoJSON.GeoJSON;
+    bbox?: [number, number, number, number];
+    geometryTypes?: string[];
 }) => {
     const map = mapRef?.current?.getMap();
     if (!map) return;
@@ -211,7 +215,8 @@ const addGeojsonToMap = async ({
         },
     };
 
-    const geometryTypes = [
+    // Use pre-calculated or calculate if missing (try to avoid main thread calculation for large data)
+    const geometryTypes = preCalculatedGeometryTypes || [
         ...new Set(
             (data as GeoJSON.FeatureCollection).features.map(
                 (feature) => feature.geometry.type
@@ -226,13 +231,18 @@ const addGeojsonToMap = async ({
     });
 
     // Fit bounds
-    const bounds: [number, number, number, number] = turf
-        .bbox(data)
-        .slice(0, 4) as [number, number, number, number];
-    map.fitBounds(bounds, {
-        padding: { top: 50, bottom: 50, left: 50, right: 50 },
-        duration: 1000,
-    });
+    try {
+        const bounds: [number, number, number, number] = preCalculatedBbox || turf
+            .bbox(data)
+            .slice(0, 4) as [number, number, number, number];
+
+        map.fitBounds(bounds, {
+            padding: { top: 50, bottom: 50, left: 50, right: 50 },
+            duration: 1000,
+        });
+    } catch (e) {
+        console.warn("Could not fit bounds for GeoJSON layer", e);
+    }
 
     // Loop configs
     layerConfigs.forEach((config) => {

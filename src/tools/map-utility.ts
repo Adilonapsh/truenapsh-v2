@@ -1,5 +1,6 @@
 import { Layer, MapServiceVendor } from "@/types/map.types";
 import { addGeojsonToMap, calculateCoordinatesWithAspectRatio } from "./map-tools";
+import { geoWorkerPool } from "./geo-worker-pool";
 import { v4 } from "uuid";
 import shp from "shpjs";
 import JSZip from "jszip";
@@ -204,118 +205,30 @@ export interface CSVOptions {
     delimiter?: string;
     headerLinesToDiscard?: number;
     firstRecordHasFieldNames?: boolean;
+    limit?: number;
 }
 
 export const processCSV = async (file: File, options: CSVOptions = {}): Promise<{ headers: string[], rows: any[], rawData: string[][] }> => {
-    const text = await readFileAsText(file);
     const {
-        delimiter = ",",
         headerLinesToDiscard = 0,
-        firstRecordHasFieldNames = true
+        limit
     } = options;
 
-    const allLines = text.split(/\r?\n/).filter(line => line.trim() !== "");
-    const lines = allLines.slice(headerLinesToDiscard);
-
-    if (lines.length === 0) throw new Error("CSV is empty after applying offset");
-
-    const parseLine = (line: string, delim: string) => {
-        const result = [];
-        let cur = "";
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            if (char === '"') {
-                inQuotes = !inQuotes;
-            } else if (char === delim && !inQuotes) {
-                result.push(cur.trim());
-                cur = "";
-            } else {
-                cur += char;
-            }
-        }
-        result.push(cur.trim());
-        return result;
-    };
-
-    const sanitizeHeaders = (rawHeaders: string[]) => {
-        const counts: { [key: string]: number } = {};
-        return rawHeaders.map((h, i) => {
-            let name = h.trim();
-            if (name === "") name = `Field ${i + 1}`;
-
-            if (counts[name] !== undefined) {
-                counts[name]++;
-                const newName = `${name}_${counts[name]}`;
-                return newName;
-            } else {
-                counts[name] = 0;
-                return name;
-            }
-        });
-    };
-
-    const rawData = lines.map(line => parseLine(line, delimiter));
-    let headers: string[] = [];
-    let rows: any[] = [];
-
-    if (firstRecordHasFieldNames) {
-        headers = sanitizeHeaders(rawData[0]);
-        rows = rawData.slice(1).map(row => {
-            const obj: any = {};
-            headers.forEach((header, i) => {
-                obj[header] = row[i];
-            });
-            return obj;
-        });
+    let text = "";
+    if (limit) {
+        // If limit is provided, we try to read only the beginning of the file
+        const estimateSize = (headerLinesToDiscard + limit + 5) * 1000; // Increased estimate for safety
+        const blob = file.slice(0, estimateSize);
+        text = await readFileAsText(new File([blob], file.name));
     } else {
-        const maxCols = Math.max(...rawData.map(r => r.length));
-        headers = Array.from({ length: maxCols }, (_, i) => `Column ${i + 1}`);
-        rows = rawData.map(row => {
-            const obj: any = {};
-            headers.forEach((header, i) => {
-                obj[header] = row[i];
-            });
-            return obj;
-        });
+        text = await readFileAsText(file);
     }
 
-    return { headers, rows, rawData };
+    return await geoWorkerPool.execute("processCSVText", { text, options });
 };
 
-export const csvToGeoJSON = (rows: any[], options: { latField?: string, lngField?: string, wktField?: string }): GeoJSON.FeatureCollection => {
-    const { latField, lngField, wktField } = options;
-
-    return {
-        type: "FeatureCollection",
-        features: rows.map(row => {
-            if (wktField && row[wktField]) {
-                try {
-                    const geometry = wkt.parse(row[wktField]);
-                    return {
-                        type: "Feature",
-                        geometry: geometry,
-                        properties: row
-                    };
-                } catch (e) {
-                    return null;
-                }
-            } else if (latField && lngField) {
-                const lat = parseFloat(row[latField]);
-                const lng = parseFloat(row[lngField]);
-                if (isNaN(lat) || isNaN(lng)) return null;
-                return {
-                    type: "Feature",
-                    geometry: {
-                        type: "Point",
-                        coordinates: [lng, lat]
-                    },
-                    properties: row
-                };
-            }
-            return null;
-        }).filter(f => f !== null) as GeoJSON.Feature[]
-    };
+export const csvToGeoJSON = async (rows: any[], options: { latField?: string, lngField?: string, wktField?: string }): Promise<{ data: GeoJSON.FeatureCollection, bbox?: [number, number, number, number], geometryTypes: string[] }> => {
+    return await geoWorkerPool.execute("csvToGeoJSON", { rows, options });
 };
 
 // File type mapping
@@ -334,7 +247,7 @@ const fileHandlers: FileHandler[] = [
             const { rows } = await processCSV(file);
             // Default conversion attempt if lat/lng found in headers
             // This is a fallback for handleSingleFile, but AddLayerModal will use specific mapping
-            return csvToGeoJSON(rows, { latField: "lat", lngField: "lng" });
+            return await csvToGeoJSON(rows, { latField: "lat", lngField: "lng" });
         }
     },
 ];
