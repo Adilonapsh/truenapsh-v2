@@ -21,13 +21,16 @@ import {
     AccordionTrigger,
 } from "../accordion"
 import { Checkbox } from "../checkbox"
+import { Badge } from "../badge"
 import { RadioGroup, RadioGroupItem } from "../radio-group"
 import { DynamicTable } from '../dynamic-table'
-import { LuTrash2, LuFileJson, LuFileStack, LuPlus } from 'react-icons/lu'
+import { LuTrash2, LuFileJson, LuFileStack, LuPlus, LuChevronLeft } from 'react-icons/lu'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../resizable'
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { ScrollArea } from '../scroll-area'
 import { LuDatabase } from 'react-icons/lu'
+import { SiOpenstreetmap } from "react-icons/si";
+import { MdOutlinePublic } from "react-icons/md";
 import TreeDirectory from '../tree-view'
 import {
     Select,
@@ -45,7 +48,8 @@ import { v4 } from 'uuid'
 import { cn } from '@/lib/utils'
 import { useMapStore } from '@/stores/map'
 import { getWMSServices } from '@/services/map-services'
-import { findLayerConfigByGeometryType } from '@/tools/map-tools'
+import { humDataIntegration } from '@/services/map-integrations'
+import { findLayerConfigByGeometryType, reprojectGeoJSON } from '@/tools/map-tools'
 import toast from 'react-hot-toast'
 import { addGeojsonToMap } from '@/tools/map-tools'
 import { processCSV, csvToGeoJSON, getFileHandler, getLayerName } from '@/tools/map-utility'
@@ -96,7 +100,142 @@ export default function AddLayerModal() {
     const [selectedFileId, setSelectedFileId] = React.useState<string | null>(null);
     const [isUploading, setIsUploading] = React.useState(false);
 
+    // Hum Data State
+    const [selectedIntegration, setSelectedIntegration] = React.useState<string | null>(null);
+    const [humSearch, setHumSearch] = React.useState('indonesia');
+    const [humResults, setHumResults] = React.useState<any[]>([]);
+    const [isHumLoading, setIsHumLoading] = React.useState(false);
+    const [humPage, setHumPage] = React.useState(1);
+    const [humTotalPages, setHumTotalPages] = React.useState(1);
+
+    const handleHumSearch = async (page: number = 1) => {
+        setIsHumLoading(true);
+        try {
+            const result = await humDataIntegration(humSearch, 5, page);
+            if (result.code === 200) {
+                setHumResults(result.data.data);
+                setHumTotalPages(parseInt(result.data.total_page));
+                setHumPage(page);
+            } else {
+                toast.error(result.message || "Failed to fetch Hum Data");
+            }
+        } catch (error) {
+            toast.error("Error fetching Hum Data");
+        } finally {
+            setIsHumLoading(false);
+        }
+    }
+
+    const handleAddHumLayer = async (downloadItem: any) => {
+        const mapInstance = map?.current?.getMap();
+        if (!mapInstance) {
+            toast.error("Map is not ready");
+            return;
+        }
+
+        const layerId = v4();
+        const layerName = downloadItem.filename || downloadItem.desc || "Hum Data Layer";
+        const url = downloadItem.url;
+
+        if (downloadItem.file_type === 'GeoJSON') {
+            try {
+                const proxyUrl = `/api/proxy/humdata?url=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+
+                // Robust GeoJSON normalization
+                let normalizedGeojsonData: any = {
+                    type: "FeatureCollection",
+                    features: []
+                };
+
+                if (data?.type === "FeatureCollection" && Array.isArray(data.features)) {
+                    normalizedGeojsonData = data;
+                } else if (Array.isArray(data)) {
+                    normalizedGeojsonData.features = data;
+                } else if (data?.type === "Feature") {
+                    normalizedGeojsonData.features = [data];
+                } else if (data?.features && Array.isArray(data.features)) {
+                    // Some APIs wrap GeoJSON in an object with a features property
+                    normalizedGeojsonData.features = data.features;
+                } else if (data?.data?.features && Array.isArray(data.data.features)) {
+                    // Another common wrapping pattern
+                    normalizedGeojsonData.features = data.data.features;
+                }
+
+                // Reproject if needed
+                normalizedGeojsonData = reprojectGeoJSON(normalizedGeojsonData);
+
+                if (normalizedGeojsonData.features.length > 0) {
+                    const geometryType = normalizedGeojsonData.features[0].geometry.type;
+                    const layerConfig = findLayerConfigByGeometryType(geometryType);
+
+                    mapInstance.addLayer({
+                        id: layerId,
+                        type: (layerConfig?.layerType as "fill" | "line" | "circle") ?? "circle",
+                        source: {
+                            type: "geojson",
+                            data: normalizedGeojsonData,
+                        },
+                        minzoom: 0,
+                        maxzoom: 24,
+                        layout: {
+                            visibility: "visible",
+                        },
+                        ...(layerConfig?.layerProps ?? {}),
+                    });
+
+                    addLayer({
+                        id: layerId,
+                        name: layerName,
+                        map_service_url: url,
+                        map_service_layer_name: layerName,
+                        map_service_vendor: MapServiceVendor.GeoJSON,
+                        type: "vector",
+                        visible: true,
+                        min_zoom: 0,
+                        max_zoom: 24,
+                        status: "Local",
+                        rendered: 1,
+                    } as Layer);
+
+                    toast.success(`Successfully added ${layerName}`);
+                } else {
+                    toast.error("GeoJSON has no features");
+                }
+            } catch (error) {
+                console.error("Error adding Hum Data GeoJSON:", error);
+                toast.error("Failed to load Hum Data GeoJSON");
+            }
+        } else if (downloadItem.file_type === 'Geoservice') {
+            // Handle ArcGIS Map Service
+            const arcgisUrl = url.replace('https://data.humdata.orghttps://', 'https://');
+            
+            addLayer({
+                id: layerId,
+                name: layerName,
+                map_service_url: arcgisUrl,
+                map_service_layer_name: layerName,
+                map_service_vendor: MapServiceVendor.ArcGIS,
+                type: "2D",
+                visible: true,
+                min_zoom: 0,
+                max_zoom: 24,
+                status: "Local",
+                rendered: 1,
+            } as Layer);
+            
+            toast.success(`Added ${layerName} as ArcGIS Service`);
+        } else {
+            toast.error(`Unsupported file type: ${downloadItem.file_type}`);
+        }
+    }
+
     const selectedFile = uploadedFiles.find(f => f.id === selectedFileId);
+
+    React.useEffect(() => {
+        // Initial load for hum search is now handled when the integration is selected
+    }, []);
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
@@ -607,8 +746,11 @@ export default function AddLayerModal() {
                                 features: data,
                             };
 
-                    if (normalizedGeojsonData?.features?.length > 0) {
-                        const geometryType = normalizedGeojsonData.features[0].geometry.type;
+                    // Reproject if needed
+                    const reprojectedGeojsonData = reprojectGeoJSON(normalizedGeojsonData);
+
+                    if (reprojectedGeojsonData?.features?.length > 0) {
+                        const geometryType = reprojectedGeojsonData.features[0].geometry.type;
                         const layerConfig = findLayerConfigByGeometryType(geometryType);
 
                         mapInstance.addLayer({
@@ -616,7 +758,7 @@ export default function AddLayerModal() {
                             type: (layerConfig?.layerType as "fill" | "line" | "circle") ?? "circle",
                             source: {
                                 type: "geojson",
-                                data: normalizedGeojsonData,
+                                data: reprojectedGeojsonData,
                             },
                             minzoom: 0,
                             maxzoom: 24,
@@ -1083,14 +1225,173 @@ export default function AddLayerModal() {
                             </TabsContent>
                             <TabsContent value="integration">
                                 <Card className="transition-[width] duration-300 ease-in-out">
-                                    <CardHeader>
-                                        <CardTitle>Integrations</CardTitle>
-                                        <CardDescription>
-                                            Integrate your map with other services
-                                        </CardDescription>
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                        <div className="flex items-center gap-2">
+                                            {selectedIntegration && (
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-8 w-8" 
+                                                    onClick={() => setSelectedIntegration(null)}
+                                                >
+                                                    <LuChevronLeft className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                            <div>
+                                                <CardTitle>
+                                                    {selectedIntegration === 'humdata' ? 'Hum Data Integration' : 
+                                                     selectedIntegration === 'overpass' ? 'OpenStreetMap Integration' : 
+                                                     'Integrations'}
+                                                </CardTitle>
+                                                <CardDescription>
+                                                    {selectedIntegration === 'humdata' ? 'Integrate your map with Hum Data (Humanitarian Data Exchange)' : 
+                                                     selectedIntegration === 'overpass' ? 'Fetch buildings and features from OpenStreetMap' : 
+                                                     'Select a service to integrate with your map'}
+                                                </CardDescription>
+                                            </div>
+                                        </div>
                                     </CardHeader>
-                                    <CardContent className="space-y-2">
-                                        <div className="h-[50vh] w-full">Testing</div>
+                                    <CardContent className="space-y-4">
+                                        {!selectedIntegration ? (
+                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-4">
+                                                <Button
+                                                    variant="outline"
+                                                    className="h-32 flex flex-col gap-3 hover:border-primary hover:bg-primary/5 transition-all"
+                                                    onClick={() => {
+                                                        setSelectedIntegration('humdata');
+                                                        handleHumSearch(1);
+                                                    }}
+                                                >
+                                                    <div className="h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                                        <MdOutlinePublic className="h-6 w-6 text-blue-600" />
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-sm font-bold">Hum Data</p>
+                                                        <p className="text-[10px] text-muted-foreground">HDX Repository</p>
+                                                    </div>
+                                                </Button>
+
+                                                <Button
+                                                    variant="outline"
+                                                    className="h-32 flex flex-col gap-3 hover:border-primary hover:bg-primary/5 transition-all"
+                                                    onClick={() => setSelectedIntegration('overpass')}
+                                                >
+                                                    <div className="h-12 w-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                                                        <SiOpenstreetmap className="h-6 w-6 text-orange-600" />
+                                                    </div>
+                                                    <div className="text-center">
+                                                        <p className="text-sm font-bold">OpenStreetMap</p>
+                                                        <p className="text-[10px] text-muted-foreground">Overpass API</p>
+                                                    </div>
+                                                </Button>
+
+                                                {/* Placeholder for future integrations */}
+                                                <div className="h-32 border border-dashed rounded-lg flex flex-col items-center justify-center opacity-50">
+                                                    <p className="text-[10px] font-medium text-muted-foreground">Coming Soon</p>
+                                                </div>
+                                            </div>
+                                        ) : selectedIntegration === 'humdata' ? (
+                                            <>
+                                                <div className="flex gap-2">
+                                                    <Input 
+                                                        placeholder="Search Hum Data (e.g. indonesia, population, flood)" 
+                                                        value={humSearch}
+                                                        onChange={(e) => setHumSearch(e.target.value)}
+                                                        onKeyDown={(e) => e.key === 'Enter' && handleHumSearch(1)}
+                                                    />
+                                                    <Button onClick={() => handleHumSearch(1)}>Search</Button>
+                                                </div>
+
+                                                <div className="h-[50vh] overflow-auto pr-2">
+                                                    {isHumLoading ? (
+                                                        <div className="flex flex-col items-center justify-center h-full">
+                                                            <AiOutlineLoading3Quarters className="h-8 w-8 animate-spin text-primary mb-2" />
+                                                            <p className="text-sm text-muted-foreground">Searching Hum Data...</p>
+                                                        </div>
+                                                    ) : humResults.length > 0 ? (
+                                                        <div className="space-y-4">
+                                                            {humResults.map((dataset, idx) => (
+                                                                <div key={idx} className="border rounded-lg p-4 bg-muted/20">
+                                                                    <h3 className="font-bold text-sm mb-2">{dataset.name}</h3>
+                                                                    {dataset.details && <p className="text-xs text-muted-foreground mb-4">{dataset.details}</p>}
+                                                                    
+                                                                    <div className="space-y-2">
+                                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Available Files:</p>
+                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                            {dataset.download_link.map((link: any, lIdx: number) => (
+                                                                                <div key={lIdx} className="flex items-center justify-between p-2 bg-background border rounded-md group">
+                                                                                    <div className="min-w-0 flex-1">
+                                                                                        <p className="text-xs font-medium truncate" title={link.filename}>{link.filename}</p>
+                                                                                        <div className="flex items-center gap-2 mt-1">
+                                                                                            <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">{link.file_type}</Badge>
+                                                                                            <span className="text-[9px] text-muted-foreground">{link.update_date}</span>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    {(link.file_type === 'GeoJSON' || link.file_type === 'Geoservice') && (
+                                                                                        <Button 
+                                                                                            size="sm" 
+                                                                                            variant="ghost" 
+                                                                                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                                            onClick={() => handleAddHumLayer(link)}
+                                                                                        >
+                                                                                            <LuPlus className="h-4 w-4" />
+                                                                                        </Button>
+                                                                                    )}
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                                            <LuDatabase className="h-12 w-12 mb-4 opacity-20" />
+                                                            <p className="text-sm">No results found for "{humSearch}"</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {humTotalPages > 1 && (
+                                                    <div className="flex justify-center items-center gap-4 pt-2 border-t">
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            disabled={humPage === 1 || isHumLoading}
+                                                            onClick={() => handleHumSearch(humPage - 1)}
+                                                        >
+                                                            Previous
+                                                        </Button>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            Page {humPage} of {humTotalPages}
+                                                        </span>
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            disabled={humPage === humTotalPages || isHumLoading}
+                                                            onClick={() => handleHumSearch(humPage + 1)}
+                                                        >
+                                                            Next
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : selectedIntegration === 'overpass' ? (
+                                            <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-4">
+                                                <SiOpenstreetmap className="h-16 w-16 text-orange-500 opacity-50" />
+                                                <div>
+                                                    <p className="font-bold">OpenStreetMap Overpass Integration</p>
+                                                    <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                                                        Fetch buildings, roads, and other features directly from OSM based on your current map view.
+                                                    </p>
+                                                </div>
+                                                <Button 
+                                                    onClick={() => toast("This integration is coming soon!", { icon: "ℹ️" })}
+                                                >
+                                                    Connect to Overpass API
+                                                </Button>
+                                            </div>
+                                        ) : null}
                                     </CardContent>
                                 </Card>
                             </TabsContent>

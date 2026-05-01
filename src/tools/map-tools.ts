@@ -2,6 +2,7 @@ import { overpassBuildingIntegration } from "@/services/map-integrations";
 import useLayerStore from "@/stores/layer";
 import { MapServiceVendor, Place } from "@/types/map.types";
 import * as turf from "@turf/turf";
+import proj4 from "proj4";
 import {
     Feature,
     FeatureCollection,
@@ -176,6 +177,77 @@ const findLayerConfigByGeometryType = (type: string) => {
     return layerConfigs.find((config) => config.types.includes(type));
 };
 
+/**
+ * Reprojects GeoJSON from EPSG:3857 (Web Mercator) to EPSG:4326 (WGS 84) if needed.
+ * Mapbox expects EPSG:4326.
+ */
+export const reprojectGeoJSON = (geojson: any): any => {
+    if (!geojson) return geojson;
+
+    // Check if it's already explicitly marked as WGS84/4326
+    const crs = geojson.crs?.properties?.name || "";
+    if (crs.includes("4326") || crs.toLowerCase().includes("wgs84") || crs.toLowerCase().includes("crs84")) {
+        return geojson;
+    }
+
+    // Standard projection definitions
+    const EPSG3857 = "+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs";
+    const EPSG4326 = "+proj=longlat +datum=WGS84 +no_defs";
+
+    // Deep clone to avoid mutating original data
+    const cloned = JSON.parse(JSON.stringify(geojson));
+
+    let reprojectedCount = 0;
+
+    const transformCoords = (coords: any): any => {
+        if (!Array.isArray(coords)) return coords;
+
+        if (typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+            const x = coords[0];
+            const y = coords[1];
+            
+            // Web Mercator coordinates are typically in the millions (e.g., Indonesia is ~10,000,000)
+            // WGS84 is -180 to 180 and -90 to 90.
+            // We use a safe margin. If it's within WGS84 range, we NEVER reproject.
+            if (Math.abs(x) > 180.000001 || Math.abs(y) > 90.000001) {
+                try {
+                    reprojectedCount++;
+                    const transformed = proj4(EPSG3857, EPSG4326, [x, y]);
+                    // Maintain altitude if present
+                    if (coords.length > 2) {
+                        return [transformed[0], transformed[1], ...coords.slice(2)];
+                    }
+                    return transformed;
+                } catch (err) {
+                    return coords;
+                }
+            }
+            return coords;
+        }
+
+        return coords.map(transformCoords);
+    };
+
+    const processFeature = (feature: any) => {
+        if (feature.geometry && feature.geometry.coordinates) {
+            feature.geometry.coordinates = transformCoords(feature.geometry.coordinates);
+        }
+    };
+
+    if (cloned.type === "FeatureCollection") {
+        cloned.features.forEach(processFeature);
+    } else if (cloned.type === "Feature") {
+        processFeature(cloned);
+    } else if (cloned.coordinates) {
+        cloned.coordinates = transformCoords(cloned.coordinates);
+    }
+
+    // If we didn't actually reproject anything, return original object (save memory/ref)
+    if (reprojectedCount === 0) return geojson;
+
+    return cloned;
+};
+
 const addGeojsonToMap = async ({
     mapRef,
     layerName,
@@ -196,6 +268,9 @@ const addGeojsonToMap = async ({
     const map = mapRef?.current?.getMap();
     if (!map) return;
 
+    // Reproject if needed (EPSG:3857 to EPSG:4326)
+    const reprojectedData = reprojectGeoJSON(data);
+
     const addLayer = useLayerStore.getState().addLayer;
 
     const layerId = v4();
@@ -215,25 +290,36 @@ const addGeojsonToMap = async ({
         },
     };
 
-    // Use pre-calculated or calculate if missing (try to avoid main thread calculation for large data)
-    const geometryTypes = preCalculatedGeometryTypes || [
-        ...new Set(
-            (data as GeoJSON.FeatureCollection).features.map(
-                (feature) => feature.geometry.type
-            )
-        ),
-    ];
+    // Robust feature extraction
+    let features: any[] = [];
+    if (reprojectedData.type === "FeatureCollection") {
+        features = reprojectedData.features;
+    } else if (reprojectedData.type === "Feature") {
+        features = [reprojectedData];
+    } else if (reprojectedData.type && (reprojectedData as any).coordinates) {
+        // Direct geometry object
+        features = [{
+            type: "Feature",
+            geometry: reprojectedData,
+            properties: {}
+        }];
+    }
+
+    // Robust geometry type extraction
+    const geometryTypes = (preCalculatedGeometryTypes && preCalculatedGeometryTypes.length > 0) 
+        ? preCalculatedGeometryTypes 
+        : [...new Set(features.map((f: any) => f.geometry?.type).filter(Boolean))];
 
     // Add source
     map.addSource(layerId, {
         type: "geojson",
-        data: data,
+        data: reprojectedData,
     });
 
     // Fit bounds
     try {
         const bounds: [number, number, number, number] = preCalculatedBbox || turf
-            .bbox(data)
+            .bbox(reprojectedData)
             .slice(0, 4) as [number, number, number, number];
 
         map.fitBounds(bounds, {
@@ -246,41 +332,31 @@ const addGeojsonToMap = async ({
 
     // Loop configs
     layerConfigs.forEach((config) => {
-        if (
-            config.types.some((type) =>
-                geometryTypes.includes(
-                    type as
-                    | "Point"
-                    | "MultiPoint"
-                    | "LineString"
-                    | "MultiLineString"
-                    | "Polygon"
-                    | "MultiPolygon"
-                    | "GeometryCollection"
-                )
-            )
-        ) {
-            const layerSubId =
-                config.layerType === "circle" ? "point" : config.layerType;
+        // Map the config types to exact strings we expect in GeoJSON
+        const hasMatchingGeometry = config.types.some(t => geometryTypes.includes(t));
+
+        if (hasMatchingGeometry) {
+            const layerSubId = config.layerType === "circle" ? "point" : config.layerType;
             const fullLayerId = `${layerId}-${layerSubId}`;
 
-            addLayer({
+            // Tambah ke store global (Workspaces/Layer List)
+            useLayerStore.getState().addLayer({
                 ...commonLayerProps,
                 id: fullLayerId,
                 name: `${layerName} ${config.nameSuffix}`,
                 render_type: config.layerType,
                 type: "vector",
-            });
+            } as any);
 
             // Tambah ke mapbox
             map.addLayer({
                 id: fullLayerId,
-                type: config.layerType,
+                type: config.layerType as any,
                 source: layerId,
                 minzoom: 0,
                 maxzoom: 24,
-                filter: ["in", "$type", config.types[0]],
-                paint: config.layerProps.paint,
+                // Remove the restrictive $type filter that often fails due to casing
+                paint: config.layerProps.paint as any,
                 metadata: commonLayerProps.metadata ?? {},
             });
         }

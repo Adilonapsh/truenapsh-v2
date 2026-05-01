@@ -71,7 +71,24 @@ const weatherIntegration = async (lon: number, lat: number, source?: string) => 
     }
 }
 
+const humDataIntegration = async (search: string = 'indonesia', pageSize: number = 5, page: number = 1) => {
+    try {
+        const response = await fetch(`/api/datasets/humdata?search=${encodeURIComponent(search)}&page_size=${pageSize}&page=${page}`);
+        
+        if (!response.ok) {
+            throw new Error(`HumData API HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error fetching HumData:', error);
+        throw error;
+    }
+}
+
 export {
     overpassBuildingIntegration,
-    weatherIntegration
+    weatherIntegration,
+    humDataIntegration
 }

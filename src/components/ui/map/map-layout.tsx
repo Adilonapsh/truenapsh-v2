@@ -173,6 +173,7 @@ import { MapCommandExecutor } from "@/tools/ai-tools/ai-tools";
 import { DrawPropertiesEditor } from "./draw-properties-editor";
 import { TerrainViewer3D } from "./terrain-viewer-3d";
 import { ModelViewer3D } from "./model-viewer-3d";
+import MapPrintModal from "./map-print-modal";
 import { PropertyValueType } from "@/types/map.types";
 
 interface LayerTreeNode {
@@ -3123,6 +3124,7 @@ export default function MapLayout({
                 )}
                 <TerrainViewer3D />
                 <ModelViewer3D />
+                <MapPrintModal />
                 {displayLayouts.style && (
                     <Card className="overflow-hidden">
                         <CardHeader>

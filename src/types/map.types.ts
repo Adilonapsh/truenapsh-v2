@@ -238,6 +238,7 @@ type LayoutDisplay = {
   fullscreen: boolean;
   terrain3D: boolean;
   modelViewer3D: boolean;
+  printModal: boolean;
 };
 
 export type PropertyValueType = "string" | "number" | "boolean" | "array";

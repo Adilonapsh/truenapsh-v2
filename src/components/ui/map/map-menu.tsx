@@ -98,6 +98,10 @@ const MapMenu = (
                         <MenubarSub>
                             <MenubarSubTrigger>Print</MenubarSubTrigger>
                             <MenubarSubContent>
+                                <MenubarItem onClick={() => setDisplayLayouts({ printModal: true })}>
+                                    Print Layout...
+                                </MenubarItem>
+                                <MenubarSeparator />
                                 <MenubarItem>JPG</MenubarItem>
                                 <MenubarItem>PDF</MenubarItem>
                                 <MenubarItem>PNG</MenubarItem>

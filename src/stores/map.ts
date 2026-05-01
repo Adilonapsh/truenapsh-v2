@@ -48,6 +48,7 @@ export const useMapStore = create<MapStore>((set) => ({
         fullscreen: false,
         terrain3D: false,
         modelViewer3D: false,
+        printModal: false,
     },
     setDisplayLayouts: (layouts) =>
         set((state) => ({
