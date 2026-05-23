@@ -379,6 +379,14 @@ export default function Home() {
   const [isDark, setIsDark] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isDropped, setIsDropped] = useState(false);
+  
+  const [chatStep, setChatStep] = useState(0);
+  const [inputText, setInputText] = useState('');
+  const [aiMessage1Text, setAiMessage1Text] = useState('');
+  const [aiMessage2Text, setAiMessage2Text] = useState('');
+  const userMessage1 = "Tolong analisis area blank spot fasilitas kesehatan di Bandung dengan radius 2km.";
+  const fullAiMessage1 = "Menarik data 142 titik rumah sakit & klinik dari PostGIS... Melakukan analisis spatial buffer 2km... Selesai. Ditemukan 3 kecamatan yang cakupan faskes-nya masih di bawah 60%: Gedebage, Panyileukan, dan Cinambo. Ingin saya tampilkan visualisasinya di peta dan buatkan workflow otomatisnya?";
+  const fullAiMessage2 = "Layer \"Blank Spot Faskes\" berhasil ditambahkan ke kanvas Anda dengan highlight warna Merah (#FF0000).";
 
   useEffect(() => {
     // Sinkronisasi state isDropped dengan animasi CSS 8 detik (file-drag & pop-card)
@@ -413,6 +421,113 @@ export default function Home() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    let typingInterval: NodeJS.Timeout | null = null;
+    let cycleTimeout: NodeJS.Timeout | null = null;
+    
+    const cycle = () => {
+      if (!active) return;
+      
+      // Reset
+      setChatStep(0);
+      setInputText('');
+      setAiMessage1Text('');
+      setAiMessage2Text('');
+      
+      // Step 0: Type input
+      setTimeout(() => {
+        if (!active) return;
+        const words = userMessage1.split(' ');
+        let i = 0;
+        typingInterval = setInterval(() => {
+          if (!active) return;
+          if (i < words.length) {
+            setInputText(words.slice(0, i + 1).join(' '));
+            i++;
+          } else {
+            if (typingInterval) clearInterval(typingInterval);
+          }
+        }, 150);
+      }, 0);
+
+      // Step 1: Show user message & clear input
+      setTimeout(() => {
+        if (!active) return;
+        setChatStep(1);
+        setInputText('');
+      }, 2000);
+
+      // Step 2: Start AI message 1
+      setTimeout(() => {
+        if (!active) return;
+        setChatStep(2);
+        if (typingInterval) clearInterval(typingInterval);
+        const words = fullAiMessage1.split(' ');
+        let i = 0;
+        typingInterval = setInterval(() => {
+          if (!active) return;
+          if (i < words.length) {
+            setAiMessage1Text(words.slice(0, i + 1).join(' '));
+            i++;
+          } else {
+            if (typingInterval) clearInterval(typingInterval);
+          }
+        }, 120);
+      }, 2500);
+
+      // Step 3: AI message 1 complete
+      setTimeout(() => {
+        if (!active) return;
+        setChatStep(3);
+      }, 6000);
+
+      // Step 4: Start AI message 2
+      setTimeout(() => {
+        if (!active) return;
+        setChatStep(4);
+        if (typingInterval) clearInterval(typingInterval);
+        const words = fullAiMessage2.split(' ');
+        let i = 0;
+        typingInterval = setInterval(() => {
+          if (!active) return;
+          if (i < words.length) {
+            setAiMessage2Text(words.slice(0, i + 1).join(' '));
+            i++;
+          } else {
+            if (typingInterval) clearInterval(typingInterval);
+          }
+        }, 120);
+      }, 6500);
+
+      // Step 5: AI message 2 complete
+      setTimeout(() => {
+        if (!active) return;
+        setChatStep(5);
+      }, 7500);
+
+      // Step 6: Show AI message 3
+      setTimeout(() => {
+        if (!active) return;
+        setChatStep(6);
+      }, 8000);
+
+      // Next cycle
+      cycleTimeout = setTimeout(() => {
+        if (!active) return;
+        cycle();
+      }, 14000);
+    };
+
+    cycle();
+
+    return () => {
+      active = false;
+      if (typingInterval) clearInterval(typingInterval);
+      if (cycleTimeout) clearTimeout(cycleTimeout);
+    };
+  }, [userMessage1, fullAiMessage1, fullAiMessage2]);
 
   const handleNavClick = (e: React.MouseEvent, targetId: string) => {
     e.preventDefault();
@@ -712,14 +827,11 @@ export default function Home() {
 
             <div className="max-w-7xl mx-auto text-center">
               <div
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 text-sm font-semibold text-slate-600 dark:text-neutral-300 mb-10 shadow-sm animate-fade-in"
+                className="inline-flex items-center gap-3 px-5 py-2 rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-700 text-sm font-semibold text-slate-700 dark:text-neutral-200 mb-10 shadow-sm"
                 role="status"
               >
-                <span
-                  className="flex h-2.5 w-2.5 rounded-full bg-blue-600 dark:bg-blue-400 animate-pulse"
-                  aria-hidden="true"
-                />
-                V2.5: Platform Web GIS kelas enterprise
+                <GitBranch size={16} className="text-blue-600 dark:text-blue-400" />
+                Introducing Workflow Node
               </div>
 
               <h1
@@ -1182,107 +1294,102 @@ export default function Home() {
                   </div>
 
                   {/* Chat Messages Body */}
-                  <div className="flex-1 overflow-y-auto p-4 space-y-5 bg-white dark:bg-neutral-900 chat-scrollbar transition-colors">
-                    {/* User Message */}
-                    <div className="flex justify-end">
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white dark:bg-neutral-900 chat-scrollbar transition-colors">
+                    {/* User Message 1 */}
+                    <div className={`flex justify-end transition-all duration-500 ${chatStep >= 1 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
                       <div className="bg-[#2563EB] text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-[14px] font-medium max-w-[80%] leading-relaxed">
-                        Tolong analisis area blank spot fasilitas kesehatan di
-                        Bandung dengan radius 2km.
+                        {userMessage1}
                       </div>
                     </div>
 
-                    {/* AI Message */}
-                    <div className="flex justify-start">
-                      <div className="bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 rounded-2xl p-4 w-full max-w-[90%] shadow-sm">
-                        <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-neutral-700">
-                          <div className="flex items-center gap-2">
-                            <Database className="w-4 h-4 text-[#2563EB] dark:text-blue-400 fill-blue-100 dark:fill-blue-900" />
-                            <span className="text-[13px] font-bold text-slate-900 dark:text-white">
-                              Spatial Query & Buffer
+                    {/* AI Message 1 */}
+                    {chatStep >= 2 && (
+                      <div className={`flex justify-start transition-all duration-500 ${chatStep >= 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+                        <div className="bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 rounded-2xl p-4 w-full max-w-[90%] shadow-sm">
+                          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-neutral-700">
+                            <div className="flex items-center gap-2">
+                              <Database className="w-4 h-4 text-[#2563EB] dark:text-blue-400" />
+                              <span className="text-[13px] font-bold text-slate-900 dark:text-white">
+                                Spatial Query & Buffer
+                              </span>
+                            </div>
+                            {chatStep < 3 ? (
+                              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                            )}
+                          </div>
+                          <p className="text-[14px] text-slate-700 dark:text-neutral-300 leading-relaxed">
+                            {aiMessage1Text}
+                            {chatStep === 2 && <span className="inline-block w-2 h-4 ml-0.5 align-middle bg-slate-600 dark:bg-neutral-400 animate-pulse" />}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AI Message 2 */}
+                    {chatStep >= 4 && (
+                      <div className={`flex justify-start transition-all duration-500 ${chatStep >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+                        <div className="bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 rounded-2xl p-4 w-full max-w-[90%] shadow-sm">
+                          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-neutral-700">
+                            <div className="flex items-center gap-2">
+                              <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                              <span className="text-[13px] font-bold text-slate-900 dark:text-white">
+                                Render Map Layer
+                              </span>
+                            </div>
+                            {chatStep < 5 ? (
+                              <div className="w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+                            )}
+                          </div>
+                          <p className="text-[14px] text-slate-700 dark:text-neutral-300 leading-relaxed">
+                            {aiMessage2Text}
+                            {chatStep === 4 && <span className="inline-block w-2 h-4 ml-0.5 align-middle bg-slate-600 dark:bg-neutral-400 animate-pulse" />}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AI Message 3 - Workflow */}
+                    {chatStep >= 6 && (
+                      <div className={`flex justify-start transition-all duration-700 ${chatStep >= 6 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+                        <div className="bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 rounded-2xl p-4 w-full max-w-[90%] shadow-sm">
+                          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-neutral-700">
+                            <div className="flex items-center gap-2">
+                              <GitBranch className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                              <span className="text-[13px] font-bold text-slate-900 dark:text-white">
+                                Generate Node Workflow
+                              </span>
+                            </div>
+                            <CheckCircle2 className="w-4 h-4 text-purple-500 dark:text-purple-400" />
+                          </div>
+                          <p className="text-[14px] text-slate-700 dark:text-neutral-300 leading-relaxed mb-3">
+                            Saya juga telah menyusun draft di{" "}
+                            <b className="dark:text-white">Flow Builder</b> untuk
+                            Anda:
+                          </p>
+                          <div className="bg-[#F8FAFC] dark:bg-neutral-900 border border-slate-200 dark:border-neutral-700 rounded-xl p-3 flex items-center gap-2 text-[12px] font-mono text-slate-600 dark:text-neutral-400 overflow-x-auto">
+                            <span className={`bg-white dark:bg-neutral-800 px-2 py-1 rounded shadow-sm border border-slate-100 dark:border-neutral-700 transition-all duration-500 ${chatStep >= 6 ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`} style={{ transitionDelay: '0ms' }}>
+                              API_Dinkes
+                            </span>
+                            <ChevronRight className="w-3 h-3 text-slate-400 shrink-0 transition-all duration-500" style={{ transitionDelay: '200ms' }} />
+                            <span className={`bg-white dark:bg-neutral-800 px-2 py-1 rounded shadow-sm border border-slate-100 dark:border-neutral-700 transition-all duration-500 ${chatStep >= 6 ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`} style={{ transitionDelay: '400ms' }}>
+                              Buffer_2KM
+                            </span>
+                            <ChevronRight className="w-3 h-3 text-slate-400 shrink-0 transition-all duration-500" style={{ transitionDelay: '600ms' }} />
+                            <span className={`bg-white dark:bg-neutral-800 px-2 py-1 rounded shadow-sm border border-slate-100 dark:border-neutral-700 border-l-2 border-l-emerald-500 dark:border-l-emerald-500 transition-all duration-500 ${chatStep >= 6 ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`} style={{ transitionDelay: '800ms' }}>
+                              Update_Map
                             </span>
                           </div>
-                          <ChevronDown className="w-4 h-4 text-slate-400 dark:text-neutral-500" />
+                          <p className="text-[13px] text-slate-500 dark:text-neutral-400 mt-3 font-medium transition-all duration-700" style={{ transitionDelay: '1000ms' }}>
+                            Workflow ini akan berjalan otomatis setiap Senin jam
+                            08:00.
+                          </p>
                         </div>
-                        <p className="text-[14px] text-slate-700 dark:text-neutral-300 leading-relaxed mb-3">
-                          Menarik data 142 titik rumah sakit & klinik dari
-                          PostGIS... Melakukan analisis <i>spatial buffer</i>{" "}
-                          2km... Selesai.
-                        </p>
-                        <p className="text-[14px] text-slate-700 dark:text-neutral-300 leading-relaxed">
-                          Ditemukan 3 kecamatan yang cakupan faskes-nya masih di
-                          bawah 60%: <b className="dark:text-white">Gedebage</b>
-                          , <b className="dark:text-white">Panyileukan</b>, dan{" "}
-                          <b className="dark:text-white">Cinambo</b>. Ingin saya
-                          tampilkan visualisasinya di peta dan buatkan workflow
-                          otomatisnya?
-                        </p>
                       </div>
-                    </div>
-
-                    {/* User Message */}
-                    <div className="flex justify-end">
-                      <div className="bg-[#2563EB] text-white px-4 py-2.5 rounded-2xl rounded-tr-sm text-[14px] font-medium max-w-[80%] leading-relaxed">
-                        Boleh, tampilin pakai warna merah ya. Sama buatin
-                        flow-nya sekalian.
-                      </div>
-                    </div>
-
-                    {/* AI Message Action 2 */}
-                    <div className="flex justify-start">
-                      <div className="bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 rounded-2xl p-4 w-full max-w-[90%] shadow-sm">
-                        <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-neutral-700">
-                          <div className="flex items-center gap-2">
-                            <Layers className="w-4 h-4 text-emerald-600 dark:text-emerald-400 fill-emerald-100 dark:fill-emerald-900/30" />
-                            <span className="text-[13px] font-bold text-slate-900 dark:text-white">
-                              Render Map Layer
-                            </span>
-                          </div>
-                          <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
-                        </div>
-                        <p className="text-[14px] text-slate-700 dark:text-neutral-300 leading-relaxed">
-                          Layer <i>"Blank Spot Faskes"</i> berhasil ditambahkan
-                          ke kanvas Anda dengan highlight warna{" "}
-                          <b className="dark:text-white">Merah (#FF0000)</b>.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* AI Message Action 3 */}
-                    <div className="flex justify-start">
-                      <div className="bg-white dark:bg-neutral-800 border border-slate-200 dark:border-neutral-700 rounded-2xl p-4 w-full max-w-[90%] shadow-sm">
-                        <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-neutral-700">
-                          <div className="flex items-center gap-2">
-                            <GitBranch className="w-4 h-4 text-purple-600 dark:text-purple-400 fill-purple-100 dark:fill-purple-900/30" />
-                            <span className="text-[13px] font-bold text-slate-900 dark:text-white">
-                              Generate Node Workflow
-                            </span>
-                          </div>
-                          <CheckCircle2 className="w-4 h-4 text-purple-500 dark:text-purple-400" />
-                        </div>
-                        <p className="text-[14px] text-slate-700 dark:text-neutral-300 leading-relaxed mb-3">
-                          Saya juga telah menyusun draft di{" "}
-                          <b className="dark:text-white">Flow Builder</b> untuk
-                          Anda:
-                        </p>
-                        <div className="bg-[#F8FAFC] dark:bg-neutral-900 border border-slate-200 dark:border-neutral-700 rounded-xl p-3 flex items-center gap-2 text-[12px] font-mono text-slate-600 dark:text-neutral-400 overflow-x-auto">
-                          <span className="bg-white dark:bg-neutral-800 px-2 py-1 rounded shadow-sm border border-slate-100 dark:border-neutral-700">
-                            API_Dinkes
-                          </span>
-                          <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span className="bg-white dark:bg-neutral-800 px-2 py-1 rounded shadow-sm border border-slate-100 dark:border-neutral-700">
-                            Buffer_2KM
-                          </span>
-                          <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span className="bg-white dark:bg-neutral-800 px-2 py-1 rounded shadow-sm border border-slate-100 dark:border-neutral-700 border-l-2 border-l-emerald-500 dark:border-l-emerald-500">
-                            Update_Map
-                          </span>
-                        </div>
-                        <p className="text-[13px] text-slate-500 dark:text-neutral-400 mt-3 font-medium">
-                          Workflow ini akan berjalan otomatis setiap Senin jam
-                          08:00.
-                        </p>
-                      </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Chat Input Area (Accessible Form) */}
@@ -1290,19 +1397,21 @@ export default function Home() {
                     className="p-4 bg-white dark:bg-neutral-900 border-t border-slate-100 dark:border-neutral-800 shrink-0 transition-colors"
                     onSubmit={(e) => e.preventDefault()}
                   >
-                    <div className="relative border border-slate-300 dark:border-neutral-700 rounded-2xl bg-white dark:bg-neutral-800 focus-within:border-blue-500 dark:focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all flex items-end">
+                    <div className="relative border border-slate-300 dark:border-neutral-700 rounded-2xl bg-white dark:bg-neutral-800 focus-within:border-blue-500 dark:focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
                       <textarea
                         rows={1}
                         placeholder="Ask me anything, @ for mentions, / for commands"
                         aria-label="Ketik pesan ke AI"
-                        className="w-full text-[14px] text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 bg-transparent py-3.5 pl-4 pr-12 focus:outline-none resize-none"
+                        value={inputText}
+                        readOnly
+                        className="w-full text-[14px] text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 bg-transparent py-3.5 pl-4 pr-12 focus:outline-none resize-none max-h-32 min-h-[52px] leading-relaxed whitespace-pre-wrap"
                       />
                       <button
                         type="button"
                         aria-label="Kirim Pesan"
-                        className="absolute right-2 bottom-2 w-8 h-8 bg-white dark:bg-neutral-700 border border-slate-200 dark:border-neutral-600 rounded-xl flex items-center justify-center hover:bg-slate-50 dark:hover:bg-neutral-600 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-800 transition-colors shadow-sm"
+                        className={`absolute right-2 bottom-2 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm ${chatStep < 1 ? 'bg-white dark:bg-neutral-700 border border-slate-200 dark:border-neutral-600 text-slate-600 dark:text-neutral-300' : 'bg-blue-600 border border-blue-600 text-white hover:bg-blue-700'}`}
                       >
-                        <Send className="w-4 h-4 text-slate-600 dark:text-neutral-300 ml-0.5" />
+                        <Send className="w-4 h-4 ml-0.5" />
                       </button>
                     </div>
                   </form>
