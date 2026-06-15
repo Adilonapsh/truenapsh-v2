@@ -281,7 +281,7 @@ const LayerPanelMockup = ({ isDropped }: { isDropped: boolean }) => (
             <Plus size={14} />
           </div>
         </div>
-        
+
         <div className="p-2 space-y-1">
           {['Pola Ruang Tangerang', 'Kabupaten'].map((item) => (
             <div key={item} className="flex items-center justify-between p-2.5 rounded-lg text-slate-500 dark:text-neutral-400">
@@ -292,7 +292,7 @@ const LayerPanelMockup = ({ isDropped }: { isDropped: boolean }) => (
               <ChevronDown size={14} />
             </div>
           ))}
-          
+
           {/* Active Layer: Provinsi (Only appears when dropped) */}
           <div className={`transition-all duration-700 overflow-hidden ${isDropped ? 'opacity-100 max-h-[120px] mt-2' : 'opacity-0 max-h-0 mt-0'}`}>
             <div className={`p-2.5 rounded-lg border bg-blue-50/50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800`}>
@@ -303,7 +303,7 @@ const LayerPanelMockup = ({ isDropped }: { isDropped: boolean }) => (
                 </div>
                 <ChevronDown size={14} className="rotate-180" />
               </div>
-              
+
               <div className="flex items-center justify-between px-2">
                 <Eye size={14} />
                 <Sparkles size={14} />
@@ -326,19 +326,19 @@ const StackedFormatCards = ({ isDropped }: StackedFormatCardsProps) => {
       {/* Cursors and Dragging Effect */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-40">
         {/* Raka - The Dragger */}
-        <div 
-          className="absolute top-1/4 left-1/4 flex flex-col items-center" 
-          style={{ animation: 'file-drag 8s ease-in-out infinite' }} 
-        > 
-          <div className="px-3 py-2 bg-blue-600/90 dark:bg-blue-500/90 backdrop-blur-sm rounded-lg border border-blue-400 dark:border-blue-300 shadow-xl flex items-center gap-2 mb-1"> 
-            <Box size={14} className="text-white" /> 
-            <span className="text-[10px] font-bold text-white">Indonesia Province.shp</span> 
-          </div> 
+        <div
+          className="absolute top-1/4 left-1/4 flex flex-col items-center"
+          style={{ animation: 'file-drag 8s ease-in-out infinite' }}
+        >
+          <div className="px-3 py-2 bg-blue-600/90 dark:bg-blue-500/90 backdrop-blur-sm rounded-lg border border-blue-400 dark:border-blue-300 shadow-xl flex items-center gap-2 mb-1">
+            <Box size={14} className="text-white" />
+            <span className="text-[10px] font-bold text-white">Indonesia Province.shp</span>
+          </div>
           <div className="flex flex-col items-start ml-8">
-            <MousePointer2 className="w-5 h-5 text-blue-600 fill-blue-600" /> 
+            <MousePointer2 className="w-5 h-5 text-blue-600 fill-blue-600" />
             <div className="px-2 py-0.5 bg-blue-600 text-[9px] font-bold text-white rounded shadow-sm">Adilonapsh (Admin)</div>
           </div>
-        </div> 
+        </div>
 
         {/* Dina - Static Collaborator */}
         <div className="absolute top-[50%] right-[35%] flex flex-col items-start opacity-80" style={{ animation: 'cursor-float-2 15s ease-in-out infinite' }}>
@@ -355,18 +355,18 @@ const StackedFormatCards = ({ isDropped }: StackedFormatCardsProps) => {
       </div>
 
       {/* Pop Card (Appears after drop) */}
-      <div 
-        className="absolute top-1/4 left-1/4 p-3 bg-white/95 dark:bg-neutral-800/95 backdrop-blur-md rounded-xl border border-slate-200 dark:border-neutral-700 shadow-xl flex items-center gap-3 transition-colors z-30" 
-        style={{ animation: 'pop-card 8s ease-in-out infinite' }} 
-      > 
-        <div className="w-8 h-8 bg-blue-50 dark:bg-neutral-700 rounded flex items-center justify-center border border-blue-100 dark:border-neutral-600"> 
-          <Box size={16} className="text-blue-600 dark:text-blue-400" /> 
-        </div> 
-        <div> 
-          <div className="text-[10px] text-slate-500 dark:text-neutral-400 uppercase font-bold tracking-widest">ShapeFile</div> 
-          <div className="text-xs font-bold text-slate-900 dark:text-white">Indonesia Province.shp</div> 
-        </div> 
-      </div> 
+      <div
+        className="absolute top-1/4 left-1/4 p-3 bg-white/95 dark:bg-neutral-800/95 backdrop-blur-md rounded-xl border border-slate-200 dark:border-neutral-700 shadow-xl flex items-center gap-3 transition-colors z-30"
+        style={{ animation: 'pop-card 8s ease-in-out infinite' }}
+      >
+        <div className="w-8 h-8 bg-blue-50 dark:bg-neutral-700 rounded flex items-center justify-center border border-blue-100 dark:border-neutral-600">
+          <Box size={16} className="text-blue-600 dark:text-blue-400" />
+        </div>
+        <div>
+          <div className="text-[10px] text-slate-500 dark:text-neutral-400 uppercase font-bold tracking-widest">ShapeFile</div>
+          <div className="text-xs font-bold text-slate-900 dark:text-white">Indonesia Province.shp</div>
+        </div>
+      </div>
 
     </>
   );
@@ -379,7 +379,7 @@ export default function Home() {
   const [isDark, setIsDark] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isDropped, setIsDropped] = useState(false);
-  
+
   const [chatStep, setChatStep] = useState(0);
   const [inputText, setInputText] = useState('');
   const [aiMessage1Text, setAiMessage1Text] = useState('');
@@ -396,7 +396,7 @@ export default function Home() {
 
     const runCycle = () => {
       setIsDropped(false);
-      
+
       // Tunggu sampai animasi file-drag "drop" (2.4 detik)
       const dropTimer = setTimeout(() => {
         setIsDropped(true);
@@ -426,16 +426,16 @@ export default function Home() {
     let active = true;
     let typingInterval: NodeJS.Timeout | null = null;
     let cycleTimeout: NodeJS.Timeout | null = null;
-    
+
     const cycle = () => {
       if (!active) return;
-      
+
       // Reset
       setChatStep(0);
       setInputText('');
       setAiMessage1Text('');
       setAiMessage2Text('');
-      
+
       // Step 0: Type input
       setTimeout(() => {
         if (!active) return;
@@ -1404,12 +1404,12 @@ export default function Home() {
                         aria-label="Ketik pesan ke AI"
                         value={inputText}
                         readOnly
-                        className="w-full text-[14px] text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 bg-transparent py-3.5 pl-4 pr-12 focus:outline-none resize-none max-h-32 min-h-[52px] leading-relaxed whitespace-pre-wrap"
+                        className="w-full text-[14px] text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-neutral-500 bg-transparent py-3.5 pl-4 pr-12 focus:outline-none resize-none max-h-32 min-h-[30px] leading-relaxed whitespace-pre-wrap"
                       />
                       <button
                         type="button"
                         aria-label="Kirim Pesan"
-                        className={`absolute right-2 bottom-2 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm ${chatStep < 1 ? 'bg-white dark:bg-neutral-700 border border-slate-200 dark:border-neutral-600 text-slate-600 dark:text-neutral-300' : 'bg-blue-600 border border-blue-600 text-white hover:bg-blue-700'}`}
+                        className={`absolute right-2 bottom-3 w-8 h-8 rounded-xl flex items-center justify-center transition-all shadow-sm ${chatStep < 1 ? 'bg-white dark:bg-neutral-700 border border-slate-200 dark:border-neutral-600 text-slate-600 dark:text-neutral-300' : 'bg-blue-600 border border-blue-600 text-white hover:bg-blue-700'}`}
                       >
                         <Send className="w-4 h-4 ml-0.5" />
                       </button>

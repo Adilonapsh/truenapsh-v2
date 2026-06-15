@@ -1,4 +1,7 @@
 import { FeatureCollection, Geometry } from "geojson";
+import * as turf from "@turf/turf";
+import { useMapStore } from "@/stores/map";
+import useLayerStore from "@/stores/layer";
 import {
     addGeojsonToMap,
     bufferLayers,
@@ -206,9 +209,48 @@ export const executeOperation = async (
             const { targetLayer, sourceelevation, interval, units } = options;
             const source = map.getLayer?.(targetLayer)?.source;
             const data = source ? map.getSource?.(source)?.serialize?.()?.data : undefined;
-            const points = await pointAlongLinesLayers(data, Number(interval), units);
+            if (!data) {
+                console.warn("No data found for elevation calculation target layer:", targetLayer);
+                break;
+            }
+
+            let finalInterval = Number(interval);
+            if (isNaN(finalInterval) || finalInterval <= 0) {
+                try {
+                    const length = turf.length(data as any, { units: units || "kilometers" });
+                    finalInterval = length / 50; // default 50 points
+                    if (finalInterval <= 0) finalInterval = 0.01;
+                } catch (e) {
+                    finalInterval = 0.01;
+                }
+            }
+
+            const points = await pointAlongLinesLayers(data, finalInterval, units);
             if (points) {
-                await elevationLayers(points as FeatureCollection<Geometry>, sourceelevation);
+                // Add the elevation points layer to the map so it persists
+                const layerId = await addGeojsonToMap({
+                    mapRef,
+                    data: points as GeoJSON.GeoJSON,
+                    layerName: `Elevation Points ${layersCount + 1}`,
+                });
+
+                const chartData = await elevationLayers(points as FeatureCollection<Geometry>, sourceelevation);
+                if (chartData && chartData.length > 0) {
+                    const { setElevationProfileData, setDisplayLayouts, displayLayouts } = useMapStore.getState();
+                    setElevationProfileData(chartData);
+                    setDisplayLayouts({
+                        ...displayLayouts,
+                        elevationProfile: true
+                    });
+
+                    // Persist chartData in the layer metadata so it can be restored on selection
+                    if (layerId) {
+                        const { updateLayerMetadata } = useLayerStore.getState();
+                        updateLayerMetadata(`${layerId}-point`, { elevationProfileData: chartData });
+                    }
+                } else {
+                    console.warn("No elevation data returned from elevationLayers");
+                }
             }
             break;
         }

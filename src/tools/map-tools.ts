@@ -264,7 +264,7 @@ const addGeojsonToMap = async ({
     data: GeoJSON.GeoJSON;
     bbox?: [number, number, number, number];
     geometryTypes?: string[];
-}) => {
+}): Promise<string | undefined> => {
     const map = mapRef?.current?.getMap();
     if (!map) return;
 
@@ -361,6 +361,8 @@ const addGeojsonToMap = async ({
             });
         }
     });
+
+    return layerId;
 };
 
 // TURF TOOLS (Asynchronous via Web Worker)
@@ -465,19 +467,30 @@ const buildingLayers = async (featureCollection: FeatureCollection) => {
 const elevationLayers = async (
     featureCollection: FeatureCollection,
     source: string
-) => {
+): Promise<{ distance: number; elevation: number; lat: number; lng: number }[] | null> => {
+    const getCoords = (geom: any): [number, number] => {
+        if (!geom) return [0, 0];
+        if (geom.type === "Point") {
+            return geom.coordinates as [number, number];
+        } else if (geom.type === "LineString") {
+            return geom.coordinates[0] as [number, number];
+        } else if (geom.type === "Polygon") {
+            return (geom.coordinates[0]?.[0] || [0, 0]) as [number, number];
+        } else if (geom.type === "MultiPolygon") {
+            return (geom.coordinates[0]?.[0]?.[0] || [0, 0]) as [number, number];
+        }
+        return [0, 0];
+    };
+
     try {
-        console.log("WIP GUYES");
+        console.log("Fetching elevation from:", source);
         if (source === "Map Toolkit") {
-            const points = featureCollection.features.map((feature) => {
-                const geom = feature.geometry as Polygon | MultiPolygon;
-                const coords = geom.coordinates;
-                return Array.isArray(coords[0])
-                    ? coords[0].map((c: any) => `[${c}]`).join(",")
-                    : `[${coords[1]},${coords[0]}]`;
+            const coordsList = featureCollection.features.map((feature) => {
+                const c = getCoords(feature.geometry);
+                return `[${c[1]},${c[0]}]`;
             });
             const response = await fetch(
-                `https://maptoolkit.p.rapidapi.com/elevation?points=[${points}]`,
+                `https://maptoolkit.p.rapidapi.com/elevation?points=[${coordsList.join(",")}]`,
                 {
                     headers: {
                         "x-rapidapi-key":
@@ -487,19 +500,29 @@ const elevationLayers = async (
                 }
             );
             const data = await response.json();
+            if (data && Array.isArray(data)) {
+                return featureCollection.features.map((feature, idx) => {
+                    const item = data[idx];
+                    const elev = typeof item === "number" ? item : (item?.elevation || 0);
+                    feature.properties = {
+                        ...feature.properties,
+                        elevation: elev,
+                    };
+                    const c = getCoords(feature.geometry);
+                    return {
+                        distance: feature.properties?.distanceFromStart || 0,
+                        elevation: elev,
+                        lat: c[1],
+                        lng: c[0],
+                    };
+                });
+            }
         } else if (source === "Open Elevation") {
             const points = featureCollection.features.map((feature) => {
-                const geom = feature.geometry as Polygon | MultiPolygon;
-
-                // Ambil koordinat pertama dari polygon atau multipolygon
-                const firstCoord =
-                    geom.type === "Polygon"
-                        ? geom.coordinates[0][0] // Polygon -> [[[x,y],...]]
-                        : geom.coordinates[0][0][0]; // MultiPolygon -> [[[[x,y],...]]]
-
+                const c = getCoords(feature.geometry);
                 return {
-                    latitude: firstCoord[1],
-                    longitude: firstCoord[0],
+                    latitude: c[1],
+                    longitude: c[0],
                 };
             });
             const latitudes = points.map((p) => p.latitude).join(",");
@@ -508,19 +531,28 @@ const elevationLayers = async (
                 `https://api.open-meteo.com/v1/elevation?latitude=${latitudes}&longitude=${longitudes}`
             );
             const data = await response.json();
+            if (data && Array.isArray(data.elevation)) {
+                return featureCollection.features.map((feature, idx) => {
+                    const elev = data.elevation[idx] || 0;
+                    feature.properties = {
+                        ...feature.properties,
+                        elevation: elev,
+                    };
+                    const c = getCoords(feature.geometry);
+                    return {
+                        distance: feature.properties?.distanceFromStart || 0,
+                        elevation: elev,
+                        lat: c[1],
+                        lng: c[0],
+                    };
+                });
+            }
         } else if (source === "GPXZ") {
             const points = featureCollection.features.map((feature) => {
-                const geom = feature.geometry as Polygon | MultiPolygon;
-
-                // Ambil titik pertama dari polygon atau multipolygon
-                const firstCoord =
-                    geom.type === "Polygon"
-                        ? geom.coordinates[0][0] // [[[x,y], ...]]
-                        : geom.coordinates[0][0][0]; // [[[[x,y], ...]]]
-
+                const c = getCoords(feature.geometry);
                 return {
-                    latitude: firstCoord[1],
-                    longitude: firstCoord[0],
+                    latitude: c[1],
+                    longitude: c[0],
                 };
             });
             const pointsStr = points
@@ -536,10 +568,56 @@ const elevationLayers = async (
                 body: `latlons=${pointsStr}`,
             });
             const data = await response.json();
+            if (data && Array.isArray(data.results)) {
+                return featureCollection.features.map((feature, idx) => {
+                    const elev = data.results[idx]?.elevation || 0;
+                    feature.properties = {
+                        ...feature.properties,
+                        elevation: elev,
+                    };
+                    const c = getCoords(feature.geometry);
+                    return {
+                        distance: feature.properties?.distanceFromStart || 0,
+                        elevation: elev,
+                        lat: c[1],
+                        lng: c[0],
+                    };
+                });
+            }
+        } else if (source === "Mapbox") {
+            const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+            const promises = featureCollection.features.map(async (feature) => {
+                const c = getCoords(feature.geometry);
+                let elev = 0;
+                try {
+                    const response = await fetch(
+                        `https://api.mapbox.com/v1/mapbox.mapbox-terrain-dem-v1/tilequery/${c[0]},${c[1]}.json?access_token=${token}`
+                    );
+                    const data = await response.json();
+                    if (data && Array.isArray(data.features) && data.features.length > 0) {
+                        const props = data.features[0].properties;
+                        elev = props?.ele !== undefined ? props.ele : (props?.elevation !== undefined ? props.elevation : 0);
+                    }
+                } catch (e) {
+                    console.error("Mapbox elevation fetch error:", e);
+                }
+                feature.properties = {
+                    ...feature.properties,
+                    elevation: elev,
+                };
+                return {
+                    distance: feature.properties?.distanceFromStart || 0,
+                    elevation: elev,
+                    lat: c[1],
+                    lng: c[0],
+                };
+            });
+            return Promise.all(promises);
         }
     } catch (error) {
-        console.error("Error fetching building data:", error);
+        console.error("Error fetching elevation data:", error);
     }
+    return null;
 };
 
 

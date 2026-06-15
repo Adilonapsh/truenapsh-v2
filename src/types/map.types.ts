@@ -239,6 +239,7 @@ type LayoutDisplay = {
   terrain3D: boolean;
   modelViewer3D: boolean;
   printModal: boolean;
+  elevationProfile: boolean;
 };
 
 export type PropertyValueType = "string" | "number" | "boolean" | "array";

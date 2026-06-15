@@ -17,6 +17,10 @@ interface MapStore {
     setOpenStyleAccordions: (items: string[]) => void;
     activeModelUrl: string | null;
     setActiveModelUrl: (url: string | null) => void;
+    elevationProfileData: { distance: number; elevation: number; lat: number; lng: number }[] | null;
+    setElevationProfileData: (data: { distance: number; elevation: number; lat: number; lng: number }[] | null) => void;
+    hoveredElevationPoint: [number, number] | null;
+    setHoveredElevationPoint: (point: [number, number] | null) => void;
 }
 
 export const useMapStore = create<MapStore>((set) => ({
@@ -49,6 +53,7 @@ export const useMapStore = create<MapStore>((set) => ({
         terrain3D: false,
         modelViewer3D: false,
         printModal: false,
+        elevationProfile: false,
     },
     setDisplayLayouts: (layouts) =>
         set((state) => ({
@@ -60,4 +65,8 @@ export const useMapStore = create<MapStore>((set) => ({
     setOpenStyleAccordions: (items) => set({ openStyleAccordions: items }),
     activeModelUrl: null,
     setActiveModelUrl: (url) => set({ activeModelUrl: url }),
+    elevationProfileData: null,
+    setElevationProfileData: (data) => set({ elevationProfileData: data }),
+    hoveredElevationPoint: null,
+    setHoveredElevationPoint: (point) => set({ hoveredElevationPoint: point }),
 }));

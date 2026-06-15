@@ -61,7 +61,16 @@ import { BiCollapse, BiLogOutCircle, BiTrash } from "react-icons/bi";
 import { FiFilter } from "react-icons/fi";
 import { HiCubeTransparent } from "react-icons/hi";
 import { IoClose } from "react-icons/io5";
-import { MdGpsFixed, MdOutlineStyle } from "react-icons/md";
+import { MdGpsFixed, MdOutlineStyle, MdTerrain } from "react-icons/md";
+import {
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip as RechartsTooltip,
+    ResponsiveContainer,
+} from "recharts";
 import {
     TbRouteSquare,
     TbTriangleSquareCircle,
@@ -589,6 +598,10 @@ export default function MapLayout({
         setDisplayLayouts,
         selectedLayer,
         setSelectedLayer,
+        elevationProfileData,
+        setElevationProfileData,
+        hoveredElevationPoint,
+        setHoveredElevationPoint,
     } = useMapStore();
 
     const drawRef = useRef<MapboxDraw | null>(null); // Ref untuk MapboxDraw
@@ -612,6 +625,62 @@ export default function MapLayout({
         }, 350); // Wait for transition animation (300ms) + buffer
         return () => clearTimeout(timeout);
     }, [displayLayouts.table, displayLayouts.aiChat]);
+
+    const elevationHoverMarkerRef = useRef<mapboxgl.Marker | null>(null);
+
+    // Track elevation hover point and show marker on map
+    useEffect(() => {
+        const map = mapRef.current?.getMap();
+        if (!map) return;
+
+        if (hoveredElevationPoint) {
+            const [longitude, latitude] = hoveredElevationPoint;
+            if (elevationHoverMarkerRef.current) {
+                elevationHoverMarkerRef.current.setLngLat([longitude, latitude]);
+            } else {
+                const el = document.createElement("div");
+                el.className = "relative flex items-center justify-center";
+                const innerCircle = document.createElement("div");
+                innerCircle.className = "w-4 h-4 bg-rose-500 rounded-full border-2 border-white shadow-lg z-50";
+                const pulse = document.createElement("div");
+                pulse.className = "absolute w-4 h-4 bg-rose-500 rounded-full animate-ping opacity-75 z-40";
+                el.appendChild(innerCircle);
+                el.appendChild(pulse);
+
+                elevationHoverMarkerRef.current = new mapboxgl.Marker({
+                    element: el,
+                })
+                    .setLngLat([longitude, latitude])
+                    .addTo(map);
+            }
+        } else {
+            if (elevationHoverMarkerRef.current) {
+                elevationHoverMarkerRef.current.remove();
+                elevationHoverMarkerRef.current = null;
+            }
+        }
+    }, [hoveredElevationPoint]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (elevationHoverMarkerRef.current) {
+                elevationHoverMarkerRef.current.remove();
+                elevationHoverMarkerRef.current = null;
+            }
+        };
+    }, []);
+
+    // Restore elevation chart when a layer with saved elevation data is selected
+    useEffect(() => {
+        if (selectedLayer?.metadata && (selectedLayer.metadata as any).elevationProfileData) {
+            const savedData = (selectedLayer.metadata as any).elevationProfileData as {
+                distance: number; elevation: number; lat: number; lng: number;
+            }[];
+            setElevationProfileData(savedData);
+            setDisplayLayouts({ elevationProfile: true });
+        }
+    }, [selectedLayer]);
 
     const { isLoading, setIsLoading } = useMapStore();
 
@@ -3548,6 +3617,97 @@ export default function MapLayout({
                         </ResizablePanel>
                     </ResizablePanelGroup>
                 </div>
+                {displayLayouts.elevationProfile && elevationProfileData && (
+                    <div
+                        className={`transition-all duration-300 ease-in-out bg-white dark:bg-zinc-955 border-t border-zinc-200 dark:border-zinc-800 p-5 shadow-2xl ${
+                            displayLayouts.aiChat
+                                ? "w-[calc(100vw-30rem)] ml-[30rem]"
+                                : "w-screen ml-0"
+                        }`}
+                    >
+                        <div className="flex justify-between items-center mb-4">
+                            <div>
+                                <h5 className="font-bold text-sm text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
+                                    <MdTerrain className="w-5 h-5 text-rose-500 animate-pulse" />
+                                    Elevation Profile
+                                </h5>
+                                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                                    Hover along the chart to trace elevation changes on the map.
+                                </p>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="w-8 h-8 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                onClick={() => {
+                                    setDisplayLayouts({ ...displayLayouts, elevationProfile: false });
+                                    setHoveredElevationPoint(null);
+                                }}
+                            >
+                                <X className="w-4 h-4" />
+                            </Button>
+                        </div>
+                        <div className="h-[25vh] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart
+                                    data={elevationProfileData}
+                                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                                    onMouseMove={(state) => {
+                                        if (state && state.activePayload && state.activePayload.length > 0) {
+                                            const payload = state.activePayload[0].payload;
+                                            setHoveredElevationPoint([payload.lng, payload.lat]);
+                                        } else {
+                                            setHoveredElevationPoint(null);
+                                        }
+                                    }}
+                                    onMouseLeave={() => {
+                                        setHoveredElevationPoint(null);
+                                    }}
+                                >
+                                    <defs>
+                                        <linearGradient id="elevationGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.4}/>
+                                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-800" />
+                                    <XAxis
+                                        dataKey="distance"
+                                        tickFormatter={(val) => `${val} km`}
+                                        className="text-[10px] fill-zinc-500 font-medium"
+                                    />
+                                    <YAxis
+                                        tickFormatter={(val) => `${val} m`}
+                                        className="text-[10px] fill-zinc-500 font-medium"
+                                    />
+                                    <RechartsTooltip
+                                        content={({ active, payload }) => {
+                                            if (active && payload && payload.length) {
+                                                const data = payload[0].payload;
+                                                return (
+                                                    <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border border-zinc-200 dark:border-zinc-800 p-3 rounded-xl shadow-lg">
+                                                        <p className="text-xs font-semibold text-rose-500">Elevation: {data.elevation.toFixed(1)} m</p>
+                                                        <p className="text-[10px] text-zinc-500">Distance: {data.distance.toFixed(3)} km</p>
+                                                        <p className="text-[9px] text-zinc-400">Lat: {data.lat.toFixed(5)}, Lng: {data.lng.toFixed(5)}</p>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        }}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="elevation"
+                                        stroke="#f43f5e"
+                                        strokeWidth={2}
+                                        fillOpacity={1}
+                                        fill="url(#elevationGrad)"
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* MODAL EL */}

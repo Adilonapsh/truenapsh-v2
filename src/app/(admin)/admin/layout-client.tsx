@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import {
@@ -26,6 +27,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import * as Icons from "lucide-react";
 import { SessionProvider } from "next-auth/react";
 import { ThemeProvider, useTheme } from "next-themes";
+import { usePathname } from "next/navigation";
 
 // Type for the icon mapping
 type IconName = keyof typeof Icons;
@@ -102,6 +104,7 @@ export function LayoutClient({ children, data }: LayoutClientProps) {
   };
 
   const { setTheme } = useTheme();
+  const pathname = usePathname();
 
   return (
     <div>
@@ -123,23 +126,44 @@ export function LayoutClient({ children, data }: LayoutClientProps) {
                       <Separator orientation="vertical" className="mr-2 h-4" />
                       <Breadcrumb>
                         <BreadcrumbList>
-                          {window.location.pathname
-                            .split("/")
-                            .filter((segment) => segment && segment !== "admin")
-                            .map((segment, index, array) => {
+                          {(() => {
+                            // Full segments (with admin) used for building hrefs
+                            const allSegments = pathname
+                              .split("/")
+                              .filter(Boolean);
+                            // Visible segments: skip "admin" from label display
+                            const visibleSegments = allSegments.filter(
+                              (s) => s !== "admin"
+                            );
+
+                            return visibleSegments.map((segment, idx) => {
+                              // Find this segment's position in allSegments to build correct path
+                              const segmentIndexInAll = allSegments.indexOf(
+                                segment,
+                                // offset so we don't match earlier occurrences
+                                idx === 0 ? 0 : allSegments.indexOf(visibleSegments[idx - 1]) + 1
+                              );
                               const path =
-                                "/" + array.slice(0, index + 1).join("/");
-                              const isLast = index === array.length - 1;
+                                "/" +
+                                allSegments
+                                  .slice(0, segmentIndexInAll + 1)
+                                  .join("/");
+                              const isLast = idx === visibleSegments.length - 1;
 
                               return (
-                                <div key={path}>
-                                  <BreadcrumbItem className="hidden md:block">
+                                <React.Fragment key={path}>
+                                  <BreadcrumbItem
+                                    className="hidden md:block"
+                                  >
                                     {isLast ? (
                                       <BreadcrumbPage className="capitalize">
                                         {segment}
                                       </BreadcrumbPage>
                                     ) : (
-                                      <BreadcrumbLink href={path}>
+                                      <BreadcrumbLink
+                                        href={path}
+                                        className="capitalize"
+                                      >
                                         {segment}
                                       </BreadcrumbLink>
                                     )}
@@ -147,9 +171,10 @@ export function LayoutClient({ children, data }: LayoutClientProps) {
                                   {!isLast && (
                                     <BreadcrumbSeparator className="hidden md:block" />
                                   )}
-                                </div>
+                                </React.Fragment>
                               );
-                            })}
+                            });
+                          })()}
                         </BreadcrumbList>
                       </Breadcrumb>
                     </div>

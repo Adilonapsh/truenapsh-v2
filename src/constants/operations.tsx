@@ -183,7 +183,7 @@ export const getOperationDetails = (layers: Layer[]): Record<string, OperationDe
         title: "Elevation",
         description: "Create a Elevation model.",
         options: [
-            { id: "sourceelevation", name: "Elevation Source", type: "select", value: ["Map Toolkit", "Open Elevation", "GPXZ"], info: true },
+            { id: "sourceelevation", name: "Elevation Source", type: "select", value: ["Map Toolkit", "Open Elevation", "GPXZ", "Mapbox"], info: true },
             { id: "targetLayer", name: "Target Layer", type: "select", value: layers?.map((layer) => ({ key: layer.id, value: layer.name })), info: true },
             { id: "interval", name: "Sample Interval", type: "number", value: "0", info: true },
             { id: "units", name: "Units", type: "select", value: ["meters", "kilometers", "miles", "feet", "degrees"], info: false },
