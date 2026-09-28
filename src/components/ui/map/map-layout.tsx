@@ -967,7 +967,7 @@ export default function MapLayout({
         emitLayerReorder(activeParentId, oldOrder);
 
         // Insert into target parent relative to overNode
-        let newTargetOrder = [...baseTargetOrder];
+        const newTargetOrder = [...baseTargetOrder];
         // If dropped directly ON folder header, append
         if (overNode.type === 'folder' && targetParentId === overNode.id.replace('folder-', '')) {
             newTargetOrder.push(activeId);
