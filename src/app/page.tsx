@@ -1773,9 +1773,9 @@ export default function Home() {
                     Mulai Gratis Sekarang{" "}
                     <ArrowUpRight size={18} aria-hidden="true" />
                   </a>
-                  <button className="w-full sm:w-auto px-8 py-4 bg-white/5 text-white rounded-xl font-bold text-[15px] hover:bg-white/10 border border-white/10 transition-all focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 dark:focus-visible:ring-offset-neutral-800">
+                  {/* <button className="w-full sm:w-auto px-8 py-4 bg-white/5 text-white rounded-xl font-bold text-[15px] hover:bg-white/10 border border-white/10 transition-all focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 dark:focus-visible:ring-offset-neutral-800">
                     Jadwalkan Demo
-                  </button>
+                  </button> */}
                 </div>
                 <p
                   className="text-slate-500 dark:text-neutral-400 text-xs font-semibold mt-6 uppercase tracking-widest flex items-center justify-center md:justify-start gap-4"
