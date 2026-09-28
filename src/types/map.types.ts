@@ -89,6 +89,9 @@ enum MapServiceVendor {
   Icon = "Icon",
   Model = "Model",
   Cesium = "Cesium",
+  WMTS = "WMTS",
+  VectorTileServer = "VectorTileServer",
+  PMTiles = "PMTiles",
 }
 
 type Location = {

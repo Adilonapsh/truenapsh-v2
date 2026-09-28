@@ -108,6 +108,22 @@ export default function AddLayerModal() {
     const [humPage, setHumPage] = React.useState(1);
     const [humTotalPages, setHumTotalPages] = React.useState(1);
 
+    // Autodetect vendor dari URL - generic, tidak hardcode BPS
+    const detectVendor = React.useCallback((url: string): MapServiceVendor | null => {
+        const u = url.toLowerCase().trim();
+        if (!u) return null;
+        if (u.endsWith(".pmtiles")) return MapServiceVendor.PMTiles;
+        if (u.includes("vectortileserver") || (u.includes("/tile/") && u.includes(".pbf"))) return MapServiceVendor.VectorTileServer;
+        if (u.includes("wmts") || u.includes("tilematrix") || u.includes("gwc/service/wmts")) return MapServiceVendor.WMTS;
+        if (u.includes("wms") || u.includes("service=wms") || u.includes("/wms?") || u.includes("/wms/")) return MapServiceVendor.Geoserver;
+        if (u.includes("cesium") || u.includes("tileset.json")) return MapServiceVendor.Cesium;
+        if (u.includes("{z}") && u.includes("{x}") && u.includes("{y}")) return MapServiceVendor.XYZ;
+        if (u.endsWith(".geojson") || (u.endsWith(".json") && u.includes("geo"))) return MapServiceVendor.GeoJSON;
+        if (u.includes("/rest/services") || u.includes("arcgis.com") || u.includes("/services/") || u.includes("mapserver") || u.includes("featureserver")) return MapServiceVendor.ArcGIS;
+        if (u.includes("service/") && !u.includes("wmts") && !u.includes("wms")) return MapServiceVendor.ArcGIS;
+        return null;
+    }, []);
+
     const handleHumSearch = async (page: number = 1) => {
         setIsHumLoading(true);
         try {
@@ -364,11 +380,22 @@ export default function AddLayerModal() {
     }
 
     const removeFile = (id: string) => {
+        const target = uploadedFiles.find(f => f.id === id);
+        if (target?.preview) URL.revokeObjectURL(target.preview);
         setUploadedFiles(prev => prev.filter(f => f.id !== id));
         if (selectedFileId === id) {
             setSelectedFileId(uploadedFiles.find(f => f.id !== id)?.id || null);
         }
     }
+
+    // Cleanup preview URL agar tidak leak (revoke saat unmount)
+    const uploadedFilesRef = React.useRef(uploadedFiles);
+    React.useEffect(() => { uploadedFilesRef.current = uploadedFiles; }, [uploadedFiles]);
+    React.useEffect(() => {
+        return () => {
+            uploadedFilesRef.current.forEach(f => { if (f.preview) URL.revokeObjectURL(f.preview); });
+        };
+    }, []);
 
     const handleAddUploadedLayer = async () => {
         if (uploadedFiles.length === 0) return;
@@ -695,6 +722,8 @@ export default function AddLayerModal() {
                     },
                     paint: {
                         "raster-opacity": 1,
+                        "raster-resampling": "linear",
+                        "raster-fade-duration": 0,
                     },
                     metadata: {
                         domain: domain,
@@ -835,11 +864,23 @@ export default function AddLayerModal() {
                 setDisplayLayouts({ ...displayLayouts, addLayer: false });
             }
         } else {
-            const datasets = await getWMSServices(
-                datasetProperties.url,
-                datasetProperties.map_service_vendor
-            );
-            setDatasetResult(datasets ?? []);
+            try {
+                const datasets = await getWMSServices(
+                    datasetProperties.url,
+                    datasetProperties.map_service_vendor
+                );
+                if (!datasets || datasets.length === 0) {
+                    toast.error("Tidak ada layer ditemukan. Periksa URL WMS dan pastikan service mendukung GetCapabilities & CORS.");
+                } else {
+                    // count total layers
+                    const total = datasets.reduce((acc: number, g: any) => acc + (g.children?.reduce((a: number, c: any) => a + (c.children?.length || 0), 0) || 0), 0);
+                    if (total > 0) toast.success(`Ditemukan ${total} layer dari WMS`);
+                }
+                setDatasetResult(datasets ?? []);
+            } catch (e: any) {
+                toast.error(e?.message || "Gagal memuat WMS. Coba gunakan proxy atau periksa URL.");
+                setDatasetResult([]);
+            }
         }
         // ensure loading reset
         setIsLoading({ dataset: false });
@@ -898,8 +939,8 @@ export default function AddLayerModal() {
 
     return (
         <div>
-            <div className="overflow-scroll relative p-5 w-full bg-white rounded-lg dark:bg-background">
-                <div className="flex justify-between items-center">
+            <div className="relative p-5 w-[80vw] max-w-[80vw] h-[80vh] max-h-[80vh] bg-white rounded-lg dark:bg-background flex flex-col overflow-hidden">
+                <div className="flex justify-between items-center shrink-0">
                     <div>
                         <p className="font-semibold">Add Layer</p>
                         <p className="font-normal">Add a Personalized Layer</p>
@@ -913,18 +954,18 @@ export default function AddLayerModal() {
                         <IoClose size={"13pt"} />
                     </Button>
                 </div>
-                <div className="overflow-auto px-2 py-5 h-[80vh] max-w-[80vw] w-[80vw] transition-all duration-300">
-                    <Tabs defaultValue="datasets">
-                        <TabsList className="grid grid-cols-4 w-full">
+                <div className="flex-1 px-2 py-5 overflow-hidden flex flex-col min-h-0">
+                    <Tabs defaultValue="datasets" className="flex-1 flex flex-col overflow-hidden min-h-0">
+                        <TabsList className="grid grid-cols-4 w-full shrink-0">
                             <TabsTrigger value="datasets">Datasets</TabsTrigger>
                             <TabsTrigger value="wms">WMS</TabsTrigger>
                             <TabsTrigger value="upload">Upload</TabsTrigger>
                             <TabsTrigger value="integration">Integrations</TabsTrigger>
                         </TabsList>
-                        <div className="px-2 py-5 h-full w-full">
-                            <TabsContent value="datasets">
-                                <Card className="transition-[width] duration-300 ease-in-out">
-                                    <CardHeader>
+                        <div className="flex-1 px-2 py-5 overflow-hidden min-h-0 w-full flex flex-col">
+                            <TabsContent value="datasets" className="flex-1 flex flex-col overflow-hidden min-h-0 mt-2 data-[state=inactive]:hidden">
+                                <Card className="flex-1 flex flex-col overflow-hidden transition-[width] duration-300 ease-in-out">
+                                    <CardHeader className="shrink-0">
                                         <div className="flex justify-between items-center">
                                             <div>
                                                 <CardTitle>Datasets</CardTitle>
@@ -939,9 +980,9 @@ export default function AddLayerModal() {
                                             )}
                                         </div>
                                     </CardHeader>
-                                    <CardContent className="space-y-2">
-                                        <div className="h-[55vh] w-full">
-                                            <div className="flex overflow-auto h-full rounded-lg border">
+                                    <CardContent className="flex-1 flex flex-col overflow-hidden min-h-0 space-y-2">
+                                        <div className="flex-1 min-h-0 w-full">
+                                            <div className="flex h-full rounded-lg border overflow-hidden">
                                                 <ResizablePanelGroup direction="horizontal">
                                                     <ResizablePanel defaultSize={25} className="transition-[width] duration-300 ease-in-out">
                                                         <ScrollArea className="w-full h-full">
@@ -1027,9 +1068,9 @@ export default function AddLayerModal() {
                                     </Button>
                                 </div>
                             </TabsContent>
-                            <TabsContent value="wms">
-                                <Card className="transition-[width] duration-300 ease-in-out">
-                                    <CardHeader>
+                            <TabsContent value="wms" className="flex-1 flex flex-col overflow-hidden min-h-0 mt-2 data-[state=inactive]:hidden">
+                                <Card className="flex-1 flex flex-col overflow-hidden transition-[width] duration-300 ease-in-out">
+                                    <CardHeader className="shrink-0">
                                         <div className="flex justify-between items-center">
                                             <div>
                                                 <CardTitle>WMS</CardTitle>
@@ -1044,9 +1085,10 @@ export default function AddLayerModal() {
                                             )}
                                         </div>
                                     </CardHeader>
-                                    <CardContent className="space-y-2 w-full">
+                                    <CardContent className="flex-1 flex flex-col overflow-hidden min-h-0 space-y-2 w-full">
                                         <div className="flex flex-col gap-2 items-center mb-2 lg:flex-row">
                                             <Select
+                                                value={datasetProperties.map_service_vendor}
                                                 onValueChange={(value) =>
                                                     setDatasetProperties({
                                                         ...datasetProperties,
@@ -1055,14 +1097,20 @@ export default function AddLayerModal() {
                                                 }
                                             >
                                                 <SelectTrigger className="w-full lg:w-[180px]">
-                                                    <SelectValue
-                                                        defaultValue={MapServiceVendor.Geoserver}
-                                                        placeholder="Select Map Vendor"
-                                                    />
+                                                    <SelectValue placeholder="Select Map Vendor" />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value={MapServiceVendor.Geoserver}>
-                                                        Geoserver
+                                                        Geoserver (WMS)
+                                                    </SelectItem>
+                                                    <SelectItem value={MapServiceVendor.WMTS}>
+                                                        WMTS
+                                                    </SelectItem>
+                                                    <SelectItem value={MapServiceVendor.VectorTileServer}>
+                                                        Vector Tile (ArcGIS)
+                                                    </SelectItem>
+                                                    <SelectItem value={MapServiceVendor.PMTiles}>
+                                                        PMTiles
                                                     </SelectItem>
                                                     <SelectItem value={MapServiceVendor.ArcGIS}>
                                                         ArcGIS
@@ -1085,6 +1133,15 @@ export default function AddLayerModal() {
                                                         MapServiceVendor.Geoserver
                                                         ? "http(s)://(domain)/(path)/(to)/(wms)/wms"
                                                         : datasetProperties.map_service_vendor ==
+                                                            MapServiceVendor.WMTS
+                                                            ? "https://geoserver.bps.go.id/gwc/service/wmts atau paste GetTile URL (layer=ksa:lbs_2024...)"
+                                                            : datasetProperties.map_service_vendor ==
+                                                            MapServiceVendor.VectorTileServer
+                                                            ? "https://basemaps.arcgis.com/arcgis/rest/services/World_Basemap_v2/VectorTileServer"
+                                                            : datasetProperties.map_service_vendor ==
+                                                            MapServiceVendor.PMTiles
+                                                            ? "https://ruangkita.net/assets/data/pmtiles/concessions.pmtiles"
+                                                            : datasetProperties.map_service_vendor ==
                                                             MapServiceVendor.ArcGIS
                                                             ? "http(s)://(domain)/(path)/(to)/(services)"
                                                             : datasetProperties.map_service_vendor == MapServiceVendor.Cesium
@@ -1092,12 +1149,23 @@ export default function AddLayerModal() {
                                                                 : "http(s)://(domain)/(path)/(to)/(tiles)/x/y/z"
                                                 }
                                                 className="w-full"
-                                                onChange={(e) =>
-                                                    setDatasetProperties({
-                                                        ...datasetProperties,
-                                                        url: e.currentTarget.value,
-                                                    })
-                                                }
+                                                value={datasetProperties.url || ""}
+                                                onChange={(e) => {
+                                                    const val = e.currentTarget.value;
+                                                    const detected = detectVendor(val);
+                                                    if (detected && detected !== datasetProperties.map_service_vendor) {
+                                                        setDatasetProperties({
+                                                            ...datasetProperties,
+                                                            url: val,
+                                                            map_service_vendor: detected,
+                                                        });
+                                                    } else {
+                                                        setDatasetProperties({
+                                                            ...datasetProperties,
+                                                            url: val,
+                                                        });
+                                                    }
+                                                }}
                                             />
                                             {datasetProperties.map_service_vendor === MapServiceVendor.Cesium && (
                                                 <div className="flex flex-col gap-4 w-full">
@@ -1162,8 +1230,8 @@ export default function AddLayerModal() {
                                                 Connect
                                             </Button>
                                         </div>
-                                        <div className="h-[50vh]">
-                                            <div className="overflow-auto p-5 mb-2 w-full h-full bg-white rounded-lg border dark:bg-background">
+                                        <div className="flex-1 min-h-0">
+                                            <div className="p-5 mb-2 w-full h-full bg-white rounded-lg border dark:bg-background flex flex-col overflow-hidden">
                                                 {isLoading.dataset && (
                                                     <div className="flex justify-center items-center w-full h-full">
                                                         <div className="flex flex-col gap-2 items-center">
@@ -1189,10 +1257,10 @@ export default function AddLayerModal() {
                                                                 </p>
                                                             </div>
                                                         )}
-                                                        <div>
-                                                            {datasetProperties?.map_service_vendor ==
-                                                                "Geoserver" && (
-                                                                    <div className="h-96">
+                                                        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                                                            {(datasetProperties?.map_service_vendor ==
+                                                                "Geoserver" || datasetProperties?.map_service_vendor == MapServiceVendor.WMTS || datasetProperties?.map_service_vendor == MapServiceVendor.VectorTileServer || datasetProperties?.map_service_vendor == MapServiceVendor.PMTiles) && (
+                                                                    <div className="flex-1 min-h-0 overflow-hidden">
                                                                         <TreeDirectory
                                                                             data={datasetResult}
 
@@ -1203,7 +1271,7 @@ export default function AddLayerModal() {
                                                             {datasetProperties?.map_service_vendor ==
                                                                 MapServiceVendor.ArcGIS &&
                                                                 datasetResult?.length != 0 && (
-                                                                    <div>
+                                                                    <div className="flex-1 min-h-0 overflow-hidden">
                                                                         <TreeDirectory
                                                                             data={datasetResult}
                                                                             activeDatasets={activeDataset!}

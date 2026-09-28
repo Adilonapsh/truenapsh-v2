@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import { AiFillGithub, AiFillGoogleCircle } from "react-icons/ai";
 
 export default function CallbackPage() {
@@ -34,11 +35,14 @@ function AuthCallbackPage() {
         console.log("Sign in result:", result);
 
         if (result?.ok) {
+          toast.success("Login berhasil!");
           router.push("/admin/dashboard");
         } else {
+          toast.error("Login gagal. Silakan coba lagi.");
           console.error("Login failed:", result?.error);
         }
       } catch (error) {
+        toast.error("Terjadi kesalahan saat login.");
         console.error("Sign in error:", error);
         setIsLoading(false);
       }

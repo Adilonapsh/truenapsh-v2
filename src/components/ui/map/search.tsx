@@ -23,11 +23,13 @@ const Search: React.FC<SearchMapProps> = ({ onSearch }) => {
         setLoading(true);
         try {
             const places = await searchPlaces(search)
-            setListsPlaces(places);
+            setListsPlaces(places ?? []);
         } catch (error) {
             console.log(error)
+            setListsPlaces([]);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }
 
     const handleGoToLocation = (index: number) => {
@@ -54,10 +56,10 @@ const Search: React.FC<SearchMapProps> = ({ onSearch }) => {
                     {(!loading) ? <FaMagnifyingGlass /> : <AiOutlineLoading3Quarters className='animate-spin' />}
                 </Button>
             </div>
-            <div id='search-lists' className={`${(isInputFocused && listsPlaces.length != 0) ? 'block' : 'hidden'} mt-2 transition-all`}>
+            <div id='search-lists' className={`${(isInputFocused && Array.isArray(listsPlaces) && listsPlaces.length !== 0) ? 'block' : 'hidden'} mt-2 transition-all`}>
                 <div className='flex flex-col gap-2 bg-white rounded-lg p-2 max-h-[calc(100vh-9rem)] overflow-y-auto dark:bg-background'>
                     {
-                        listsPlaces && listsPlaces.map((place, index) => (
+                        (Array.isArray(listsPlaces) ? listsPlaces : []).map((place, index) => (
                             <div key={index} className='p-2 hover:bg-slate-100 max-w-80 text-xs dark:hover:bg-accent' onClick={() => {
                                 handleGoToLocation(index)
                             }}>

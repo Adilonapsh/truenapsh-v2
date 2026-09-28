@@ -350,23 +350,89 @@ const getGeoserverServices = async (url: string) => {
   }
 };
 
+const fetchCapabilitiesText = async (capUrl: string): Promise<string | null> => {
+  // Try direct fetch first (works for CORS-enabled servers)
+  try {
+    const res = await fetch(capUrl);
+    if (res.ok) {
+      const text = await res.text();
+      // Detect OGC ServiceException (e.g. invalid request)
+      if (!text.includes("ServiceException") && text.includes("<WMS_Capabilities") || text.includes("<WMT_MS_Capabilities")) {
+        return text;
+      }
+      // If ServiceException, fall through to proxy attempt
+      if (!text.includes("ServiceException")) return text;
+    }
+  } catch (_) {
+    // CORS / network error -> try proxy
+  }
+  // Fallback via server-side proxy to avoid CORS / missing ACAO header
+  try {
+    const proxyUrl = `/api/proxy/wms?url=${encodeURIComponent(capUrl)}`;
+    const res = await fetch(proxyUrl);
+    if (res.ok) return await res.text();
+  } catch (_) {}
+  return null;
+};
+
+const getWorkspaceFromUrl = (url: string): string => {
+  try {
+    const u = new URL(url);
+    // e.g. /geoserver/palapa/wms -> palapa ; /geoserver/wms -> geoserver
+    const parts = u.pathname.split("/").filter(Boolean);
+    const idx = parts.indexOf("geoserver");
+    if (idx !== -1 && parts[idx + 1] && parts[idx + 1].toLowerCase() !== "wms" && parts[idx + 1].toLowerCase() !== "ows") {
+      return parts[idx + 1];
+    }
+    return "default";
+  } catch {
+    return "default";
+  }
+};
+
 const transformGeoserverServicesToFolder = async (url: string) => {
   try {
-    const urls = `${url.replace(
-      "/wms",
-      ""
-    )}/ows?service=WMS&version=1.3.0&request=GetCapabilities`;
-    const response = await fetch(urls);
-    const body = await response.text();
+    const trimmed = url.trim().replace(/\/$/, "");
+    // Build GetCapabilities URL robustly: palapa/wms -> palapa/ows?service=WMS ; also handle already having query params
+    let capUrl: string;
+    if (trimmed.includes("GetCapabilities") || trimmed.includes("service=WMS")) {
+      capUrl = trimmed;
+    } else if (trimmed.includes("/wms")) {
+      capUrl = `${trimmed.replace(/\/wms\/?$/, "")}/ows?service=WMS&version=1.3.0&request=GetCapabilities`;
+      // For workspace-specific URL like .../geoserver/palapa/wms keep workspace path: .../geoserver/palapa/ows
+      if (trimmed.match(/\/geoserver\/[^/]+\/wms$/)) {
+        capUrl = trimmed.replace(/\/wms\/?$/, "/ows?service=WMS&version=1.3.0&request=GetCapabilities");
+      }
+    } else if (trimmed.includes("/ows")) {
+      capUrl = `${trimmed.split("?")[0]}?service=WMS&version=1.3.0&request=GetCapabilities`;
+    } else {
+      capUrl = `${trimmed}/ows?service=WMS&version=1.3.0&request=GetCapabilities`;
+    }
+
+    const body = await fetchCapabilitiesText(capUrl);
+    if (!body) return [];
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(body, "text/xml");
+
+    // Check for parser error or ServiceException
+    if (xmlDoc.querySelector("parsererror") || body.includes("ServiceException")) {
+      console.warn("WMS GetCapabilities ServiceException:", body.slice(0, 500));
+      return [];
+    }
 
     const rootLayer = xmlDoc.querySelector("Capability > Layer");
     if (!rootLayer) return [];
 
-    const layers = rootLayer.querySelectorAll("Layer");
+    const allLayerEls = Array.from(rootLayer.querySelectorAll("Layer")) as Element[];
 
-    // Kumpulkan layer berdasarkan workspace
+    // Filter to only layers that have a direct <Name> child (leaf/queryable layers), not container folders
+    const layerEls = allLayerEls.filter((el) => {
+      return Array.from(el.children).some((c) => c.tagName === "Name");
+    });
+
+    // Fallback default workspace derived from URL for servers without namespace prefix (like Badan Pangan palapa)
+    const defaultWorkspace = getWorkspaceFromUrl(url);
+
     const grouped: Record<
       string,
       {
@@ -377,10 +443,16 @@ const transformGeoserverServicesToFolder = async (url: string) => {
       }
     > = {};
 
-    layers.forEach((layer) => {
-      const fullName = layer.querySelector("Name")?.textContent || "";
-      if (!fullName.includes(":")) return; // skip layer tanpa workspace
-      const [workspace, layerName] = fullName.split(":");
+    const seen = new Set<string>();
+    layerEls.forEach((layer) => {
+      const fullName = layer.querySelector("Name")?.textContent?.trim() || "";
+      if (!fullName) return;
+      if (seen.has(fullName)) return; // dedup duplicate <Layer> entries (parent + child with same Name like FSVA_2025)
+      seen.add(fullName);
+      // Badan Pangan example: "FSVA_2025" without colon -> group under workspace from URL
+      const hasWorkspace = fullName.includes(":");
+      const workspace = hasWorkspace ? fullName.split(":")[0] : defaultWorkspace;
+      const layerName = hasWorkspace ? fullName.split(":").slice(1).join(":") : fullName;
 
       const title =
         layer.querySelector("Title")?.textContent?.replaceAll("_", " ") ||
@@ -409,9 +481,9 @@ const transformGeoserverServicesToFolder = async (url: string) => {
         };
       }
 
-      // Jika mau bikin group layer type "MapServer" per setiap title utama
+      // Group per layer (avoid duplicate groups for same layer)
       let mapServerGroup = grouped[workspace].children!.find(
-        (c: any) => c.name === title && c.type === "Layer"
+        (c: any) => c.name === fullName && c.type === "WMS"
       );
       if (!mapServerGroup) {
         mapServerGroup = {
@@ -524,14 +596,355 @@ const transformEsriServicesToFolder = async (url: string) => {
   return generateFolder;
 };
 
+const fetchWMTSCapabilitiesText = async (capUrl: string): Promise<string | null> => {
+  try {
+    const res = await fetch(capUrl);
+    if (res.ok) {
+      const text = await res.text();
+      if (text.includes("<Capabilities") && text.includes("WMTS")) return text;
+      if (!text.includes("ServiceException")) return text;
+    }
+  } catch (_) {}
+  try {
+    const proxyUrl = `/api/proxy/wms?url=${encodeURIComponent(capUrl)}`;
+    const res = await fetch(proxyUrl);
+    if (res.ok) return await res.text();
+  } catch (_) {}
+  return null;
+};
+
+const transformWMTSServicesToFolder = async (url: string) => {
+  try {
+    const trimmed = url.trim();
+    // Extract base WMTS URL (strip query) - generic, tidak hardcode BPS
+    let base = trimmed.split("?")[0];
+    if (base.includes("/gwc/service/wmts")) {
+      base = base.split("/gwc/service/wmts")[0] + "/gwc/service/wmts";
+    } else if (base.toLowerCase().includes("wmts")) {
+      // fallback: pakai path sampai wmts (custom URL user)
+      const idx = base.toLowerCase().indexOf("wmts");
+      base = base.substring(0, idx + 4);
+    }
+    // If user pasted full GetTile URL with layer param, keep it but still fetch cap
+    const capUrl = `${base}?REQUEST=GetCapabilities&VERSION=1.0.0&SERVICE=WMTS`;
+    const body = await fetchWMTSCapabilitiesText(capUrl);
+    if (!body) return [];
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(body, "text/xml");
+    if (xmlDoc.querySelector("parsererror") || body.includes("ServiceException")) return [];
+
+    const contents = xmlDoc.querySelector("Contents");
+    if (!contents) return [];
+    const layerEls = Array.from(contents.querySelectorAll(":scope > Layer")) as Element[];
+    if (layerEls.length === 0) {
+      // fallback: query all Layer under Contents
+      const all = Array.from(contents.querySelectorAll("Layer")) as Element[];
+      if (all.length === 0) return [];
+      // use all but filter to only those with ows:Identifier
+      layerEls.push(...all);
+    }
+
+    // If user pasted specific layer in URL, filter to that layer only but show all if exists
+    let filterLayer: string | null = null;
+    try {
+      const u = new URL(trimmed);
+      filterLayer = u.searchParams.get("layer") || u.searchParams.get("LAYER");
+      if (filterLayer) filterLayer = decodeURIComponent(filterLayer);
+    } catch {}
+
+    const grouped: Record<string, { id: string; name: string; type: string; children: any[] }> = {};
+    const defaultFolder = "WMTS";
+
+    layerEls.forEach((el) => {
+      const identifier = el.querySelector("ows\\:Identifier, Identifier")?.textContent?.trim() || "";
+      if (!identifier) return;
+      if (filterLayer && identifier !== filterLayer) return;
+      // Skip if nested Style identifier (second occurrence) -> we already filtered by :scope > Layer, so safe
+      const title = el.querySelector("ows\\:Title, Title")?.textContent?.trim() || identifier;
+      const abstract = el.querySelector("ows\\:Abstract, Abstract")?.textContent?.trim() || "";
+      const formatEl = Array.from(el.querySelectorAll("Format")).find(f => f.textContent?.includes("image/png")) || el.querySelector("Format");
+      const format = formatEl?.textContent?.trim() || "image/png";
+
+      // TileMatrixSet - prefer WebMercatorQuad / EPSG:900913 / GoogleMapsCompatible
+      const tmsLinks = Array.from(el.querySelectorAll("TileMatrixSetLink > TileMatrixSet, TileMatrixSet"));
+      let tms = "EPSG:900913";
+      if (tmsLinks.length > 0) {
+        const vals = tmsLinks.map(e => e.textContent?.trim() || "");
+        const preferred = vals.find(v => v === "EPSG:900913" || v === "WebMercatorQuad" || v === "GoogleMapsCompatible");
+        tms = preferred || vals[0];
+      }
+
+      // Selalu generate KVP proxied template agar lewat /api/proxy/wms (hindari CORS) dan konsisten {z}/{x}/{y}
+      // Contoh user: https://geoserver.bps.go.id/gwc/service/wmts?layer=ksa%3Albs_2024&...&TileMatrix=13... -> jadi template proxy
+      const proxiedTileTemplate = `/api/proxy/wms?baseUrl=${encodeURIComponent(base)}&service=WMTS&request=GetTile&version=1.0.0&layer=${encodeURIComponent(identifier)}&style=&tilematrixset=${encodeURIComponent(tms)}&TileMatrix={z}&TileCol={x}&TileRow={y}&format=${encodeURIComponent(format)}`;
+      const tileTemplate = proxiedTileTemplate;
+
+      // WGS84BoundingBox for thumbnail/bbox
+      const lower = el.querySelector("ows\\:WGS84BoundingBox > ows\\:LowerCorner, WGS84BoundingBox > LowerCorner")?.textContent?.trim() || "";
+      const upper = el.querySelector("ows\\:WGS84BoundingBox > ows\\:UpperCorner, WGS84BoundingBox > UpperCorner")?.textContent?.trim() || "";
+      let bbox = "";
+      if (lower && upper) {
+        const [west, south] = lower.split(/\s+/);
+        const [east, north] = upper.split(/\s+/);
+        bbox = `${west},${south},${east},${north}`;
+      }
+
+      const workspace = identifier.includes(":") ? identifier.split(":")[0] : defaultFolder;
+      if (!grouped[workspace]) {
+        grouped[workspace] = { id: workspace, name: workspace, type: "folder", children: [] };
+      }
+
+      const thumbBbox = bbox || "-180,-90,180,90";
+      const thumbnail = `/api/proxy/wms?baseUrl=${encodeURIComponent(base)}&service=WMTS&request=GetTile&version=1.0.0&layer=${encodeURIComponent(identifier)}&style=&tilematrixset=${encodeURIComponent(tms)}&TileMatrix=5&TileCol=24&TileRow=15&format=image/png`;
+
+      let group = grouped[workspace].children!.find((c: any) => c.name === identifier && c.type === "WMTS");
+      if (!group) {
+        group = {
+          id: `${identifier}_wmts_group`,
+          name: identifier,
+          title: title.replaceAll("_", " "),
+          type: "WMTS",
+          map_service_vendor: MapServiceVendor.WMTS,
+          children: [],
+          metadata: {
+            url: tileTemplate,
+            baseUrl: base,
+            tileMatrixSet: tms,
+            format,
+            type: "WMTS",
+            abstract,
+            bbox,
+          },
+        };
+        grouped[workspace].children!.push(group);
+      }
+
+      group.children!.push({
+        id: identifier,
+        name: identifier,
+        title: title.replaceAll("_", " "),
+        type: "layer",
+        children: null,
+        metadata: {
+          name: identifier,
+          tileTemplate,
+          tileMatrixSet: tms,
+          format,
+          bbox,
+          thumbnail,
+          url: tileTemplate,
+          baseUrl: base,
+        },
+      });
+    });
+
+    // If no layer matched filter, return all
+    const result = Object.values(grouped);
+    if (result.length === 0 && filterLayer) {
+      // fallback: show single layer from pasted URL without capabilities parse
+      const layerName = filterLayer;
+      const tms = "WebMercatorQuad";
+      const tileTemplate = `/api/proxy/wms?baseUrl=${encodeURIComponent(base)}&service=WMTS&request=GetTile&version=1.0.0&layer=${encodeURIComponent(layerName)}&style=&tilematrixset=${tms}&TileMatrix={z}&TileCol={x}&TileRow={y}&format=image/png`;
+      return [{
+        id: "WMTS",
+        name: "WMTS",
+        type: "folder",
+        children: [{
+          id: `${layerName}_wmts_group`,
+          name: layerName,
+          title: layerName.split(":").pop() || layerName,
+          type: "WMTS",
+          map_service_vendor: MapServiceVendor.WMTS,
+          children: [{
+            id: layerName,
+            name: layerName,
+            title: layerName.split(":").pop() || layerName,
+            type: "layer",
+            children: null,
+            metadata: { name: layerName, tileTemplate, tileMatrixSet: tms, url: tileTemplate, baseUrl: base }
+          }],
+          metadata: { url: tileTemplate, baseUrl: base, tileMatrixSet: tms, type: "WMTS" }
+        }]
+      } as any];
+    }
+
+    return result;
+  } catch (err: unknown) {
+    console.error("WMTS transform error:", err instanceof Error ? err.message : err);
+    return [];
+  }
+};
+
+const transformVectorTileServerToFolder = async (url: string) => {
+  try {
+    const trimmed = url.trim().replace(/\/$/, "");
+    let serviceUrl = trimmed;
+    // If user pasted style json url, extract service url
+    if (trimmed.includes("/resources/styles")) {
+      serviceUrl = trimmed.split("/resources/styles")[0];
+    }
+    // Ensure url ends with VectorTileServer
+    if (!serviceUrl.toLowerCase().includes("vectortileserver")) {
+      // Try to fetch as is - maybe folder root, fallback to Esri folder logic
+      return [];
+    }
+    const capUrl = `${serviceUrl}?f=json`;
+    let body: string | null = null;
+    try {
+      const res = await fetch(capUrl);
+      if (res.ok) body = await res.text();
+    } catch {}
+    if (!body) {
+      try {
+        const proxyUrl = `/api/proxy/wms?url=${encodeURIComponent(capUrl)}`;
+        const res = await fetch(proxyUrl);
+        if (res.ok) body = await res.text();
+      } catch {}
+    }
+    if (!body) return [];
+    const json = JSON.parse(body);
+    if (json.error) return [];
+    const name = json.name || serviceUrl.split("/").slice(-2, -1)[0] || "VectorTileServer";
+    const title = json.name || name;
+    // Build proxied tile template - keep {z}/{y}/{x} raw for Mapbox, encode rest for proxy
+    const rawTile = `${serviceUrl}/tile/{z}/{y}/{x}.pbf`;
+    const proxiedTile = `/api/proxy/wms?url=${encodeURIComponent(rawTile).replace(/%7B/g, "{").replace(/%7D/g, "}")}`;
+    const tileUrl = proxiedTile;
+
+    const workspace = name.includes(":") ? name.split(":")[0] : "VectorTile";
+    const grouped: any[] = [{
+      id: workspace,
+      name: workspace,
+      type: "folder",
+      children: [{
+        id: `${serviceUrl}_vt_group`,
+        name: serviceUrl,
+        title: title,
+        type: "VectorTileServer",
+        map_service_vendor: MapServiceVendor.VectorTileServer,
+        children: [{
+          id: serviceUrl,
+          name: serviceUrl.split("/").pop() || title,
+          title: title,
+          type: "layer",
+          children: null,
+          metadata: {
+            name: title,
+            url: tileUrl,
+            serviceUrl: serviceUrl,
+            tileUrl: tileUrl,
+            proxiedTileUrl: tileUrl,
+            styleUrl: `${serviceUrl}/resources/styles/root.json`,
+            json,
+            bbox: json.fullExtent ? `${json.fullExtent.xmin},${json.fullExtent.ymin},${json.fullExtent.xmax},${json.fullExtent.ymax}` : "",
+          }
+        }],
+        metadata: {
+          url: serviceUrl,
+          type: "VectorTileServer",
+          json,
+        }
+      }]
+    }];
+    return grouped;
+  } catch (err) {
+    console.error("VectorTile transform error:", err);
+    return [];
+  }
+};
+
+const transformPMTilesToFolder = async (url: string) => {
+  try {
+    const trimmed = url.trim();
+    // PMTiles URL harus .pmtiles
+    if (!trimmed.toLowerCase().endsWith(".pmtiles")) return [];
+    // Coba fetch header PMTiles untuk dapat metadata vector_layers (opsional, fallback tanpa fetch)
+    let fileName = trimmed.split("/").pop() || "pmtiles";
+    try { fileName = decodeURIComponent(fileName); } catch {}
+    const baseName = fileName.replace(/\.pmtiles$/i, "");
+    let vectorLayers: any[] = [];
+    try {
+      if (typeof window !== "undefined") {
+        const { PMTiles } = await import("pmtiles");
+        // Coba direct dulu, jika CORS gagal fallback ke proxy
+        let p: any = null;
+        try {
+          p = new PMTiles(trimmed);
+          await p.getHeader();
+        } catch {
+          const proxied = `${window.location.origin}/api/proxy/wms?url=${encodeURIComponent(trimmed)}`;
+          p = new PMTiles(proxied);
+        }
+        if (p) {
+          const meta = await p.getMetadata();
+          vectorLayers = (meta as any)?.vector_layers || [];
+        }
+      }
+    } catch {}
+    // Jika tidak dapat vector_layers, buat 1 layer generic
+    const layers = vectorLayers.length > 0 ? vectorLayers : [{ id: baseName, description: fileName }];
+    const pmTilesUrl = trimmed;
+    const folder = {
+      id: "PMTiles",
+      name: "PMTiles",
+      type: "folder",
+      children: [{
+        id: `${pmTilesUrl}_pmtiles_group`,
+        name: fileName,
+        title: baseName.replaceAll("_", " ").replaceAll("-", " "),
+        type: "PMTiles",
+        map_service_vendor: MapServiceVendor.PMTiles,
+        children: layers.map((vl: any) => ({
+          id: `${pmTilesUrl}::${vl.id}`,
+          name: vl.id,
+          title: vl.id,
+          type: "layer",
+          children: null,
+          metadata: {
+            name: vl.id,
+            url: pmTilesUrl,
+            pmtilesUrl: pmTilesUrl,
+            vectorLayerId: vl.id,
+            description: vl.description || "",
+          }
+        })),
+        metadata: {
+          url: pmTilesUrl,
+          pmtilesUrl: pmTilesUrl,
+          type: "PMTiles",
+          vectorLayers: layers,
+        }
+      }]
+    };
+    return [folder];
+  } catch (err) {
+    console.error("PMTiles transform error:", err);
+    return [];
+  }
+};
+
 const getWMSServices = async (url: string, map_service_vendor: string) => {
+  // Auto-detect VectorTileServer even if vendor is ArcGIS
+  const lower = url.toLowerCase();
+  if (lower.includes("vectortileserver") || map_service_vendor == MapServiceVendor.VectorTileServer) {
+    const vt = await transformVectorTileServerToFolder(url);
+    if (vt.length > 0) return vt;
+    // fallback to esri logic
+  }
+  if (lower.endsWith(".pmtiles") || map_service_vendor == MapServiceVendor.PMTiles) {
+    return transformPMTilesToFolder(url);
+  }
   if (map_service_vendor == MapServiceVendor.Geoserver) {
     return transformGeoserverServicesToFolder(url);
-    // return getGeoserverServices(url);
+  } else if (map_service_vendor == MapServiceVendor.WMTS) {
+    return transformWMTSServicesToFolder(url);
+  } else if (map_service_vendor == MapServiceVendor.VectorTileServer) {
+    return transformVectorTileServerToFolder(url);
+  } else if (map_service_vendor == MapServiceVendor.PMTiles) {
+    return transformPMTilesToFolder(url);
   } else {
     const transform = await transformEsriServicesToFolder(url);
     return transform;
-    // return getEsriServices(url);
   }
 };
 

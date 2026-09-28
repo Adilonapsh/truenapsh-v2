@@ -40,8 +40,15 @@ const searchPlaces = async (search: string, lang: string = "EN-en", useBaseUrl: 
                 });
                 const baseUrl = useBaseUrl ? "https://trueapi.truenapsh.my.id/api/maps/location" : "/api/maps/location";
                 const response = await fetch(`${baseUrl}?${params.toString()}`);
+                if (!response.ok) return [];
                 const data = await response.json();
-                return data.data;
+                const result = (data as any)?.data ?? (data as any)?.places ?? data;
+                if (Array.isArray(result)) return result;
+                if (result && typeof result === "object") {
+                    if (Array.isArray((result as any).data)) return (result as any).data;
+                    if (Array.isArray((result as any).places)) return (result as any).places;
+                }
+                return [];
             } else {
                 return [];
             }

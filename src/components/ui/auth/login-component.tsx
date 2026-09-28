@@ -10,10 +10,11 @@ import { useState } from 'react'
 import { useForm } from "react-hook-form"
 import { AiOutlineLoading3Quarters } from 'react-icons/ai'
 import { FaGithub } from "react-icons/fa6"
+import toast from 'react-hot-toast'
 import { z } from 'zod'
 import { Alert, AlertDescription, AlertTitle } from "../alert"
-import { Form, FormControl, FormField, FormItem, FormMessage } from "../form"
 import { Checkbox } from "../checkbox"
+import { Form, FormControl, FormField, FormItem, FormMessage } from "../form"
 
 
 const loginSchema = z.object({
@@ -53,16 +54,20 @@ export default function LoginComponent() {
             });
 
             if (result?.ok) {
-                console.log("Login successful!");
-                setIsLoading(true);
+                toast.success("Login berhasil!", {
+                    duration: 3000,
+                });
                 router.push("/admin/dashboard");
+                return;
             } else {
+                toast.error("Login gagal. Periksa kembali email/username dan password Anda.");
                 form.setError("identifier", {
                     type: "manual",
                     message: "Invalid credentials"
                 });
             }
         } catch (error: unknown) {
+            toast.error("Terjadi kesalahan saat login. Silakan coba lagi.");
             if (error instanceof Error) {
                 switch ((error as any).type) {
                     case "CredentialsSignin":
@@ -72,8 +77,9 @@ export default function LoginComponent() {
                 }
             }
             throw error;
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     }
 
     const handleGithubLogin = () => {

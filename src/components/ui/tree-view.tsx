@@ -126,6 +126,30 @@ function TreeNode({
                                     {node.type}
                                 </span>
                             </>
+                        ) : node.type === "VectorTileServer" ? (
+                            <>
+                                <FaVectorSquare className="w-4 h-4 mr-2 text-purple-500" />
+                                <span className="capitalize text-purple-500">{node.title}</span>
+                                <span className="ml-2 text-xs border border-purple-500 text-purple-500 px-2 py-0.5 rounded-full">
+                                    {node.type}
+                                </span>
+                            </>
+                        ) : node.type === "WMTS" ? (
+                            <>
+                                <LucideWaypoints className="w-4 h-4 mr-2 text-teal-500" />
+                                <span className="capitalize text-teal-500">{node.title}</span>
+                                <span className="ml-2 text-xs border border-teal-500 text-teal-500 px-2 py-0.5 rounded-full">
+                                    {node.type}
+                                </span>
+                            </>
+                        ) : node.type === "PMTiles" ? (
+                            <>
+                                <FaVectorSquare className="w-4 h-4 mr-2 text-emerald-500" />
+                                <span className="capitalize text-emerald-500">{node.title}</span>
+                                <span className="ml-2 text-xs border border-emerald-500 text-emerald-500 px-2 py-0.5 rounded-full">
+                                    {node.type}
+                                </span>
+                            </>
                         ) : (
                             <>
                                 <File className="w-4 h-4 mr-2 text-gray-500" />
@@ -242,55 +266,55 @@ export default function TreeDirectory({
     };
 
     return (
-        <div className="sw-full h-full">
-            <div className="h-full pr-4 overflow-auto">
-                <ResizablePanelGroup direction="horizontal" className="h-full">
-                    <ResizablePanel>
-                        <div className="h-full p-5">
-                            <h2 className="text-lg font-semibold mb-4">
-                                {activeDatasets?.name} Directory Structure
-                            </h2>
-                            <div className="mb-4">
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        placeholder="Search files and folders..."
-                                        className="w-full px-3 py-2 pl-10 border rounded-md border-input bg-background"
-                                        onChange={(e) => {
-                                            setSearchTerm(e.target.value);
-                                        }}
-                                    />
-                                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                </div>
-                            </div>
-                            <div className="h-[calc(100%-120px)] overflow-auto">
-                                {filteredData.map((node, index) => (
-                                    <TreeNode
-                                        key={index}
-                                        node={node}
-                                        level={0}
-                                        path={node.name}
-                                        onSelect={handleSelect}
-                                        selectedPath={selectedPath}
-                                        selectedDatasets={selectedDatasets}
-                                    />
-                                ))}
+        <div className="w-full h-full flex flex-col overflow-hidden">
+            <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
+                <ResizablePanel className="flex flex-col overflow-hidden">
+                    <div className="h-full p-5 flex flex-col overflow-hidden">
+                        <h2 className="text-lg font-semibold mb-4 shrink-0">
+                            {activeDatasets?.name} Directory Structure
+                        </h2>
+                        <div className="mb-4 shrink-0">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Search files and folders..."
+                                    className="w-full px-3 py-2 pl-10 border rounded-md border-input bg-background"
+                                    onChange={(e) => {
+                                        setSearchTerm(e.target.value);
+                                    }}
+                                />
+                                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                             </div>
                         </div>
-                    </ResizablePanel>
-                    <ResizableHandle />
-                    <ResizablePanel>
-                        <div className="h-full p-5">
-                            <h2 className="text-lg font-semibold mb-4">
-                                File/Folder Details
-                            </h2>
+                        <div className="flex-1 overflow-auto min-h-0">
+                            {filteredData.map((node, index) => (
+                                <TreeNode
+                                    key={index}
+                                    node={node}
+                                    level={0}
+                                    path={node.name}
+                                    onSelect={handleSelect}
+                                    selectedPath={selectedPath}
+                                    selectedDatasets={selectedDatasets}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </ResizablePanel>
+                <ResizableHandle />
+                <ResizablePanel className="flex flex-col overflow-hidden">
+                    <div className="h-full p-5 flex flex-col overflow-hidden">
+                        <h2 className="text-lg font-semibold mb-4 shrink-0">
+                            File/Folder Details
+                        </h2>
+                        <div className="flex-1 overflow-auto min-h-0">
                             {selectedNode && (
                                 <FileGrid node={selectedNode} path={selectedPath || ""} />
                             )}
                         </div>
-                    </ResizablePanel>
-                </ResizablePanelGroup>
-            </div>
+                    </div>
+                </ResizablePanel>
+            </ResizablePanelGroup>
         </div>
     );
 }

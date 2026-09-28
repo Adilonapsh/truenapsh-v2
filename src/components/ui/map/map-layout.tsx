@@ -56,6 +56,7 @@ import mapboxgl, {
     MapMouseEvent,
     MapTouchEvent,
 } from "mapbox-gl";
+import { Protocol as PMTilesProtocol } from "pmtiles";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BiCollapse, BiLogOutCircle, BiTrash } from "react-icons/bi";
 import { FiFilter } from "react-icons/fi";
@@ -88,6 +89,15 @@ import { registerLoaders } from "@loaders.gl/core";
 
 // Register loaders globally
 registerLoaders([GLTFLoader, DracoLoader, Tiles3DLoader, CesiumIonLoader]);
+
+// Register PMTiles protocol globally (harus sebelum Mapbox Map dibuat)
+if (typeof window !== "undefined" && !(mapboxgl as any)._pmtilesRegistered) {
+    try {
+        const pmProtocol = new PMTilesProtocol();
+        (mapboxgl as any).addProtocol("pmtiles", pmProtocol.tile.bind(pmProtocol));
+        (mapboxgl as any)._pmtilesRegistered = true;
+    } catch {}
+}
 
 import {
     Card,
@@ -122,7 +132,7 @@ import { handleDrop } from "@/tools/map-utility";
 import { Bookmark, BookmarkResponse } from "@/types/bookmark.types";
 import { Datasets } from "@/types/datasets.types";
 import {
-    closestCorners,
+    closestCenter,
     DndContext,
     DragEndEvent,
     PointerSensor,
@@ -815,44 +825,39 @@ export default function MapLayout({
 
 
     const customCollisionDetection = useCallback((args: any) => {
-        // Simple collision detection
-        return closestCorners(args);
+        return closestCenter(args);
     }, []);
 
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over, delta } = event;
-        // Fetch fresh state to avoid closure staleness
+        if (!over) {
+            setNestingFolderId(null);
+            return;
+        }
+        if (active.id === over.id) {
+            setNestingFolderId(null);
+            return;
+        }
+
         const state = useLayerStore.getState();
-        const { layerOrder, layers, folders } = state;
-        // Rebuild flattenedNodes based on fresh state? 
-        // Technically flattenedNodes is memoized. 
-        // If we use fresh layerOrder, we should be safe.
-        // But flattenedNodes lookup logic uses 'flattenedNodes' from closure.
-        // If flattenedNodes is stale, 'activeNode' might be stale.
-        // Let's assume flattenedNodes is reasonably fresh or node structures don't change often during drag.
-        // BUT 'layerOrder' is critical for the logic below.
-
-
-
-        if (!over) return;
-        if (active.id === over.id) return;
+        const { layerOrder } = state;
 
         const activeId = active.id.toString();
         let overId = over.id.toString();
+        if (overId.startsWith('nest-')) overId = overId.replace('nest-', '');
 
-        let wasNestTarget = false;
-        // Handle Nest Target
-        if (overId.startsWith('nest-')) {
-            overId = overId.replace('nest-', '');
-            wasNestTarget = true;
+        // Rebuild tree from FRESH state to avoid stale flattenedNodes closure
+        const freshRootNodes = buildLayerTree(state.layers, state.folders, state.layerOrder);
+        const freshFlattened = flattenLayerTree(freshRootNodes, openItems);
+
+        const activeNode = freshFlattened.find(n => n.id === activeId);
+        const overNode = freshFlattened.find(n => n.id === overId);
+
+        if (!activeNode) {
+            setNestingFolderId(null);
+            return;
         }
 
-        const activeNode = flattenedNodes.find(n => n.id === activeId);
-        const overNode = flattenedNodes.find(n => n.id === overId);
-
-        if (!activeNode) return;
-
-        // Helper to get parent ID of a node (returns '' for root)
         const getParentId = (node: LayerTreeNode) => {
             if (node.type === 'folder') {
                 const path = node.id.replace('folder-', '');
@@ -865,126 +870,131 @@ export default function MapLayout({
             }
         };
 
+        const getOrderedIds = (parentId: string): string[] => {
+            const stored = layerOrder[parentId];
+            if (stored && stored.length > 0) return [...stored];
+            // Fallback: derive from visual order (crucial for first drag when layerOrder empty)
+            return freshFlattened.filter(n => getParentId(n) === parentId).map(n => n.id);
+        };
+
         const activeParentId = getParentId(activeNode);
 
         // 1. Handle Drop to Root Zone
         if (overId === 'root-drop-zone') {
             if (activeNode.type === 'folder') {
+                // already at root if folder path has no slash
                 const activePath = activeId.replace('folder-', '');
-                const pathParts = activePath.split('/');
-                const oldName = pathParts[pathParts.length - 1];
-                renameFolder(activePath, oldName);
+                if (activePath.includes('/')) {
+                    const name = activePath.split('/').pop()!;
+                    const newPath = name;
+                    renameFolder(activePath, newPath);
+                    emitFolderRename(activePath, newPath);
+                }
             } else {
                 updateLayerFolder(activeId, undefined);
+                emitLayerFolderUpdate(activeId, undefined);
             }
-            // Use helper to cleanup old order
-            const oldOrder = layerOrder[activeParentId] || [];
-            const newOldOrder = oldOrder.filter(id => id !== activeId);
-            setLayerOrder(activeParentId, newOldOrder);
+            // Cleanup old parent order using visual fallback
+            const oldOrder = getOrderedIds(activeParentId);
+            setLayerOrder(activeParentId, oldOrder.filter(id => id !== activeId));
+            emitLayerReorder(activeParentId, oldOrder.filter(id => id !== activeId));
+            // Ensure target root order includes the moved item at end if not already
+            const rootOrder = getOrderedIds('root');
+            if (!rootOrder.includes(activeId)) {
+                const newRoot = [...rootOrder.filter(id => id !== activeId), activeId];
+                setLayerOrder('root', newRoot);
+                emitLayerReorder('root', newRoot);
+            }
+            setNestingFolderId(null);
             return;
         }
 
-        if (!overNode) return;
+        if (!overNode) {
+            setNestingFolderId(null);
+            return;
+        }
 
-        const isIndent = delta.x > 10; // Lowered threshold for easier nesting
         const isOutdent = delta.x < -10;
 
-        // 2. Determine Target Parent and Insertion Logic
+        // 2. Determine Target Parent
         let targetParentId = '';
         let structuralMove = false;
 
-        // Case A: SIMPLE - Drop on Folder -> Always Nest
         if (overNode.type === 'folder') {
             targetParentId = overNode.id.replace('folder-', '');
             structuralMove = true;
-
-            // Auto-expand folder to show nested item
-            setOpenItems((prev) => {
-                if (prev.includes(overNode.id)) return prev;
-                return [...prev, overNode.id];
-            });
-        }
-        // Case B: Outdent -> Move to Grandparent
-        else if (isOutdent) {
-            if (activeParentId === 'root') return;
+            setOpenItems((prev) => prev.includes(overNode.id) ? prev : [...prev, overNode.id]);
+        } else if (isOutdent) {
+            if (activeParentId === 'root') {
+                setNestingFolderId(null);
+                return;
+            }
             const parts = activeParentId.split('/');
             parts.pop();
             targetParentId = parts.length === 0 ? 'root' : parts.join('/');
             structuralMove = true;
-        }
-        // Case C: Standard Drop (Reorder or Cross-Folder Drop)
-        else {
-            targetParentId = getParentId(overNode);
-            if (activeParentId !== targetParentId) {
-                structuralMove = true;
-            }
-        }
-
-        // 3. Calculate New Order for Target Parent
-        let newOrderIds = [...(layerOrder[targetParentId] || [])];
-
-        // Remove activeId if it's already there (e.g. reordering same list)
-        newOrderIds = newOrderIds.filter(id => id !== activeId);
-
-        if (structuralMove) {
-            // Cleanup Old Parent Order
-            const oldOrder = layerOrder[activeParentId] || [];
-            const newOldOrder = oldOrder.filter(id => id !== activeId);
-            setLayerOrder(activeParentId, newOldOrder);
-
-            // Find insertion index relative to overNode
-            const overIndex = newOrderIds.indexOf(overId);
-
-            if (overIndex !== -1) {
-                if (targetParentId === overId.replace('folder-', '')) {
-                    // Dropped ON the folder header (indenting). Append.
-                    newOrderIds.push(activeId);
-                } else {
-                    // Sibling insertion
-                    newOrderIds.splice(overIndex, 0, activeId);
-                }
-            } else {
-                newOrderIds.push(activeId);
-            }
         } else {
-            // Reordering within same list
-            const overIndex = newOrderIds.indexOf(overId);
-            if (overIndex !== -1) {
-                const currentOrder = layerOrder[targetParentId] || [];
-                const oldIndex = currentOrder.indexOf(activeId);
-                const newIndex = currentOrder.indexOf(overId);
-                if (oldIndex !== -1 && newIndex !== -1) {
-                    newOrderIds = arrayMove(currentOrder, oldIndex, newIndex);
-                } else {
-                    newOrderIds.splice(overIndex, 0, activeId);
-                }
-            } else {
-                newOrderIds.push(activeId);
-            }
+            targetParentId = getParentId(overNode);
+            if (activeParentId !== targetParentId) structuralMove = true;
         }
 
-        // 4. Apply Updates
-        setLayerOrder(targetParentId, newOrderIds);
-        emitLayerReorder(targetParentId, newOrderIds);
+        // 3. Calculate New Order for Target Parent using visual-order fallback
+        const baseTargetOrder = getOrderedIds(targetParentId).filter(id => id !== activeId);
+
+        // For same-parent reorder, use arrayMove based on visual indices
+        if (!structuralMove) {
+            const visualIds = getOrderedIds(targetParentId);
+            const oldIndex = visualIds.indexOf(activeId);
+            const newIndex = visualIds.indexOf(overId);
+            let newOrder: string[];
+            if (oldIndex !== -1 && newIndex !== -1) {
+                newOrder = arrayMove(visualIds, oldIndex, newIndex);
+            } else {
+                const overIndex = baseTargetOrder.indexOf(overId);
+                newOrder = [...baseTargetOrder];
+                if (overIndex !== -1) newOrder.splice(overIndex, 0, activeId);
+                else newOrder.push(activeId);
+            }
+            setLayerOrder(targetParentId, newOrder);
+            emitLayerReorder(targetParentId, newOrder);
+            setNestingFolderId(null);
+            return;
+        }
+
+        // Structural move: cleanup old parent
+        const oldOrder = getOrderedIds(activeParentId).filter(id => id !== activeId);
+        setLayerOrder(activeParentId, oldOrder);
+        emitLayerReorder(activeParentId, oldOrder);
+
+        // Insert into target parent relative to overNode
+        let newTargetOrder = [...baseTargetOrder];
+        // If dropped directly ON folder header, append
+        if (overNode.type === 'folder' && targetParentId === overNode.id.replace('folder-', '')) {
+            newTargetOrder.push(activeId);
+        } else {
+            const overIndex = newTargetOrder.indexOf(overId);
+            if (overIndex !== -1) newTargetOrder.splice(overIndex, 0, activeId);
+            else newTargetOrder.push(activeId);
+        }
+        setLayerOrder(targetParentId, newTargetOrder);
+        emitLayerReorder(targetParentId, newTargetOrder);
 
         if (structuralMove) {
             const targetFolder = targetParentId === 'root' ? undefined : targetParentId;
-
             if (activeNode.type === 'layer') {
                 updateLayerFolder(activeId, targetFolder);
                 emitLayerFolderUpdate(activeId, targetFolder);
             } else {
                 const activePath = activeId.replace('folder-', '');
-                const pathParts = activePath.split('/');
-                const name = pathParts[pathParts.length - 1];
+                const name = activePath.split('/').pop()!;
                 const newPath = targetFolder ? `${targetFolder}/${name}` : name;
-
                 if (activePath !== newPath) {
                     renameFolder(activePath, newPath);
                     emitFolderRename(activePath, newPath);
                 }
             }
         }
+        setNestingFolderId(null);
     };
     // Sync layer visibility with map
     useEffect(() => {
@@ -1006,10 +1016,11 @@ export default function MapLayout({
         });
     }, [layers]);
 
-    // Sync layer order with map
+    // Sync layer order with map - hanya move yang berubah urutan (hemat)
+    const prevOrderRef = useRef<string>("");
     useEffect(() => {
         const map = mapRef.current?.getMap();
-        if (!map) return;
+        if (!map || !map.isStyleLoaded()) return;
 
         const getAllLayers = (nodes: LayerTreeNode[]): LayerTreeNode[] => {
             let result: LayerTreeNode[] = [];
@@ -1024,16 +1035,17 @@ export default function MapLayout({
         };
 
         const orderedLayers = getAllLayers(rootNodes);
+        const orderKey = orderedLayers.map(l => l.id).join(",");
+        if (orderKey === prevOrderRef.current) return;
+        prevOrderRef.current = orderKey;
 
         // Iterate in reverse (bottom of list -> top of list)
-        // moving each to top of map stack
         for (let i = orderedLayers.length - 1; i >= 0; i--) {
             const layer = orderedLayers[i];
             if (map.getLayer(layer.id)) {
-                map.moveLayer(layer.id);
-                // Also move companion symbol layer if exists (keep it above the main layer)
+                try { map.moveLayer(layer.id); } catch {}
                 if (map.getLayer(`${layer.id}-symbol`)) {
-                    map.moveLayer(`${layer.id}-symbol`);
+                    try { map.moveLayer(`${layer.id}-symbol`); } catch {}
                 }
             }
         }
@@ -1077,13 +1089,11 @@ export default function MapLayout({
     const onMouseMove = useCallback(
         (e: MapMouseEvent) => {
             if (isMapMoving) return;
-
             if (throttleRef.current) return;
-
             throttleRef.current = setTimeout(() => {
                 setMousePosition(e.lngLat);
                 throttleRef.current = null;
-            }, 10);
+            }, 32); // 30fps cukup, was 10ms/100fps bikin re-render terus
         },
         [isMapMoving]
     );
@@ -1120,7 +1130,7 @@ export default function MapLayout({
     const socketRef = useRef<any>(null);
     const cursorsRef = useRef<Record<string, mapboxgl.Marker>>({});
 
-    const labelTimeouts: { [id: string]: NodeJS.Timeout } = {};
+    const labelTimeoutsRef = useRef<Record<string, NodeJS.Timeout>>({});
     const projectIdParams: string | undefined = params.id?.toString();
 
     const initWebsocket = () => {
@@ -1175,10 +1185,10 @@ export default function MapLayout({
                     const label = el.querySelector(".cursor-label") as HTMLElement;
                     if (label) {
                         label.classList.remove("hidden");
-                        clearTimeout(labelTimeouts[id]);
+                        clearTimeout(labelTimeoutsRef.current[id]);
 
                         // Tampilkan lagi setelah 1 detik diam
-                        labelTimeouts[id] = setTimeout(() => {
+                        labelTimeoutsRef.current[id] = setTimeout(() => {
                             label.classList.remove("hidden");
                         }, 1000);
                     }
@@ -1349,6 +1359,30 @@ export default function MapLayout({
         prevLayersRef.current = layers;
     }, [layers]);
 
+    // Global cleanup saat unmount - cegah memory leak
+    useEffect(() => {
+        return () => {
+            if (throttleRef.current) clearTimeout(throttleRef.current);
+            if (moveTimeoutRef.current) clearTimeout(moveTimeoutRef.current);
+            Object.values(labelTimeoutsRef.current).forEach(clearTimeout);
+            Object.values(cursorsRef.current).forEach(m => { try { m.remove(); } catch {} });
+            cursorsRef.current = {};
+            if (socketRef.current) {
+                try { socketRef.current.removeAllListeners(); } catch {}
+                try { socketRef.current.disconnect(); } catch {}
+                socketRef.current = null;
+            }
+            const map = mapRef.current?.getMap();
+            if (map && drawRef.current) {
+                try { map.removeControl(drawRef.current as any); } catch {}
+            }
+            if (elevationHoverMarkerRef.current) {
+                try { elevationHoverMarkerRef.current.remove(); } catch {}
+                elevationHoverMarkerRef.current = null;
+            }
+        };
+    }, []);
+
     // INISIALISASI
     useEffect(() => {
         setLayers(layersFetch);
@@ -1364,7 +1398,7 @@ export default function MapLayout({
                 window.removeEventListener("beforeunload", handleUnload);
             };
         }
-    }, [mapRef]);
+    }, []);
 
     //   END WIP WEBSOCKET
 
@@ -1657,6 +1691,10 @@ export default function MapLayout({
                                 tiles: [bm?.url],
                                 tileSize: 256,
                             },
+                            paint: {
+                                "raster-resampling": "linear",
+                                "raster-fade-duration": 0,
+                            },
                             minzoom: 0,
                             maxzoom: 24,
                         },
@@ -1936,20 +1974,173 @@ export default function MapLayout({
         window.location.assign("/admin/dashboard");
     };
 
+    // Register PMTiles protocol once (client only)
+    if (typeof window !== "undefined" && !(mapboxgl as any)._pmtilesRegistered) {
+        try {
+            const pmProtocol = new PMTilesProtocol();
+            (mapboxgl as any).addProtocol("pmtiles", pmProtocol.tile as any);
+            (mapboxgl as any)._pmtilesRegistered = true;
+        } catch {}
+    }
+
     const initLayers = () => {
         const map = mapRef.current?.getMap();
         if (map) {
             layers.forEach((layer, index) => {
+                // PMTiles - handle via pmtiles:// protocol (direct, ruangkita.net sudah CORS *)
+                if (layer.map_service_vendor === MapServiceVendor.PMTiles) {
+                    (async () => {
+                        if (map.getSource(layer.id)) return;
+                        const rawPmtilesUrl = layer.map_service_url as string;
+                        let sourceLayer = layer.map_service_layer_name as string;
+                        // Coba baca metadata PMTiles untuk dapat source-layer yang benar (jika fallback generic salah)
+                        try {
+                            const { PMTiles } = await import("pmtiles");
+                            const pm = new PMTiles(rawPmtilesUrl);
+                            const meta = await pm.getMetadata();
+                            const vl = (meta as any)?.vector_layers?.[0];
+                            if (vl?.id) {
+                                // Jika sourceLayer generic (baseName) tidak ada di file, pakai id dari file
+                                const exists = (meta as any).vector_layers?.some((v: any) => v.id === sourceLayer);
+                                if (!exists) sourceLayer = vl.id;
+                            }
+                        } catch {}
+                        const pmtilesSourceUrl = rawPmtilesUrl.startsWith("pmtiles://") ? rawPmtilesUrl : `pmtiles://${rawPmtilesUrl}`;
+                        try {
+                            map.addSource(layer.id, {
+                                type: "vector",
+                                url: pmtilesSourceUrl,
+                            } as any);
+                        } catch (e) { console.error("PMTiles source add failed", e); return; }
+                        const addPMTilesLayer = () => {
+                            if (map.getLayer(layer.id)) return;
+                            try {
+                                map.addLayer({
+                                    id: layer.id,
+                                    type: "fill",
+                                    source: layer.id,
+                                    "source-layer": sourceLayer,
+                                    paint: {
+                                        "fill-color": "#22c55e",
+                                        "fill-opacity": 0.35,
+                                        "fill-outline-color": "#15803d",
+                                    },
+                                    layout: { visibility: layer.visible ? "visible" : "none" },
+                                    metadata: layer.metadata ?? {},
+                                } as any);
+                                const outlineId = `${layer.id}-outline`;
+                                if (!map.getLayer(outlineId)) {
+                                    map.addLayer({
+                                        id: outlineId,
+                                        type: "line",
+                                        source: layer.id,
+                                        "source-layer": sourceLayer,
+                                        paint: { "line-color": "#15803d", "line-width": 1.5 },
+                                        layout: { visibility: layer.visible ? "visible" : "none" },
+                                    } as any);
+                                }
+                            } catch (err) {
+                                console.warn("PMTiles addLayer failed, coba circle fallback", err);
+                                try {
+                                    map.addLayer({
+                                        id: layer.id,
+                                        type: "circle",
+                                        source: layer.id,
+                                        "source-layer": sourceLayer,
+                                        paint: { "circle-color": "#22c55e", "circle-radius": 4, "circle-stroke-color": "#15803d", "circle-stroke-width": 1 },
+                                        layout: { visibility: layer.visible ? "visible" : "none" },
+                                    } as any);
+                                } catch {}
+                            }
+                        };
+                        // Jika source sudah loaded, langsung add, else tunggu 'sourcedata'
+                        if (map.isSourceLoaded(layer.id)) addPMTilesLayer();
+                        else {
+                            const onSourceData = (e: any) => {
+                                if (e.sourceId === layer.id && e.isSourceLoaded) {
+                                    map.off("sourcedata", onSourceData);
+                                    addPMTilesLayer();
+                                }
+                            };
+                            map.on("sourcedata", onSourceData);
+                            // Fallback timeout 2s
+                            setTimeout(addPMTilesLayer, 2000);
+                        }
+                    })();
+                    return;
+                }
+                // VectorTileServer (ArcGIS) - handle terpisah karena butuh style JSON
+                if (layer.map_service_vendor === MapServiceVendor.VectorTileServer) {
+                    (async () => {
+                        const tileUrl = layer.map_service_url as string;
+                        if (map.getSource(layer.id)) return;
+                        // tileUrl sudah proxied: /api/proxy/wms?url=.../tile/{z}/{y}/{x}.pbf
+                        try {
+                            map.addSource(layer.id, {
+                                type: "vector",
+                                tiles: [tileUrl],
+                                minzoom: 0,
+                                maxzoom: 22,
+                            } as any);
+                        } catch (e) { console.error("Vector source add failed", e); return; }
+
+                        const serviceUrl = (layer.metadata as any)?.serviceUrl || (typeof layer.map_service_url === 'string' ? (layer.map_service_url as string).split("/tile")[0].replace("/api/proxy/wms?url=", "").replace("/api/proxy/wms?baseUrl=", "") : "");
+                        let decodedServiceUrl = serviceUrl;
+                        try { decodedServiceUrl = decodeURIComponent(serviceUrl); } catch {}
+                        if (decodedServiceUrl.includes("%3A")) try { decodedServiceUrl = decodeURIComponent(decodedServiceUrl); } catch {}
+                        // Coba fetch style root.json
+                        const styleUrl = (layer.metadata as any)?.styleUrl || `${decodedServiceUrl}/resources/styles/root.json`;
+                        const proxiedStyleUrl = styleUrl.startsWith("/api/proxy") ? styleUrl : `/api/proxy/wms?url=${encodeURIComponent(styleUrl).replace(/%7B/g, "{").replace(/%7D/g, "}")}`;
+                        try {
+                            const res = await fetch(proxiedStyleUrl);
+                            if (!res.ok) throw new Error("style fetch failed");
+                            const style = await res.json();
+                            // Resolve sprite/glyphs relative URLs via proxy (opsional)
+                            const styleLayers: any[] = style.layers || [];
+                            for (const sl of styleLayers) {
+                                const lid = `${layer.id}--${sl.id}`;
+                                if (map.getLayer(lid)) continue;
+                                // paksa source ke vector source kita
+                                const newLayer: any = {
+                                    ...sl,
+                                    id: lid,
+                                    source: layer.id,
+                                    layout: { ...(sl.layout || {}), visibility: layer.visible ? "visible" : "none" },
+                                };
+                                // Hilangkan sprite/glyphs ref yang butuh fetch eksternal jika CORS
+                                try { map.addLayer(newLayer); } catch (err) { console.warn("Add vector style layer failed", sl.id, err); }
+                            }
+                        } catch (err) {
+                            console.warn("VectorTile style load failed, fallback simple layer", err);
+                            // Fallback: tambahkan 1 layer generic agar tile terlihat (akan tetap kosong tanpa source-layer, tapi coba)
+                            try {
+                                if (!map.getLayer(`${layer.id}-fill`)) {
+                                    map.addLayer({
+                                        id: `${layer.id}-fill`,
+                                        type: "fill",
+                                        source: layer.id,
+                                        "source-layer": "parcel",
+                                        paint: { "fill-color": "#ff0000", "fill-opacity": 0.3 },
+                                        layout: { visibility: layer.visible ? "visible" : "none" },
+                                    } as any);
+                                }
+                            } catch {}
+                        }
+                    })();
+                    return;
+                }
                 const getServiceUrl = () => {
                     if (typeof layer.map_service_url !== 'string') return "";
 
                     if (layer.map_service_vendor === MapServiceVendor.Geoserver) {
-                        const WMS_PARAMS =
-                            "?service=WMS&version=1.1.0&request=getmap&layers={layer}&styles=&bbox={bbox-epsg-3857}&width=256&height=256&srs=EPSG:3857&format=image/png&transparent=true";
-                        return (
-                            layer.map_service_url +
-                            WMS_PARAMS.replace("{layer}", layer.map_service_layer_name)
-                        );
+                        // Proxy agar tidak kena CORS; width 256 = enteng (1x), 512 = 2x retina tapi 4x data & lag jika banyak layer
+                        // Default 256 untuk performa; ganti ke 512 jika butuh tajam single-layer
+                        const base = layer.map_service_url as string;
+                        const layerName = encodeURIComponent(layer.map_service_layer_name as string);
+                        const hiRes = layers.length <= 2; // auto hi-res jika sedikit layer
+                        const size = hiRes ? 512 : 256;
+                        const dpi = hiRes ? 180 : 96;
+                        return `/api/proxy/wms?baseUrl=${encodeURIComponent(base)}&service=WMS&version=1.1.1&request=GetMap&layers=${layerName}&styles=&bbox={bbox-epsg-3857}&width=${size}&height=${size}&srs=EPSG:3857&format=image/png&transparent=true&format_options=dpi:${dpi}`;
                     }
 
                     if (layer.map_service_vendor === MapServiceVendor.ArcGIS) {
@@ -1960,12 +2151,37 @@ export default function MapLayout({
                                 "/0/query?where=1=1&outFields=*&f=geojson&geometryType=esriGeometryEnvelope&returnGeometry=true"
                             );
                         }
-                        const ESRI_PARAMS =
-                            "/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=250,250&format=png&transparent=true&f=image";
-                        return (
-                            layer.map_service_url +
-                            ESRI_PARAMS.replace("{layer}", layer.map_service_layer_name)
-                        );
+                        const hiRes = layers.length <= 2;
+                        const size = hiRes ? "512,512" : "256,256";
+                        const base = `${layer.map_service_url}/export`;
+                        return `/api/proxy/wms?baseUrl=${encodeURIComponent(base)}&bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=${size}&format=png32&transparent=true&f=image&dpi=96`;
+                    }
+
+                    if (layer.map_service_vendor === MapServiceVendor.WMTS) {
+                        // WMTS tileTemplate sudah proxied: /api/proxy/wms?baseUrl=...&TileMatrix={z}...
+                        // Jika user paste GetTile URL langsung, jaga agar placeholder tetap {z}/{x}/{y}
+                        let wmtsUrl = layer.map_service_url as string;
+                        // Jika url masih langsung ke geoserver (belum proxied) dan mengandung TileMatrix=angka, ubah ke template
+                        if (wmtsUrl.includes("TileMatrix=") && !wmtsUrl.includes("{z}")) {
+                            wmtsUrl = wmtsUrl.replace(/TileMatrix=\d+/i, "TileMatrix={z}").replace(/TileCol=\d+/i, "TileCol={x}").replace(/TileRow=\d+/i, "TileRow={y}");
+                        }
+                        if (!wmtsUrl.includes("/api/proxy/wms") && wmtsUrl.startsWith("http")) {
+                            // bungkus via proxy agar lolos CORS
+                            const u = new URL(wmtsUrl);
+                            const base = `${u.origin}${u.pathname}`;
+                            const params = new URLSearchParams(u.search);
+                            // pastikan placeholder tetap raw
+                            let proxied = `/api/proxy/wms?baseUrl=${encodeURIComponent(base)}`;
+                            params.forEach((v, k) => {
+                                // jaga {z}/{x}/{y} tidak ter-encode
+                                if (v.includes("{")) proxied += `&${k}=${v}`;
+                                else proxied += `&${k}=${encodeURIComponent(v)}`;
+                            });
+                            // jika belum ada TileMatrix placeholder, tambahkan
+                            if (!proxied.includes("TileMatrix")) proxied += `&TileMatrix={z}&TileCol={x}&TileRow={y}`;
+                            return proxied;
+                        }
+                        return wmtsUrl;
                     }
 
                     if (layer.map_service_vendor === MapServiceVendor.GeoJSON) {
@@ -2023,12 +2239,15 @@ export default function MapLayout({
                     // Deck.gl handles these
                     return;
                 } else {
+                    // tileSize 256 = pyramid zoom benar, width 512 = 2x retina tajam (512px di-render ke 256px slot)
+                    const tileSize = 256;
                     map.addLayer({
                         id: layer.id,
                         type: "raster",
                         source: {
                             type: "raster",
                             tiles: [url],
+                            tileSize,
                         },
                         minzoom: layer.min_zoom || 0,
                         maxzoom: layer.max_zoom || 24,
@@ -2037,6 +2256,8 @@ export default function MapLayout({
                         },
                         paint: {
                             "raster-opacity": 1,
+                            "raster-resampling": "linear",
+                            "raster-fade-duration": 0,
                         },
                         metadata: layer.metadata ?? {},
                     });
@@ -2073,8 +2294,14 @@ export default function MapLayout({
         }
     };
 
+    // Hanya run saat layer baru/musnah, bukan saat reorder/visibility toggle (hemat re-add)
+    const prevLayerIdsRef = useRef<string>("");
     useEffect(() => {
-        initLayers();
+        const ids = layers.map(l => l.id).join(",");
+        if (ids !== prevLayerIdsRef.current) {
+            prevLayerIdsRef.current = ids;
+            initLayers();
+        }
     }, [layers]);
 
     // Sync Cesium & 3D Model layers with MapboxOverlay
@@ -3113,7 +3340,7 @@ export default function MapLayout({
                                                             handleRemoveFolder={handleRemoveFolder}
                                                             layers={layers}
                                                             sensors={sensors}
-                                                            closestCorners={closestCorners}
+                                                            closestCorners={closestCenter}
                                                             handleDragEnd={handleDragEnd}
                                                             restrictToVerticalAxis={restrictToVerticalAxis}
                                                             SortableItem={SortableItem}

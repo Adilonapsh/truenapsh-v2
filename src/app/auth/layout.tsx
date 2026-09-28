@@ -2,6 +2,7 @@ import Home from "@/components/animation/landscapes/scene";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { Manrope, Work_Sans } from "next/font/google";
+import { Toaster } from "react-hot-toast";
 import "../globals.css";
 
 const workSans = Work_Sans({
@@ -25,7 +26,18 @@ export default async function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-       
+        <>
+            <Toaster
+                position="top-right"
+                reverseOrder={false}
+                gutter={8}
+                toastOptions={{
+                    duration: 3000,
+                    success: {
+                        duration: 3000,
+                    },
+                }}
+            />
         <div className="grid overflow-hidden min-h-svh lg:grid-cols-2">
             <div className="flex flex-col gap-4 p-6 md:p-10">
                 <div className="flex gap-2 justify-center md:justify-start">
@@ -44,5 +56,6 @@ export default async function RootLayout({
                 <Home />
             </div>
         </div>
+        </>
     );
 }

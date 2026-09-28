@@ -1,6 +1,16 @@
 "use client"
 import Map, { NavigationControl, ScaleControl, FullscreenControl, GeolocateControl } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css'
+import mapboxgl from 'mapbox-gl';
+import { Protocol as PMTilesProtocol } from 'pmtiles';
+// Register PMTiles protocol sebelum Map dibuat
+if (typeof window !== "undefined" && !(mapboxgl as any)._pmtilesRegistered) {
+    try {
+        const pmProtocol = new PMTilesProtocol();
+        (mapboxgl as any).addProtocol("pmtiles", pmProtocol.tile.bind(pmProtocol));
+        (mapboxgl as any)._pmtilesRegistered = true;
+    } catch {}
+}
 
 
 import React from 'react'
