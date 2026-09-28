@@ -379,6 +379,15 @@ export default function Home() {
   const [isDark, setIsDark] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isDropped, setIsDropped] = useState(false);
+  const [activeSection, setActiveSection] = useState("home");
+
+  const navItems = [
+    { id: "home", label: "Home" },
+    { id: "testimoni", label: "Testimoni" },
+    { id: "fitur", label: "Fitur" },
+    { id: "flow", label: "Flow" },
+    { id: "faq", label: "FAQ" },
+  ];
 
   const [chatStep, setChatStep] = useState(0);
   const [inputText, setInputText] = useState('');
@@ -420,6 +429,22 @@ export default function Home() {
     };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) setActiveSection(entry.target.id);
+        });
+      },
+      { rootMargin: "-50% 0px -50% 0px", threshold: 0 }
+    );
+    navItems.forEach(({ id }) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -532,9 +557,14 @@ export default function Home() {
   const handleNavClick = (e: React.MouseEvent, targetId: string) => {
     e.preventDefault();
     setIsMenuOpen(false);
+    if (targetId === "home") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     const element = document.getElementById(targetId);
     if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
+      const y = element.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top: y, behavior: "smooth" });
     }
   };
 
@@ -640,13 +670,14 @@ export default function Home() {
                background-color: #404040;
              }
    
-             @keyframes marquee {
-               0% { transform: translateX(0); }
-               100% { transform: translateX(-50%); }
-             }
-             .animate-marquee {
-               animation: marquee 30s linear infinite;
-             }
+              @keyframes marquee {
+                0% { transform: translateX(0); }
+                100% { transform: translateX(calc(-50% - 32px)); }
+              }
+              .animate-marquee {
+                animation: marquee 30s linear infinite;
+                will-change: transform;
+              }
              
              *:focus-visible {
                outline: 2px solid #2563EB;
@@ -701,42 +732,22 @@ export default function Home() {
               </span>
             </a>
 
-            {/* Center Links */}
+            {/* Center Links - urutan sesuai page: home → testimoni → fitur → flow → faq */}
             <nav
               aria-label="Navigasi Utama"
-              className="hidden md:flex items-center gap-8 text-[14px] font-medium text-slate-600 dark:text-neutral-300"
+              className="hidden md:flex items-center gap-8 text-[14px] text-slate-600 dark:text-neutral-300"
             >
-              <a
-                href="#home"
-                onClick={(e) => {
-                  e.preventDefault();
-                  scrollToTop();
-                }}
-                className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                Home
-              </a>
-              <a
-                href="#fitur"
-                onClick={(e) => handleNavClick(e, "fitur")}
-                className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                Fitur
-              </a>
-              <a
-                href="#testimoni"
-                onClick={(e) => handleNavClick(e, "testimoni")}
-                className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                Testimoni
-              </a>
-              <a
-                href="#faq"
-                onClick={(e) => handleNavClick(e, "faq")}
-                className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                FAQ
-              </a>
+              {navItems.map(({ id, label }) => (
+                <a
+                  key={id}
+                  href={`#${id}`}
+                  onClick={(e) => handleNavClick(e, id)}
+                  aria-current={activeSection === id ? "page" : undefined}
+                  className={`hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${activeSection === id ? "font-bold" : "font-medium"}`}
+                >
+                  {label}
+                </a>
+              ))}
             </nav>
 
             {/* Right Actions */}
@@ -768,41 +779,20 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Mobile Menu Dropdown */}
+          {/* Mobile Menu Dropdown - urutan sesuai page */}
           {isMenuOpen && (
             <div className="md:hidden absolute top-[80px] left-4 right-4 bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 shadow-xl rounded-2xl py-4 px-6 flex flex-col gap-4 z-50">
-              <a
-                href="#home"
-                onClick={(e) => {
-                  e.preventDefault();
-                  scrollToTop();
-                  setIsMenuOpen(false);
-                }}
-                className="text-slate-600 dark:text-neutral-300 font-semibold py-2"
-              >
-                Home
-              </a>
-              <a
-                href="#fitur"
-                onClick={(e) => handleNavClick(e, "fitur")}
-                className="text-slate-600 dark:text-neutral-300 font-semibold py-2"
-              >
-                Fitur
-              </a>
-              <a
-                href="#testimoni"
-                onClick={(e) => handleNavClick(e, "testimoni")}
-                className="text-slate-600 dark:text-neutral-300 font-semibold py-2"
-              >
-                Testimoni
-              </a>
-              <a
-                href="#faq"
-                onClick={(e) => handleNavClick(e, "faq")}
-                className="text-slate-600 dark:text-neutral-300 font-semibold py-2"
-              >
-                FAQ
-              </a>
+              {navItems.map(({ id, label }) => (
+                <a
+                  key={id}
+                  href={`#${id}`}
+                  onClick={(e) => handleNavClick(e, id)}
+                  aria-current={activeSection === id ? "page" : undefined}
+                  className={`py-2 text-slate-600 dark:text-neutral-300 ${activeSection === id ? "font-bold" : "font-medium"}`}
+                >
+                  {label}
+                </a>
+              ))}
               <button className="bg-black dark:bg-white text-white dark:text-black px-6 py-3 rounded-full font-bold w-full mt-2">
                 Gabung
               </button>
@@ -813,6 +803,7 @@ export default function Home() {
         <main>
           {/* Hero Section */}
           <section
+            id="home"
             className="relative pt-52 pb-32 px-6 overflow-hidden bg-grid-pattern"
             aria-labelledby="hero-heading"
           >
@@ -884,24 +875,29 @@ export default function Home() {
                         <div className="w-3 h-3 rounded-full bg-slate-200 dark:bg-neutral-700" />
                       </div>
                       <div className="h-4 w-px bg-slate-200 dark:bg-neutral-700" />
-                      <div className="text-[11px] text-slate-500 dark:text-neutral-400 font-mono bg-slate-100 dark:bg-neutral-800 px-3 py-1 rounded-md">
+                      <div className="text-[11px] text-slate-500 dark:text-neutral-400 font-mono bg-slate-100 dark:bg-neutral-800 px-6 py-1 rounded-md">
                         trumap.web.id/project-alpha-v2
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="flex -space-x-2">
-                        {[1, 2, 3].map((i) => (
+                        {[
+                          { initial: "A", name: "adilonapsh", color: "bg-blue-500 dark:bg-blue-600 text-white" },
+                          { initial: "D", name: "dina", color: "bg-emerald-500 dark:bg-emerald-600 text-white" },
+                          { initial: "F", name: "fahmi", color: "bg-purple-500 dark:bg-purple-600 text-white" },
+                        ].map((u) => (
                           <div
-                            key={i}
-                            className="w-7 h-7 rounded-full border-2 border-white dark:border-neutral-900 bg-slate-100 dark:bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-neutral-400 shadow-sm"
+                            key={u.initial}
+                            title={u.name}
+                            className={`w-7 h-7 rounded-full border-2 border-white dark:border-neutral-900 ${u.color} flex items-center justify-center text-[10px] font-bold shadow-sm`}
                           >
-                            U{i}
+                            {u.initial}
                           </div>
                         ))}
                       </div>
-                      <div className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] px-3 py-1 rounded-md font-bold border border-emerald-200 dark:border-emerald-500/20">
+                      {/* <div className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] px-3 py-1 rounded-md font-bold border border-emerald-200 dark:border-emerald-500/20">
                         LIVE
-                      </div>
+                      </div> */}
                     </div>
                   </div>
 
@@ -942,15 +938,15 @@ export default function Home() {
               </h2>
             </div>
 
-            <div className="relative w-full flex overflow-x-hidden">
+            <div className="relative w-full max-w-5xl mx-auto flex overflow-hidden">
               <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[#FAFAFA] dark:from-[#0A0A0A] to-transparent z-10 pointer-events-none transition-colors" />
               <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#FAFAFA] dark:from-[#0A0A0A] to-transparent z-10 pointer-events-none transition-colors" />
 
-              <div className="flex items-center whitespace-nowrap animate-marquee gap-16 py-4 hover:[animation-play-state:paused]">
-                <div className="flex items-center gap-16" aria-hidden="false">
+              <div className="flex items-center whitespace-nowrap animate-marquee gap-16 py-4 hover:[animation-play-state:paused] will-change-transform">
+                <div className="flex items-center gap-16 shrink-0" aria-hidden="false">
                   <LogoItems />
                 </div>
-                <div className="flex items-center gap-16" aria-hidden="true">
+                <div className="flex items-center gap-16 shrink-0" aria-hidden="true">
                   <LogoItems />
                 </div>
               </div>
@@ -1156,7 +1152,7 @@ export default function Home() {
 
                     {/* Process Node */}
                     <div
-                      className="absolute top-[210px] left-[430px] w-[220px] bg-white dark:bg-neutral-800 border border-blue-400 dark:border-blue-500 rounded-xl shadow-md flex items-center p-3.5 z-10 hover:shadow-lg transition-shadow cursor-pointer ring-4 ring-blue-50 dark:ring-blue-900/20 focus-visible:outline-none focus-visible:ring-offset-2"
+                      className="absolute top-[213px] left-[430px] w-[220px] bg-white dark:bg-neutral-800 border border-blue-400 dark:border-blue-500 rounded-xl shadow-md flex items-center p-3.5 z-10 hover:shadow-lg transition-shadow cursor-pointer ring-4 ring-blue-50 dark:ring-blue-900/20 focus-visible:outline-none focus-visible:ring-offset-2"
                       tabIndex={0}
                       role="button"
                     >
@@ -1744,7 +1740,7 @@ export default function Home() {
             className="py-24 px-6 relative bg-[#FAFAFA] dark:bg-[#0A0A0A] transition-colors"
             aria-labelledby="cta-heading"
           >
-            <div className="max-w-6xl mx-auto bg-slate-900 dark:bg-neutral-800 rounded-[2.5rem] p-10 md:p-16 relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-12">
+            <div className="max-w-6xl mx-auto bg-slate-900 dark:bg-slate-900/40 rounded-[2.5rem] p-10 md:p-16 relative overflow-hidden shadow-2xl flex flex-col md:flex-row items-center justify-between gap-12">
               <div
                 className="absolute inset-0 opacity-[0.05]"
                 style={{
@@ -1794,9 +1790,9 @@ export default function Home() {
                 className="relative z-10 md:w-2/5 hidden md:flex justify-end"
                 aria-hidden="true"
               >
-                <div className="w-72 h-72 rounded-full border border-slate-700/50 dark:border-neutral-600/50 flex items-center justify-center relative">
-                  <div className="absolute inset-4 rounded-full border border-slate-600/30 dark:border-neutral-500/30 flex items-center justify-center animate-[spin_20s_linear_infinite]" />
-                  <div className="w-40 h-40 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.4)] relative">
+                <div className="w-72 h-72 rounded-full border border-slate-700/50 dark:border-slate-600 flex items-center justify-center relative">
+                  <div className="absolute inset-4 rounded-full border border-slate-600/30 dark:border-slate-500/30 flex items-center justify-center animate-[spin_20s_linear_infinite]" />
+                  <div className="w-40 h-40 bg-gradient-to-br from-blue-600 to-slate-900-700 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.4)] relative">
                     <Globe className="w-16 h-16 text-white opacity-90" />
                     <div className="absolute -top-4 -right-4 bg-slate-800 dark:bg-neutral-900 border border-slate-700 dark:border-neutral-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-xl animate-float">
                       100ms Render

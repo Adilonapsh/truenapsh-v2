@@ -10,6 +10,28 @@ export default function Navbar() {
     const [theme, setTheme] = useState("light")
     const [mounted, setMounted] = useState(false)
     const [scrolled, setScrolled] = useState(false)
+    const [activeSection, setActiveSection] = useState("home")
+
+    const navItems = [
+        { id: "home", label: "Home" },
+        { id: "testimoni", label: "Testimoni" },
+        { id: "fitur", label: "Fitur" },
+        { id: "flow", label: "Flow" },
+        { id: "faq", label: "FAQ" },
+    ]
+
+    const handleNavClick = (e: React.MouseEvent, targetId: string) => {
+        e.preventDefault()
+        if (targetId === "home") {
+            window.scrollTo({ top: 0, behavior: "smooth" })
+            return
+        }
+        const el = document.getElementById(targetId)
+        if (el) {
+            const y = el.getBoundingClientRect().top + window.scrollY - 80
+            window.scrollTo({ top: y, behavior: "smooth" })
+        }
+    }
 
     useEffect(() => {
         setMounted(true)
@@ -31,8 +53,23 @@ export default function Navbar() {
         }
 
         window.addEventListener("scroll", handleScroll)
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) setActiveSection(entry.target.id)
+                })
+            },
+            { rootMargin: "-50% 0px -50% 0px", threshold: 0 }
+        )
+        navItems.forEach(({ id }) => {
+            const el = document.getElementById(id)
+            if (el) observer.observe(el)
+        })
+
         return () => {
             window.removeEventListener("scroll", handleScroll)
+            observer.disconnect()
         }
     }, [])
 
@@ -62,19 +99,18 @@ export default function Navbar() {
                         <span className="font-bold text-xl hidden lg:block">TrueMaps</span>
                     </Link>
 
-                    <nav className="hidden md:flex items-center space-x-8">
-                        <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
-                            Home
-                        </Link>
-                        <Link href="/fitur" className="text-sm font-medium transition-colors hover:text-primary">
-                            Fitur
-                        </Link>
-                        <Link href="/testimoni" className="text-sm font-medium transition-colors hover:text-primary">
-                            Testimoni
-                        </Link>
-                        <Link href="/faq" className="text-sm font-medium transition-colors hover:text-primary">
-                            FAQ
-                        </Link>
+                    <nav className="hidden md:flex items-center space-x-8" aria-label="Navigasi Utama">
+                        {navItems.map(({ id, label }) => (
+                            <a
+                                key={id}
+                                href={`#${id}`}
+                                onClick={(e) => handleNavClick(e, id)}
+                                aria-current={activeSection === id ? "page" : undefined}
+                                className={`text-sm transition-colors hover:text-primary ${activeSection === id ? "font-bold" : "font-medium"}`}
+                            >
+                                {label}
+                            </a>
+                        ))}
                     </nav>
 
                     {/* Right side buttons */}
